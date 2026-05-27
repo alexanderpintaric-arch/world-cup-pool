@@ -13,14 +13,14 @@ interface FDMatch {
   stage: string;
   status: string;
   utcDate: string;
-  homeTeam: { name: string; tla: string };
-  awayTeam: { name: string; tla: string };
+  homeTeam: { name?: string; tla?: string } | null;
+  awayTeam: { name?: string; tla?: string } | null;
   score: {
-    winner: string | null; // "HOME_TEAM" | "AWAY_TEAM" | "DRAW" | null
-    fullTime: { home: number | null; away: number | null };
-    extraTime: { home: number | null; away: number | null };
-    penalties: { home: number | null; away: number | null };
-  };
+    winner: string | null;
+    fullTime?: { home: number | null; away: number | null } | null;
+    extraTime?: { home: number | null; away: number | null } | null;
+    penalties?: { home: number | null; away: number | null } | null;
+  } | null;
 }
 
 function mapResult(winner: string | null, stage: string): MatchResult {
@@ -54,23 +54,22 @@ export async function fetchAllWCMatches(): Promise<Match[]> {
     const round: Round = STAGE_MAP[m.stage] ?? "GROUP";
     const status = mapStatus(m.status);
 
-    // Use penalties score if available (for knockout result), else fullTime
     const homeScore =
-      m.score.penalties.home !== null ? m.score.penalties.home :
-      m.score.extraTime.home !== null ? m.score.extraTime.home :
-      m.score.fullTime.home;
+      m.score?.penalties?.home != null ? m.score.penalties!.home :
+      m.score?.extraTime?.home != null ? m.score.extraTime!.home :
+      m.score?.fullTime?.home ?? null;
 
     const awayScore =
-      m.score.penalties.away !== null ? m.score.penalties.away :
-      m.score.extraTime.away !== null ? m.score.extraTime.away :
-      m.score.fullTime.away;
+      m.score?.penalties?.away != null ? m.score.penalties!.away :
+      m.score?.extraTime?.away != null ? m.score.extraTime!.away :
+      m.score?.fullTime?.away ?? null;
 
     return {
       matchId:     String(m.id),
       round,
-      homeTeam:    m.homeTeam.name || m.homeTeam.tla || "TBD",
-      awayTeam:    m.awayTeam.name || m.awayTeam.tla || "TBD",
-      result:      status === "FINISHED" ? mapResult(m.score.winner, m.stage) : null,
+      homeTeam:    m.homeTeam?.name || m.homeTeam?.tla || "TBD",
+      awayTeam:    m.awayTeam?.name || m.awayTeam?.tla || "TBD",
+      result:      status === "FINISHED" ? mapResult(m.score?.winner ?? null, m.stage) : null,
       status,
       kickoffUtc:  m.utcDate,
       pointsValue: ROUND_CONFIG[round].pointsValue,
