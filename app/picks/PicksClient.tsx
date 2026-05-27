@@ -17,6 +17,14 @@ interface Props {
   userName: string;
 }
 
+function getRoundTabStatus(rs: RoundState): "active" | "complete" | "unavailable" | "locked" | "upcoming" {
+  if (!rs.isAvailable && rs.matchCount > 0) return "unavailable";
+  if (rs.isComplete) return "complete";
+  if (rs.isOpen) return "active";
+  if (rs.matchCount > 0) return "locked";
+  return "upcoming";
+}
+
 const ROUND_TAGLINE: Record<Round, string> = {
   GROUP:          "12 groups. 72 matches. Pick a winner — or call a draw — for every one.",
   ROUND_OF_32:    "The first cut. 32 nations left, half advance. No draws here.",
@@ -44,6 +52,7 @@ export default function PicksClient({
   const oddsMap = useMemo(() => new Map(odds.map(o => [o.matchId, o])), [odds]);
   const currentRoundState = roundStates.find(r => r.round === selectedRound);
   const isOpen = currentRoundState?.isOpen ?? false;
+  const isAvailable = currentRoundState?.isAvailable ?? false;
 
   const groups = useMemo(() => inferGroups(matches), [matches]);
 
@@ -112,7 +121,7 @@ export default function PicksClient({
         {activeRound?.deadline && (
           <CountdownTimer
             deadline={activeRound.deadline}
-            label={`${activeRound.label} closes`}
+            label="Next picks lock in"
           />
         )}
       </header>
@@ -130,6 +139,7 @@ export default function PicksClient({
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
           {roundsWithMatches.map(rs => {
             const active = selectedRound === rs.round;
+            const tabStatus = getRoundTabStatus(rs);
             return (
               <button
                 key={rs.round}
@@ -137,17 +147,22 @@ export default function PicksClient({
                 className={`group relative flex-shrink-0 px-4 py-2.5 rounded-md text-[13.5px] font-medium transition-all border
                   ${active
                     ? "bg-ink text-paper border-ink"
-                    : "bg-card border-line ink-soft hover:ink hover:border-[color:var(--ink-faint)]/40"
+                    : tabStatus === "unavailable"
+                      ? "bg-paper border-line ink-faint opacity-60 hover:opacity-80 cursor-default"
+                      : "bg-card border-line ink-soft hover:ink hover:border-[color:var(--ink-faint)]/40"
                   }
                 `}
               >
                 <span className="flex items-center gap-2">
                   {rs.label}
-                  {rs.isOpen && !active && (
+                  {tabStatus === "active" && !active && (
                     <span className="h-1.5 w-1.5 rounded-full bg-accent anim-ring-pulse" />
                   )}
-                  {rs.isComplete && (
+                  {tabStatus === "complete" && (
                     <span className="font-mono text-[10px] text-gold">✓</span>
+                  )}
+                  {tabStatus === "unavailable" && !active && (
+                    <span className="font-mono text-[10px] ink-faint">⊘</span>
                   )}
                 </span>
               </button>
@@ -187,12 +202,29 @@ export default function PicksClient({
             </div>
             <div className="mt-3 flex items-center justify-between text-[11.5px] ink-faint">
               <span>
-                {isOpen ? "Open for picks" : currentRoundState.isComplete ? "Round complete" : "Picks locked"}
+                {!isAvailable
+                  ? "Locked — complete the previous round first"
+                  : isOpen
+                    ? "Open · picks lock match by match at kickoff"
+                    : currentRoundState.isComplete
+                      ? "Round complete"
+                      : "In progress"}
               </span>
               <span className="font-mono">
                 {currentRoundState.pointsValue}pt per correct pick
               </span>
             </div>
+          </div>
+        )}
+
+        {/* Unavailability banner for locked rounds */}
+        {currentRoundState && !isAvailable && (
+          <div className="mt-3 flex items-center gap-3 px-4 py-3 rounded-md bg-paper-deep border border-line text-[13px] ink-faint">
+            <span className="text-[16px]">🔒</span>
+            <span>
+              This round opens once the previous round is fully complete.
+              Check back when all matches are decided.
+            </span>
           </div>
         )}
       </nav>
@@ -226,7 +258,7 @@ export default function PicksClient({
                       pick={picks[match.matchId] ?? null}
                       odds={oddsMap.get(match.matchId) ?? null}
                       onPick={handlePick}
-                      disabled={!isOpen}
+                      disabled={!isAvailable || match.status !== "SCHEDULED"}
                       saving={saving[match.matchId]}
                       saved={saved[match.matchId]}
                       pointsValue={currentRoundState?.pointsValue ?? 1}
@@ -243,7 +275,7 @@ export default function PicksClient({
             picks={picks}
             oddsMap={oddsMap}
             onPick={handlePick}
-            disabled={!isOpen}
+            isAvailable={isAvailable}
             saving={saving}
             saved={saved}
             pointsValue={currentRoundState?.pointsValue ?? 1}
@@ -259,7 +291,7 @@ export default function PicksClient({
               pick={picks[match.matchId] ?? null}
               odds={oddsMap.get(match.matchId) ?? null}
               onPick={handlePick}
-              disabled={!isOpen}
+              disabled={!isAvailable || match.status !== "SCHEDULED"}
               saving={saving[match.matchId]}
               saved={saved[match.matchId]}
               pointsValue={currentRoundState?.pointsValue ?? 1}
@@ -275,7 +307,7 @@ export default function PicksClient({
             All set. Every match in this round is picked.
           </p>
           <p className="mt-1.5 text-[13px] ink-soft">
-            We&rsquo;ll update the leaderboard as games finish. You can still change picks until the deadline.
+            Picks for individual matches lock at kickoff. You can still update any pick before the match starts.
           </p>
         </div>
       )}
@@ -359,13 +391,13 @@ function PickSlot({
   );
 }
 
-function UngroupedRemainder({ allRoundMatches, groupMatchIds, picks, oddsMap, onPick, disabled, saving, saved, pointsValue }: {
+function UngroupedRemainder({ allRoundMatches, groupMatchIds, picks, oddsMap, onPick, isAvailable, saving, saved, pointsValue }: {
   allRoundMatches: Match[];
   groupMatchIds: Set<string>;
   picks: Record<string, MatchResult>;
   oddsMap: Map<string, OddsData>;
   onPick: (id: string, p: MatchResult) => void;
-  disabled: boolean;
+  isAvailable: boolean;
   saving: Record<string, boolean>;
   saved: Record<string, boolean>;
   pointsValue: number;
@@ -390,7 +422,7 @@ function UngroupedRemainder({ allRoundMatches, groupMatchIds, picks, oddsMap, on
             pick={picks[m.matchId] ?? null}
             odds={oddsMap.get(m.matchId) ?? null}
             onPick={onPick}
-            disabled={disabled}
+            disabled={!isAvailable || m.status !== "SCHEDULED"}
             saving={saving[m.matchId]}
             saved={saved[m.matchId]}
             pointsValue={pointsValue}

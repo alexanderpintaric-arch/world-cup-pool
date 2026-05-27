@@ -67,63 +67,55 @@ export function computeLeaderboard(
 }
 
 export function getRoundStates(matches: Match[]): RoundState[] {
-  const rounds = Object.keys(ROUND_CONFIG) as Round[];
+  const rounds = (Object.keys(ROUND_CONFIG) as Round[]).sort(
+    (a, b) => ROUND_CONFIG[a].order - ROUND_CONFIG[b].order
+  );
 
-  return rounds.map(round => {
+  // First pass: gather basic facts per round
+  const basics = rounds.map(round => {
     const roundMatches = matches.filter(m => m.round === round);
-    if (roundMatches.length === 0) {
-      return {
-        round,
-        label: ROUND_CONFIG[round].label,
-        pointsValue: ROUND_CONFIG[round].pointsValue,
-        isOpen: false,
-        isComplete: false,
-        deadline: null,
-        matchCount: 0,
-      };
+    const allFinished = roundMatches.length > 0 && roundMatches.every(m => m.status === "FINISHED");
+    const anyScheduled = roundMatches.some(m => m.status === "SCHEDULED");
+    // deadline = next upcoming kickoff (so the countdown stays relevant mid-round)
+    const nextKickoff = roundMatches
+      .filter(m => m.status === "SCHEDULED")
+      .map(m => new Date(m.kickoffUtc))
+      .sort((a, b) => a.getTime() - b.getTime())[0];
+    return { round, roundMatches, allFinished, anyScheduled, deadline: nextKickoff?.toISOString() ?? null };
+  });
+
+  // Second pass: availability = nearest preceding round with matches must be complete
+  return basics.map((b, i) => {
+    let isAvailable = true;
+    for (let j = i - 1; j >= 0; j--) {
+      if (basics[j].roundMatches.length > 0) {
+        isAvailable = basics[j].allFinished;
+        break;
+      }
     }
 
-    const allFinished = roundMatches.every(m => m.status === "FINISHED");
-    const anyScheduled = roundMatches.some(m => m.status === "SCHEDULED");
-    const now = new Date();
-
-    // Deadline = time of first kickoff in this round
-    const kickoffs = roundMatches
-      .map(m => new Date(m.kickoffUtc))
-      .sort((a, b) => a.getTime() - b.getTime());
-    const deadline = kickoffs[0]?.toISOString() ?? null;
-    const deadlinePassed = deadline ? now >= new Date(deadline) : false;
-
-    // A round is open if: deadline hasn't passed AND previous round is complete
-    // (We compute open state properly in the API layer with prevRoundComplete)
-    const isOpen = !deadlinePassed && anyScheduled;
+    // Open = available AND at least one match hasn't started yet
+    const isOpen = isAvailable && b.anyScheduled;
 
     return {
-      round,
-      label: ROUND_CONFIG[round].label,
-      pointsValue: ROUND_CONFIG[round].pointsValue,
+      round: b.round,
+      label: ROUND_CONFIG[b.round].label,
+      pointsValue: ROUND_CONFIG[b.round].pointsValue,
       isOpen,
-      isComplete: allFinished,
-      deadline,
-      matchCount: roundMatches.length,
+      isAvailable,
+      isComplete: b.allFinished,
+      deadline: b.deadline,
+      matchCount: b.roundMatches.length,
     };
   });
 }
 
-// Returns the current active round (open for picks)
 export function getActiveRound(roundStates: RoundState[]): RoundState | null {
-  // A knockout round only opens after the previous round is complete
   const ordered = [...roundStates].sort(
     (a, b) => ROUND_CONFIG[a.round].order - ROUND_CONFIG[b.round].order
   );
-
-  for (let i = 0; i < ordered.length; i++) {
-    const rs = ordered[i];
-    if (rs.matchCount === 0) continue;
-
-    const prevComplete = i === 0 || ordered[i - 1].isComplete || ordered[i - 1].matchCount === 0;
-    if (prevComplete && rs.isOpen) return rs;
+  for (const rs of ordered) {
+    if (rs.matchCount > 0 && rs.isAvailable && rs.isOpen) return rs;
   }
-
   return null;
 }

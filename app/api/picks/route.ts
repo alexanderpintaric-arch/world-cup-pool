@@ -27,10 +27,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No picks provided" }, { status: 400 });
   }
 
-  // Validate picks are for an open round and deadline hasn't passed
   const allMatches = await getAllMatches();
   const roundStates = getRoundStates(allMatches);
-  const openRounds = new Set(roundStates.filter(r => r.isOpen).map(r => r.round));
+  // Round must be available (previous round complete) — match must not have started
+  const availableRounds = new Set(roundStates.filter(r => r.isAvailable).map(r => r.round));
   const matchMap = new Map(allMatches.map(m => [m.matchId, m]));
 
   const now = new Date().toISOString();
@@ -39,9 +39,9 @@ export async function POST(req: Request) {
   for (const p of picks) {
     const match = matchMap.get(p.matchId);
     if (!match) continue;
-    if (!openRounds.has(match.round)) continue;
+    if (!availableRounds.has(match.round)) continue;
+    if (match.status !== "SCHEDULED") continue; // match already started or finished
     if (!["H", "A", "T"].includes(p.pick)) continue;
-    // No ties in knockout rounds
     if (p.pick === "T" && match.round !== "GROUP") continue;
 
     validPicks.push({
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   }
 
   if (validPicks.length === 0) {
-    return NextResponse.json({ error: "No valid picks — round may be closed" }, { status: 400 });
+    return NextResponse.json({ error: "No valid picks — round unavailable or match already started" }, { status: 400 });
   }
 
   try {
