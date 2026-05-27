@@ -47,7 +47,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <span className="font-serif italic">WC Pool &rsquo;26</span> &middot; A friend&rsquo;s pool. Built for friends.
             </p>
             <p className="font-mono tabular">
-              Jun 11 &mdash; Jul 19, 2026 &middot; 🇨🇦 🇲🇽 🇺🇸
+              Jun 11 &mdash; Jul 19, 2026 &middot; <span className="emoji">🇨🇦 🇲🇽 🇺🇸</span>
             </p>
           </div>
         </footer>

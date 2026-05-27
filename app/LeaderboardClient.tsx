@@ -133,11 +133,11 @@ export default function LeaderboardClient({
             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 flex-1">
               {liveMatches.map(m => (
                 <span key={m.matchId} className="text-[14.5px] font-serif italic">
-                  {flagFor(m.homeTeam)} {m.homeTeam}{" "}
+                  <span className="emoji not-italic">{flagFor(m.homeTeam)}</span> {m.homeTeam}{" "}
                   <span className="font-mono not-italic tabular text-gold font-bold mx-1">
                     {m.homeScore ?? "—"} : {m.awayScore ?? "—"}
                   </span>{" "}
-                  {m.awayTeam} {flagFor(m.awayTeam)}
+                  {m.awayTeam} <span className="emoji not-italic">{flagFor(m.awayTeam)}</span>
                 </span>
               ))}
             </div>
@@ -399,11 +399,11 @@ function MatchSummaryList({ title, kicker, matches, emptyText, showScore }: {
         ) : matches.map(m => (
           <li key={m.matchId} className="flex items-center justify-between gap-3 text-[14px] py-1">
             <span className="ink leading-tight">
-              <span className="ink-faint mr-1">{flagFor(m.homeTeam)}</span>
+              <span className="emoji ink-faint mr-1">{flagFor(m.homeTeam)}</span>
               <span className="font-medium">{m.homeTeam}</span>
               {" "}<span className="ink-faint">vs</span>{" "}
               <span className="font-medium">{m.awayTeam}</span>
-              <span className="ink-faint ml-1">{flagFor(m.awayTeam)}</span>
+              <span className="emoji ink-faint ml-1">{flagFor(m.awayTeam)}</span>
             </span>
             <span className="font-mono text-[12px] tabular ink-soft flex-shrink-0">
               {showScore && m.homeScore !== null

@@ -114,7 +114,7 @@ export default function MatchCard({
               disabled={disabled && !picked}
               className={cls}
             >
-              {flag && <span className="text-[14px] leading-none">{flag}</span>}
+              {flag && <span className="emoji text-[14px] leading-none">{flag}</span>}
               <span className="text-[11px] sm:text-[12px] font-semibold leading-tight line-clamp-1">
                 {label}
               </span>
@@ -161,7 +161,7 @@ function TeamRow({ team, score, isFinished, reverse }: {
   const isTBD = !team || team === "TBD";
   return (
     <div className={`flex items-center gap-2.5 min-w-0 flex-1 ${reverse ? "flex-row-reverse text-right" : ""}`}>
-      <span className="text-[20px] leading-none flex-shrink-0">{flagFor(team) || "⚪"}</span>
+      <span className="emoji text-[20px] leading-none flex-shrink-0">{flagFor(team) || "⚪"}</span>
       <div className="min-w-0 flex-1">
         <p className={`font-serif text-[15px] sm:text-[16px] font-medium leading-tight truncate ${isTBD ? "ink-faint italic" : "ink"}`} style={{fontVariationSettings: '"opsz" 24'}}>
           {team || "TBD"}

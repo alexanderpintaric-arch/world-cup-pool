@@ -302,7 +302,7 @@ function GroupHeader({ letter, teams, picked, total }: {
           <p className="font-serif text-[15px] ink leading-tight max-w-md" style={{fontVariationSettings: '"opsz" 24'}}>
             {teams.map(t => (
               <span key={t} className="inline-block mr-1.5">
-                <span className="ink-faint text-[13px]">{flagFor(t)}</span>{" "}
+                <span className="emoji ink-faint text-[13px]">{flagFor(t)}</span>{" "}
                 <span>{t}</span>
               </span>
             ))}

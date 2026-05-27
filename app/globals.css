@@ -1,39 +1,46 @@
 @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Geist:wght@100..900&family=JetBrains+Mono:wght@400..700&display=swap');
 @import "tailwindcss";
 
+/* ── Tailwind v4 theme: make custom colors first-class so all utilities
+   (bg-, text-, border-, hover:, opacity modifiers) work automatically. */
+@theme {
+  --color-paper:        #F5F1E8;
+  --color-paper-deep:   #ECE6D4;
+  --color-card:         #FFFEFA;
+  --color-ink:          #0B1426;
+  --color-ink-soft:     #475065;
+  --color-ink-faint:    #8089A0;
+  --color-line:         #E0DACA;
+  --color-line-soft:    #ECE6D4;
+  --color-accent:       #C9302C;
+  --color-accent-soft:  #FBEAE9;
+  --color-gold:         #A07820;
+  --color-gold-soft:    #F4E9CB;
+  --color-green-deep:   #1B5E20;
+  --color-green-soft:   #E2EBE0;
+
+  --font-display: "Fraunces", Georgia, "Times New Roman", serif;
+  --font-sans:    "Geist", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono:    "JetBrains Mono", ui-monospace, "Courier New", monospace;
+}
+
 @layer base {
   :root {
     color-scheme: light only;
-
-    --paper:        #F5F1E8;
-    --paper-deep:   #ECE6D4;
-    --ink:          #0B1426;
-    --ink-soft:     #475065;
-    --ink-faint:    #8089A0;
-    --line:         #E0DACA;
-    --line-soft:    #ECE6D4;
-    --card:         #FFFEFA;
-    --card-shadow:  rgba(11, 20, 38, 0.06);
-
-    --accent:       #C9302C;   /* alert red */
-    --accent-soft:  #FBEAE9;
-    --gold:         #A07820;   /* mustard gold */
-    --gold-soft:    #F4E9CB;
-    --green:        #1B5E20;   /* deep forest */
-    --green-soft:   #E2EBE0;
   }
-
   html { color-scheme: light only; }
 
   body {
-    background-color: var(--paper);
-    color: var(--ink);
-    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family:
+      "Geist", -apple-system, BlinkMacSystemFont,
+      "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Twemoji Mozilla",
+      sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Paper grain overlay */
   body::before {
     content: '';
     position: fixed;
@@ -48,33 +55,30 @@
 
 @layer utilities {
   .font-serif {
-    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-family: var(--font-display);
     font-optical-sizing: auto;
   }
   .font-mono {
-    font-family: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+    font-family: var(--font-mono);
   }
   .tabular {
     font-variant-numeric: tabular-nums;
   }
-  .ink            { color: var(--ink); }
-  .ink-soft       { color: var(--ink-soft); }
-  .ink-faint      { color: var(--ink-faint); }
-  .bg-paper       { background-color: var(--paper); }
-  .bg-paper-deep  { background-color: var(--paper-deep); }
-  .bg-card        { background-color: var(--card); }
-  .bg-ink         { background-color: var(--ink); }
-  .bg-accent      { background-color: var(--accent); }
-  .bg-accent-soft { background-color: var(--accent-soft); }
-  .bg-gold        { background-color: var(--gold); }
-  .bg-gold-soft   { background-color: var(--gold-soft); }
-  .bg-green-deep  { background-color: var(--green); }
-  .bg-green-soft  { background-color: var(--green-soft); }
-  .text-accent    { color: var(--accent); }
-  .text-gold      { color: var(--gold); }
-  .text-green-deep{ color: var(--green); }
-  .border-line    { border-color: var(--line); }
-  .border-line-soft { border-color: var(--line-soft); }
+
+  /* Short colour aliases used throughout the app */
+  .ink            { color: var(--color-ink); }
+  .ink-soft       { color: var(--color-ink-soft); }
+  .ink-faint      { color: var(--color-ink-faint); }
+
+  /* Emoji-safe font stack — guarantees color emoji (incl. country flags)
+     fall through to the OS color emoji font even when the primary font lacks them. */
+  .emoji {
+    font-family:
+      "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji",
+      "Twemoji Mozilla", "EmojiOne Color", "Android Emoji", sans-serif;
+    font-feature-settings: normal;
+    font-variant-emoji: emoji;
+  }
 
   .shadow-paper {
     box-shadow:
@@ -122,7 +126,6 @@
 .anim-ring-pulse   { animation: ringPulse 1.8s ease-out infinite; }
 .anim-underline    { animation: underlineGrow 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; transform-origin: left; }
 
-/* Animated underline for editorial links */
 .editorial-underline {
   background-image: linear-gradient(currentColor, currentColor);
   background-size: 0% 1px;
@@ -134,10 +137,8 @@
   background-size: 100% 1px;
 }
 
-/* Tab switch fade */
 .tab-content { animation: fadeIn 0.3s ease-out both; }
 
-/* Selection ring for pick buttons */
 @keyframes pickPop {
   0%   { transform: scale(1); }
   40%  { transform: scale(1.04); }
