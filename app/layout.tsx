@@ -15,20 +15,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <body className={`${geist.variable} ${geistMono.variable} antialiased min-h-screen`} style={{ background: "#f0f4f0" }}>
+
         {/* Nav */}
-        <nav className="sticky top-0 z-50 border-b border-emerald-900/20 bg-emerald-900 shadow-md">
+        <nav className="sticky top-0 z-50 bg-emerald-950 shadow-lg">
           <div className="mx-auto max-w-4xl flex items-center justify-between px-4 h-14">
-            <a href="/" className="flex items-center gap-2 whitespace-nowrap flex-shrink-0">
+            <a href="/" className="flex items-center gap-2.5 whitespace-nowrap flex-shrink-0">
               <span className="text-xl">⚽</span>
-              <span className="font-bold text-white text-base tracking-tight">
-                WC Pool <span className="text-emerald-300">2026</span>
+              <span className="font-black text-white text-base tracking-tight">
+                WC Pool <span className="text-yellow-400">2026</span>
               </span>
             </a>
-            <div className="flex items-center gap-1 sm:gap-3 text-sm ml-4">
-              <a href="/" className="px-2 py-1 rounded text-emerald-100 hover:text-white hover:bg-emerald-800 transition">
-                Leaderboard
+            <div className="flex items-center gap-1 sm:gap-2 text-sm ml-4">
+              <a href="/" className="px-3 py-1.5 rounded-lg text-emerald-300 hover:text-white hover:bg-emerald-800 transition font-medium">
+                Standings
               </a>
-              <a href="/picks" className="px-2 py-1 rounded text-emerald-100 hover:text-white hover:bg-emerald-800 transition">
+              <a href="/picks" className="px-3 py-1.5 rounded-lg text-emerald-300 hover:text-white hover:bg-emerald-800 transition font-medium">
                 My Picks
               </a>
               <AuthButton />
@@ -36,18 +37,27 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </div>
         </nav>
 
-        {/* Page hero strip */}
-        <div className="bg-emerald-900 pb-6 pt-1">
+        {/* Tournament banner */}
+        <div className="bg-gradient-to-b from-emerald-950 to-emerald-900 py-5">
           <div className="mx-auto max-w-4xl px-4">
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-emerald-700/50" />
-              <span className="text-emerald-400 text-xs font-medium tracking-widest uppercase">FIFA World Cup · Canada · Mexico · USA</span>
-              <div className="h-px flex-1 bg-emerald-700/50" />
+            <div className="flex flex-col items-center gap-1.5">
+              <div className="flex items-center gap-3 text-sm text-emerald-300 font-medium">
+                <span>🇨🇦</span>
+                <span className="text-emerald-600">—</span>
+                <span className="text-yellow-400 font-bold tracking-widest uppercase text-xs">FIFA World Cup 2026</span>
+                <span className="text-emerald-600">—</span>
+                <span>🇺🇸</span>
+              </div>
+              <div className="flex items-center gap-4 text-emerald-500 text-xs">
+                <span>🇲🇽 Mexico · 🇨🇦 Canada · 🇺🇸 United States</span>
+              </div>
+              <p className="text-emerald-600 text-xs tracking-wide">June 11 – July 19, 2026 · 64 Matches</p>
             </div>
           </div>
         </div>
 
         <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
+
       </body>
     </html>
   );
@@ -59,14 +69,14 @@ async function AuthButton() {
   if (session?.user) {
     return (
       <form action={handleSignOut}>
-        <button type="submit" className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-800 text-emerald-100 hover:bg-emerald-700 transition">
+        <button type="submit" className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-800 text-emerald-200 hover:bg-emerald-700 transition">
           Sign out
         </button>
       </form>
     );
   }
   return (
-    <a href="/api/auth/signin?callbackUrl=/" className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-yellow-400 text-emerald-900 hover:bg-yellow-300 transition shadow-sm">
+    <a href="/api/auth/signin?callbackUrl=/" className="px-4 py-1.5 rounded-lg text-sm font-bold bg-yellow-400 text-emerald-950 hover:bg-yellow-300 transition shadow-sm">
       Sign in
     </a>
   );
