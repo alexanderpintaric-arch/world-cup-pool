@@ -30,70 +30,127 @@ export default function AdminClient({ lastSync }: Props) {
   }
 
   return (
-    <div className="max-w-xl space-y-6">
-      <h1 className="text-2xl font-bold text-slate-900">Admin</h1>
+    <div className="max-w-2xl space-y-8">
 
-      {/* Last sync status */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
-        <h2 className="font-semibold text-slate-700">Sync Status</h2>
-        {lastSync ? (
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-            <dt className="text-slate-500">Last synced</dt>
-            <dd className="font-medium text-slate-800">
-              {new Date(lastSync.syncedAt).toLocaleString("en-CA")}
-            </dd>
-            <dt className="text-slate-500">Matches updated</dt>
-            <dd className="font-medium">{lastSync.matchesUpdated}</dd>
-            {lastSync.error && (
+      <header className="anim-fade-up">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent mb-3">
+          Operations
+        </p>
+        <h1 className="font-serif font-medium leading-[1.02] tracking-[-0.02em] ink" style={{fontSize: 'clamp(2rem, 4.5vw, 3rem)', fontVariationSettings: '"opsz" 100'}}>
+          Admin <span className="italic ink-soft">console</span>
+        </h1>
+        <p className="mt-3 text-[14.5px] ink-soft">
+          Sync match data, monitor cron health, and trigger manual updates.
+        </p>
+      </header>
+
+      {/* Sync status */}
+      <section className="anim-fade-up bg-card border border-line rounded-lg shadow-paper" style={{animationDelay: '80ms'}}>
+        <div className="px-6 py-4 border-b border-line">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint mb-0.5">
+            Status
+          </p>
+          <h2 className="font-serif text-[20px] ink font-medium" style={{fontVariationSettings: '"opsz" 40'}}>
+            Last sync
+          </h2>
+        </div>
+        <div className="px-6 py-5">
+          {lastSync ? (
+            <dl className="space-y-3.5 text-[14px]">
+              <Row label="Synced at" value={new Date(lastSync.syncedAt).toLocaleString("en-CA")} mono />
+              <Row label="Matches updated" value={lastSync.matchesUpdated.toString()} mono />
+              {lastSync.error && (
+                <div className="pt-2 border-t border-[color:var(--line-soft)]">
+                  <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] text-accent mb-1.5">
+                    Error
+                  </p>
+                  <p className="text-[12.5px] text-accent font-mono bg-accent-soft rounded p-3 leading-relaxed">
+                    {lastSync.error}
+                  </p>
+                </div>
+              )}
+            </dl>
+          ) : (
+            <p className="text-[13.5px] ink-faint italic font-serif">No syncs recorded yet.</p>
+          )}
+          <p className="mt-5 pt-4 border-t border-[color:var(--line-soft)] font-mono text-[10.5px] ink-faint">
+            Auto-sync runs every 15 minutes via Vercel Cron.
+          </p>
+        </div>
+      </section>
+
+      {/* Manual trigger */}
+      <section className="anim-fade-up bg-card border border-line rounded-lg shadow-paper" style={{animationDelay: '120ms'}}>
+        <div className="px-6 py-4 border-b border-line">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint mb-0.5">
+            Manual
+          </p>
+          <h2 className="font-serif text-[20px] ink font-medium" style={{fontVariationSettings: '"opsz" 40'}}>
+            Force a sync
+          </h2>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-[14px] ink-soft leading-relaxed mb-5">
+            Pulls fresh match data from football-data.org, refreshes odds, recalculates scores, and dispatches any pending result emails.
+          </p>
+          <button
+            onClick={handleSync}
+            disabled={syncing}
+            className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-md bg-ink text-paper text-[13.5px] font-semibold hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {syncing ? (
               <>
-                <dt className="text-slate-500">Last error</dt>
-                <dd className="text-red-600 text-xs">{lastSync.error}</dd>
+                <span className="font-mono text-[15px] inline-block animate-spin">↻</span>
+                Syncing…
+              </>
+            ) : (
+              <>
+                Sync now
+                <span className="font-mono">&rarr;</span>
               </>
             )}
-          </dl>
-        ) : (
-          <p className="text-sm text-slate-400">No syncs recorded yet.</p>
-        )}
+          </button>
 
-        <p className="text-xs text-slate-400">
-          Auto-sync runs every 15 minutes via Vercel Cron.
-        </p>
-      </div>
+          {result && (
+            <div className={`mt-5 rounded-md border p-4 anim-fade-up
+              ${result.error
+                ? "border-[color:var(--accent)]/30 bg-accent-soft"
+                : "border-[color:var(--green)]/30 bg-green-soft"
+              }`}>
+              <p className={`font-serif text-[16px] font-medium mb-2
+                ${result.error ? "text-accent" : "text-green-deep"}
+              `} style={{fontVariationSettings: '"opsz" 32'}}>
+                {result.error ? "Sync failed" : "Sync complete"}
+              </p>
+              {result.error && (
+                <p className="text-[12.5px] text-accent font-mono mb-3 leading-relaxed">
+                  {result.error}
+                </p>
+              )}
+              <dl className="space-y-1 text-[13px] ink-soft">
+                <Row label="Matches updated" value={String(result.matchesUpdated)} compact mono />
+                <Row label="Emails sent" value={String(result.emailsSent)} compact mono />
+                {result.roundsOpened.length > 0 && (
+                  <Row label="Rounds opened" value={result.roundsOpened.join(", ")} compact />
+                )}
+              </dl>
+              <p className="mt-3 font-mono text-[10px] ink-faint tabular">
+                {new Date(result.syncedAt).toLocaleString("en-CA")}
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
 
-      {/* Manual sync */}
-      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
-        <h2 className="font-semibold text-slate-700">Manual Sync</h2>
-        <p className="text-sm text-slate-500">
-          Force a sync now — pulls latest match results from football-data.org,
-          updates odds, recalculates scores, and sends any pending emails.
-        </p>
-        <button
-          onClick={handleSync}
-          disabled={syncing}
-          className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-slate-700 disabled:opacity-50 transition"
-        >
-          {syncing ? "Syncing…" : "Sync Now"}
-        </button>
+    </div>
+  );
+}
 
-        {result && (
-          <div className={`rounded-lg border p-4 text-sm space-y-1
-            ${result.error ? "border-red-200 bg-red-50" : "border-green-200 bg-green-50"}`}>
-            {result.error ? (
-              <p className="text-red-700 font-medium">Error: {result.error}</p>
-            ) : (
-              <p className="text-green-700 font-medium">Sync complete</p>
-            )}
-            <p className="text-slate-600">Matches updated: {result.matchesUpdated}</p>
-            <p className="text-slate-600">Emails sent: {result.emailsSent}</p>
-            {result.roundsOpened.length > 0 && (
-              <p className="text-slate-600">Rounds opened: {result.roundsOpened.join(", ")}</p>
-            )}
-            <p className="text-slate-400 text-xs">
-              {new Date(result.syncedAt).toLocaleString("en-CA")}
-            </p>
-          </div>
-        )}
-      </div>
+function Row({ label, value, mono, compact }: { label: string; value: string; mono?: boolean; compact?: boolean }) {
+  return (
+    <div className={`flex items-center justify-between gap-4 ${compact ? "" : "py-1"}`}>
+      <dt className="ink-soft">{label}</dt>
+      <dd className={`ink font-medium text-right ${mono ? "font-mono tabular" : ""}`}>{value}</dd>
     </div>
   );
 }

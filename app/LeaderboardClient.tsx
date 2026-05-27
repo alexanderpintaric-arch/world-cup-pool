@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import type { LeaderboardEntry, Match, RoundState, OddsData } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
+import { flagFor } from "@/lib/services/flags";
 
 interface Props {
   leaderboard: LeaderboardEntry[];
@@ -11,28 +12,55 @@ interface Props {
   popularPicks: Record<string, { H: number; A: number; T: number; total: number }>;
   odds: OddsData[];
   currentUserEmail: string | null;
+  currentUserName?: string | null;
 }
-
-const MEDAL = ["🥇", "🥈", "🥉"];
 
 function initials(name: string) {
-  return name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+  return name.split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
 }
 
-const AVATAR_COLORS = [
-  "bg-emerald-600", "bg-blue-600", "bg-violet-600",
-  "bg-rose-600", "bg-amber-600", "bg-cyan-600",
-];
+function relativeTime(iso: string): string {
+  const diff = new Date(iso).getTime() - Date.now();
+  const abs = Math.abs(diff);
+  const minutes = Math.round(abs / 60_000);
+  const hours = Math.round(abs / 3_600_000);
+  const days = Math.round(abs / 86_400_000);
+  const future = diff > 0;
+  if (minutes < 60) return future ? `in ${minutes}m` : `${minutes}m ago`;
+  if (hours < 24)  return future ? `in ${hours}h`   : `${hours}h ago`;
+  if (days < 30)   return future ? `in ${days}d`    : `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-CA", { month: "short", day: "numeric" });
+}
 
 export default function LeaderboardClient({
-  leaderboard, matches, roundStates, activeRound, popularPicks, currentUserEmail,
+  leaderboard, matches, roundStates, activeRound, currentUserEmail, currentUserName,
 }: Props) {
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
 
-  const liveMatches = matches.filter(m => m.status === "IN_PLAY" || m.status === "PAUSED" || m.status === "LIVE");
-  const isSignedIn = !!currentUserEmail;
+  const liveMatches = matches.filter(m =>
+    m.status === "IN_PLAY" || m.status === "PAUSED" || m.status === "LIVE"
+  );
+
+  const upcomingMatches = useMemo(() => {
+    const now = Date.now();
+    return matches
+      .filter(m => m.status === "SCHEDULED" && new Date(m.kickoffUtc).getTime() > now)
+      .sort((a, b) => new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime())
+      .slice(0, 3);
+  }, [matches]);
+
+  const recentlyFinished = useMemo(() => {
+    return matches
+      .filter(m => m.status === "FINISHED")
+      .sort((a, b) => new Date(b.kickoffUtc).getTime() - new Date(a.kickoffUtc).getTime())
+      .slice(0, 3);
+  }, [matches]);
+
+  const me = leaderboard.find(e => e.email === currentUserEmail);
+  const myRank = me ? leaderboard.indexOf(me) + 1 : null;
+
   const roundsWithMatches = roundStates.filter(r => r.matchCount > 0);
 
   function handleRowClick(email: string) {
@@ -45,213 +73,267 @@ export default function LeaderboardClient({
   const entryA = leaderboard.find(e => e.email === compareA);
   const entryB = leaderboard.find(e => e.email === compareB);
 
-  return (
-    <div className="space-y-6">
+  const greeting = greetingForHour(new Date().getHours());
+  const firstName = (currentUserName ?? "").split(/\s+/)[0] || "";
 
-      {/* Live matches banner */}
+  return (
+    <div className="space-y-12">
+
+      {/* ── PAGE HEADER ──────────────────────────────────────── */}
+      <header className="anim-fade-up">
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] ink-faint mb-3">
+          The Standings &middot; {new Date().toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
+        </p>
+        <h1 className="font-serif font-medium leading-[1.02] tracking-[-0.025em] ink" style={{fontSize: 'clamp(2.25rem, 5.5vw, 3.75rem)', fontVariationSettings: '"opsz" 120'}}>
+          {greeting}{firstName ? `, ${firstName}` : ""}.
+        </h1>
+        <p className="mt-3 text-[16px] ink-soft max-w-2xl">
+          {myRank && me ? (
+            <>
+              You&rsquo;re sitting in{" "}
+              <strong className="ink">
+                {ordinal(myRank)} place
+              </strong>{" "}
+              with{" "}
+              <span className="font-mono tabular font-semibold ink">{me.totalScore}</span>{" "}
+              {me.totalScore === 1 ? "point" : "points"}
+              {leaderboard.length > 1 && myRank > 1 && (
+                <>
+                  {" "}&mdash;{" "}
+                  <span className="ink-soft">
+                    {leaderboard[myRank - 2].totalScore - me.totalScore}{" "}
+                    {leaderboard[myRank - 2].totalScore - me.totalScore === 1 ? "point" : "points"} behind{" "}
+                    <em className="font-serif italic">{leaderboard[myRank - 2].name}</em>
+                  </span>
+                </>
+              )}.
+            </>
+          ) : leaderboard.length === 0 ? (
+            <>No one has any points yet. The tournament begins June 11.</>
+          ) : (
+            <>The leaderboard refreshes as matches finish.</>
+          )}
+        </p>
+      </header>
+
+      {/* ── LIVE BANNER ──────────────────────────────────────── */}
       {liveMatches.length > 0 && (
-        <div className="rounded-2xl bg-gradient-to-r from-emerald-700 to-emerald-600 text-white px-5 py-3.5 flex flex-wrap items-center gap-3 shadow-lg">
-          <span className="flex items-center gap-2 text-sm font-bold">
-            <span className="h-2.5 w-2.5 rounded-full bg-green-300 animate-pulse shadow-[0_0_8px_rgba(134,239,172,0.8)]" />
-            LIVE
-          </span>
-          <div className="h-4 w-px bg-emerald-500" />
-          {liveMatches.map(m => (
-            <span key={m.matchId} className="text-sm text-emerald-100">
-              {m.homeTeam} <span className="font-black text-white tabular-nums">{m.homeScore ?? "–"} : {m.awayScore ?? "–"}</span> {m.awayTeam}
+        <section className="anim-fade-up bg-ink text-paper rounded-lg overflow-hidden">
+          <div className="px-5 sm:px-7 py-5 flex items-center gap-4 flex-wrap">
+            <span className="flex items-center gap-2.5">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-75 animate-ping" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+              </span>
+              <span className="font-mono text-[11px] uppercase tracking-[0.22em] text-paper/60">
+                Live now
+              </span>
             </span>
-          ))}
-        </div>
+            <div className="h-3 w-px bg-paper/20" />
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 flex-1">
+              {liveMatches.map(m => (
+                <span key={m.matchId} className="text-[14.5px] font-serif italic">
+                  {flagFor(m.homeTeam)} {m.homeTeam}{" "}
+                  <span className="font-mono not-italic tabular text-gold font-bold mx-1">
+                    {m.homeScore ?? "—"} : {m.awayScore ?? "—"}
+                  </span>{" "}
+                  {m.awayTeam} {flagFor(m.awayTeam)}
+                </span>
+              ))}
+            </div>
+          </div>
+        </section>
       )}
 
-      {/* Hero section — shown when no entries yet */}
-      {leaderboard.length === 0 && (
-        <div className="rounded-2xl overflow-hidden shadow-xl">
-          <div className="bg-gradient-to-br from-emerald-950 via-emerald-900 to-emerald-800 px-8 py-12 text-center">
-            <div className="text-6xl mb-5">🏆</div>
-            <h2 className="text-3xl sm:text-4xl font-black text-white mb-3 tracking-tight">
-              Pick Every Match
-            </h2>
-            <p className="text-emerald-300 text-lg mb-2">
-              Predict all 64 World Cup 2026 games and climb the leaderboard.
-            </p>
-            <p className="text-emerald-500 text-sm mb-8">
-              Group stage opens June 11 · Results update automatically
-            </p>
-            {!isSignedIn ? (
-              <a
-                href="/api/auth/signin?callbackUrl=/picks"
-                className="inline-flex items-center gap-2 bg-yellow-400 text-emerald-950 font-black text-lg px-8 py-3.5 rounded-xl hover:bg-yellow-300 transition shadow-lg hover:shadow-yellow-400/25 hover:-translate-y-0.5 transform"
-              >
-                Join the Pool →
-              </a>
-            ) : (
-              <a
-                href="/picks"
-                className="inline-flex items-center gap-2 bg-yellow-400 text-emerald-950 font-black text-lg px-8 py-3.5 rounded-xl hover:bg-yellow-300 transition shadow-lg"
-              >
-                Submit Your Picks →
-              </a>
-            )}
+      {/* ── ACTIVE ROUND CTA ─────────────────────────────────── */}
+      {activeRound && (
+        <section className="anim-fade-up bg-card border border-line rounded-lg overflow-hidden shadow-paper">
+          <div className="p-5 sm:p-6 flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent mb-2">
+                Picks are open
+              </p>
+              <h2 className="font-serif text-[24px] sm:text-[28px] font-medium leading-tight tracking-[-0.01em] ink" style={{fontVariationSettings: '"opsz" 60'}}>
+                {activeRound.label}
+              </h2>
+              {activeRound.deadline && (
+                <p className="mt-1.5 text-[13.5px] ink-soft">
+                  Closes{" "}
+                  <span className="font-mono ink tabular">
+                    {new Date(activeRound.deadline).toLocaleString("en-CA", {
+                      weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                    })}
+                  </span>
+                </p>
+              )}
+            </div>
+            <a
+              href="/picks"
+              className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-ink text-paper text-[13.5px] font-semibold hover:bg-accent transition-colors"
+            >
+              Make your picks
+              <span className="font-mono transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </a>
           </div>
-          <div className="bg-emerald-950/80 px-8 py-5 grid grid-cols-3 divide-x divide-emerald-800 text-center">
-            {[["64", "Matches"], ["6", "Rounds"], ["136", "Max pts"]].map(([val, label]) => (
-              <div key={label} className="px-4">
-                <div className="text-2xl font-black text-yellow-400">{val}</div>
-                <div className="text-xs text-emerald-500 uppercase tracking-widest mt-0.5">{label}</div>
+        </section>
+      )}
+
+      {/* ── STANDINGS TABLE ──────────────────────────────────── */}
+      {leaderboard.length > 0 ? (
+        <section className="anim-fade-up" style={{animationDelay: '80ms'}}>
+          <SectionHeader
+            kicker="The Field"
+            title="Standings"
+            right={leaderboard.length > 1 ? (
+              <span className="font-mono text-[11px] uppercase tracking-[0.18em] ink-faint">
+                {compareA ? "Pick another to compare" : "Tap two rows to compare"}
+              </span>
+            ) : null}
+          />
+
+          <div className="mt-6 bg-card border border-line rounded-lg overflow-hidden shadow-paper">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-line bg-paper-deep">
+                    <th className="px-4 sm:px-6 py-3 text-left text-[10.5px] uppercase tracking-[0.18em] font-medium ink-faint w-14">#</th>
+                    <th className="px-2 py-3 text-left text-[10.5px] uppercase tracking-[0.18em] font-medium ink-faint">Player</th>
+                    <th className="px-3 py-3 text-right text-[10.5px] uppercase tracking-[0.18em] font-medium ink-faint">Score</th>
+                    {(Object.keys(ROUND_CONFIG) as (keyof typeof ROUND_CONFIG)[]).map(r => (
+                      <th key={r} className="px-2 py-3 text-right text-[10.5px] uppercase tracking-[0.18em] font-medium ink-faint hidden md:table-cell">
+                        {ROUND_CONFIG[r].label.split(" ")[0].slice(0, 4)}
+                      </th>
+                    ))}
+                    <th className="px-3 sm:px-5 py-3 text-right text-[10.5px] uppercase tracking-[0.18em] font-medium ink-faint hidden sm:table-cell">Correct</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {leaderboard.map((entry, i) => {
+                    const isMe = entry.email === currentUserEmail;
+                    const isSelected = entry.email === compareA || entry.email === compareB;
+                    const rank = i + 1;
+
+                    return (
+                      <tr
+                        key={entry.email}
+                        onClick={() => handleRowClick(entry.email)}
+                        className={`group cursor-pointer transition-colors border-t border-[color:var(--line-soft)] anim-fade-up
+                          ${isSelected ? "bg-gold-soft" : isMe ? "bg-green-soft/40" : "hover:bg-paper-deep/40"}
+                        `}
+                        style={{ animationDelay: `${100 + i * 30}ms` }}
+                      >
+                        <td className="px-4 sm:px-6 py-4">
+                          <RankBadge rank={rank} />
+                        </td>
+                        <td className="px-2 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="h-8 w-8 rounded-full bg-ink text-paper flex items-center justify-center text-[10px] font-semibold tracking-wide flex-shrink-0">
+                              {initials(entry.name)}
+                            </div>
+                            <div className="flex items-baseline gap-2">
+                              <span className="font-serif text-[16px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 32'}}>
+                                {entry.name}
+                              </span>
+                              {isMe && (
+                                <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-green-deep">
+                                  You
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-3 py-4 text-right">
+                          <span className="font-serif font-medium text-[22px] tabular ink leading-none" style={{fontVariationSettings: '"opsz" 60'}}>
+                            {entry.totalScore}
+                          </span>
+                          <span className="font-mono text-[10.5px] ink-faint ml-1">
+                            /{entry.maxPossibleScore}
+                          </span>
+                        </td>
+                        {(Object.keys(ROUND_CONFIG) as (keyof typeof ROUND_CONFIG)[]).map(r => (
+                          <td key={r} className="px-2 py-4 text-right font-mono text-[12px] tabular ink-faint hidden md:table-cell">
+                            {entry.scoreByRound[r] ?? 0}
+                          </td>
+                        ))}
+                        <td className="px-3 sm:px-5 py-4 text-right hidden sm:table-cell">
+                          <span className="font-mono text-[12px] tabular ink-soft">
+                            {entry.correctPicks}<span className="ink-faint">/{entry.totalPicks}</span>
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      ) : (
+        <section className="anim-fade-up bg-card border border-line rounded-lg p-10 sm:p-14 text-center shadow-paper">
+          <p className="font-serif italic text-[22px] ink-soft leading-snug max-w-md mx-auto" style={{fontVariationSettings: '"opsz" 40'}}>
+            &ldquo;No one has scored a single point yet. The first whistle goes June 11.&rdquo;
+          </p>
+          <a href="/picks" className="mt-7 inline-flex items-center gap-2 text-[13.5px] font-semibold text-accent editorial-underline">
+            Make your picks early <span className="font-mono">&rarr;</span>
+          </a>
+        </section>
+      )}
+
+      {/* ── RECENT / UPCOMING ────────────────────────────────── */}
+      <section className="grid sm:grid-cols-2 gap-6 anim-fade-up" style={{animationDelay: '160ms'}}>
+        <MatchSummaryList
+          title="Just played"
+          kicker="Results"
+          matches={recentlyFinished}
+          emptyText="No matches finished yet."
+          showScore
+        />
+        <MatchSummaryList
+          title="Up next"
+          kicker="Coming up"
+          matches={upcomingMatches}
+          emptyText="No upcoming matches scheduled."
+        />
+      </section>
+
+      {/* ── ROUND PROGRESS ───────────────────────────────────── */}
+      {roundsWithMatches.length > 0 && (
+        <section className="anim-fade-up" style={{animationDelay: '200ms'}}>
+          <SectionHeader kicker="Schedule" title="Where we are" />
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+            {roundsWithMatches.map((rs, i) => (
+              <div
+                key={rs.round}
+                className={`relative bg-card border rounded-lg p-4 shadow-paper anim-fade-up transition-colors
+                  ${rs.isComplete ? "border-green-deep/30" : rs.isOpen ? "border-accent/40" : "border-line"}
+                `}
+                style={{ animationDelay: `${220 + i * 50}ms` }}
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  {rs.isComplete && <span className="h-1.5 w-1.5 rounded-full bg-green-deep" />}
+                  {rs.isOpen && <span className="h-1.5 w-1.5 rounded-full bg-accent anim-ring-pulse" />}
+                  {!rs.isComplete && !rs.isOpen && <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--ink-faint)]/30" />}
+                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] ink-faint">
+                    {rs.isComplete ? "Done" : rs.isOpen ? "Open" : "Soon"}
+                  </span>
+                </div>
+                <p className="font-serif text-[16px] ink font-medium leading-tight" style={{fontVariationSettings: '"opsz" 32'}}>
+                  {rs.label}
+                </p>
+                <p className="mt-2 font-mono text-[11px] ink-faint tabular">
+                  {rs.matchCount} {rs.matchCount === 1 ? "match" : "matches"} &middot; {rs.pointsValue}pt
+                </p>
               </div>
             ))}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Active round CTA */}
-      {activeRound && leaderboard.length > 0 && (
-        <div className="rounded-2xl bg-gradient-to-r from-emerald-900 to-emerald-800 px-5 py-4 flex items-center justify-between shadow gap-4">
-          <div>
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse" />
-              <p className="font-bold text-white">{activeRound.label} picks are open</p>
-            </div>
-            {activeRound.deadline && (
-              <p className="text-sm text-emerald-400 ml-4">
-                Closes {new Date(activeRound.deadline).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
-              </p>
-            )}
-          </div>
-          <a href="/picks" className="flex-shrink-0 rounded-xl bg-yellow-400 px-5 py-2.5 text-sm font-black text-emerald-950 hover:bg-yellow-300 transition shadow">
-            Submit Picks →
-          </a>
-        </div>
-      )}
-
-      {/* Leaderboard table */}
-      {leaderboard.length > 0 && (
-        <div className="rounded-2xl overflow-hidden shadow-lg border border-slate-200/60">
-
-          {/* Table header */}
-          <div className="bg-gradient-to-r from-emerald-950 to-emerald-900 px-5 py-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-white font-black text-base tracking-wide">Standings</h2>
-              <p className="text-emerald-500 text-xs mt-0.5">{leaderboard.length} player{leaderboard.length !== 1 ? "s" : ""}</p>
-            </div>
-            {leaderboard.length > 1 && (
-              <p className="text-emerald-600 text-xs">
-                {compareA ? "Select another to compare" : "Tap two rows to compare"}
-              </p>
-            )}
-          </div>
-
-          <div className="overflow-x-auto bg-white">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-slate-100 text-left text-xs text-slate-400 uppercase tracking-wider bg-slate-50/80">
-                  <th className="px-4 py-3 w-10">#</th>
-                  <th className="px-4 py-3">Player</th>
-                  <th className="px-4 py-3 text-right font-bold text-slate-500">Score</th>
-                  <th className="px-4 py-3 text-right hidden sm:table-cell">Max</th>
-                  {(Object.keys(ROUND_CONFIG) as (keyof typeof ROUND_CONFIG)[]).map(r => (
-                    <th key={r} className="px-2 py-3 text-right hidden md:table-cell">
-                      {ROUND_CONFIG[r].label.split(" ")[0]}
-                    </th>
-                  ))}
-                  <th className="px-4 py-3 text-right hidden sm:table-cell">Correct</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {leaderboard.map((entry, i) => {
-                  const isMe = entry.email === currentUserEmail;
-                  const isSelected = entry.email === compareA || entry.email === compareB;
-                  const avatarColor = AVATAR_COLORS[i % AVATAR_COLORS.length];
-
-                  return (
-                    <tr
-                      key={entry.email}
-                      onClick={() => handleRowClick(entry.email)}
-                      className={`transition-colors cursor-pointer
-                        ${isSelected ? "bg-yellow-50 ring-1 ring-inset ring-yellow-300" : ""}
-                        ${isMe && !isSelected ? "bg-blue-50/60" : ""}
-                        ${!isMe && !isSelected ? "hover:bg-slate-50" : ""}
-                      `}
-                    >
-                      <td className="px-4 py-3.5 w-10">
-                        {i < 3
-                          ? <span className="text-base">{MEDAL[i]}</span>
-                          : <span className="text-slate-300 font-bold text-sm">{i + 1}</span>
-                        }
-                      </td>
-                      <td className="px-4 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className={`h-8 w-8 rounded-full ${avatarColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-                            {initials(entry.name)}
-                          </div>
-                          <div>
-                            <span className="font-semibold text-slate-900">{entry.name}</span>
-                            {isMe && <span className="ml-2 text-xs font-medium text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full">you</span>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3.5 text-right">
-                        <span className="font-black text-xl text-slate-900">{entry.totalScore}</span>
-                      </td>
-                      <td className="px-4 py-3.5 text-right text-slate-300 text-xs hidden sm:table-cell">{entry.maxPossibleScore}</td>
-                      {(Object.keys(ROUND_CONFIG) as (keyof typeof ROUND_CONFIG)[]).map(r => (
-                        <td key={r} className="px-2 py-3.5 text-right text-slate-400 text-xs hidden md:table-cell">
-                          {entry.scoreByRound[r] ?? 0}
-                        </td>
-                      ))}
-                      <td className="px-4 py-3.5 text-right hidden sm:table-cell">
-                        <span className="text-xs font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                          {entry.correctPicks}/{entry.totalPicks}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Round status grid */}
-      {roundsWithMatches.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          {roundsWithMatches.map(rs => (
-            <div key={rs.round} className={`rounded-xl border p-4 bg-white shadow-sm transition-all
-              ${rs.isComplete ? "border-emerald-200" : rs.isOpen ? "border-yellow-300 ring-1 ring-yellow-200" : "border-slate-200"}`}>
-              <div className="flex items-center gap-2 mb-1">
-                {rs.isComplete && <span className="h-2 w-2 rounded-full bg-emerald-500 flex-shrink-0" />}
-                {rs.isOpen && <span className="h-2 w-2 rounded-full bg-yellow-400 animate-pulse flex-shrink-0" />}
-                {!rs.isComplete && !rs.isOpen && <span className="h-2 w-2 rounded-full bg-slate-200 flex-shrink-0" />}
-                <p className="font-bold text-slate-800 text-sm truncate">{rs.label}</p>
-              </div>
-              <p className="text-xs text-slate-400 pl-4">
-                {rs.isComplete ? "✓ Complete" : rs.isOpen ? "Open for picks" : "Coming soon"}
-              </p>
-              <p className="text-xs font-bold text-emerald-600 pl-4 mt-1">{rs.pointsValue}pt per pick</p>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Sign-in nudge if signed out and leaderboard has entries */}
-      {!isSignedIn && leaderboard.length > 0 && (
-        <div className="rounded-2xl bg-gradient-to-r from-emerald-950 to-emerald-900 px-6 py-6 flex flex-col sm:flex-row items-center justify-between gap-4 shadow">
-          <div>
-            <p className="font-black text-white text-lg">Ready to compete?</p>
-            <p className="text-emerald-400 text-sm mt-0.5">Sign in with Google to submit your picks and join the leaderboard.</p>
-          </div>
-          <a href="/api/auth/signin?callbackUrl=/picks" className="flex-shrink-0 bg-yellow-400 text-emerald-950 font-black px-6 py-2.5 rounded-xl hover:bg-yellow-300 transition shadow-lg text-sm whitespace-nowrap">
-            Join the Pool →
-          </a>
-        </div>
-      )}
-
-      {/* Head-to-head modal */}
+      {/* ── HEAD-TO-HEAD MODAL ───────────────────────────────── */}
       {showCompare && entryA && entryB && (
         <HeadToHead
-          a={entryA} b={entryB}
+          a={entryA}
+          b={entryB}
           matches={matches}
           onClose={() => { setShowCompare(false); setCompareA(null); setCompareB(null); }}
         />
@@ -260,61 +342,173 @@ export default function LeaderboardClient({
   );
 }
 
-function HeadToHead({ a, b, matches, onClose }: {
-  a: LeaderboardEntry; b: LeaderboardEntry;
-  matches: Match[];
-  onClose: () => void;
-}) {
-  const finishedMatches = matches.filter(m => m.status === "FINISHED");
+function SectionHeader({ kicker, title, right }: { kicker: string; title: string; right?: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-        <div className="bg-gradient-to-r from-emerald-950 to-emerald-900 rounded-t-2xl px-5 py-4 flex items-center justify-between">
-          <h2 className="font-black text-white text-base">Head to Head</h2>
-          <button onClick={onClose} className="text-emerald-400 hover:text-white text-xl leading-none w-8 h-8 flex items-center justify-center rounded-lg hover:bg-emerald-800 transition">✕</button>
+    <div className="flex items-end justify-between gap-3 flex-wrap">
+      <div>
+        <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent mb-2">{kicker}</p>
+        <h2 className="font-serif font-medium leading-tight tracking-[-0.015em] ink text-[28px] sm:text-[32px]" style={{fontVariationSettings: '"opsz" 80'}}>
+          {title}
+        </h2>
+      </div>
+      {right}
+    </div>
+  );
+}
+
+function RankBadge({ rank }: { rank: number }) {
+  if (rank === 1) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="font-serif font-bold text-[18px] text-gold leading-none" style={{fontVariationSettings: '"opsz" 60'}}>1</span>
+        <span className="font-mono text-[9px] uppercase tracking-wide text-gold">st</span>
+      </div>
+    );
+  }
+  if (rank === 2) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="font-serif font-bold text-[18px] ink-soft leading-none" style={{fontVariationSettings: '"opsz" 60'}}>2</span>
+        <span className="font-mono text-[9px] uppercase tracking-wide ink-faint">nd</span>
+      </div>
+    );
+  }
+  if (rank === 3) {
+    return (
+      <div className="flex items-center gap-1">
+        <span className="font-serif font-bold text-[18px] ink-soft leading-none" style={{fontVariationSettings: '"opsz" 60'}}>3</span>
+        <span className="font-mono text-[9px] uppercase tracking-wide ink-faint">rd</span>
+      </div>
+    );
+  }
+  return <span className="font-mono text-[13px] tabular ink-faint">{rank}</span>;
+}
+
+function MatchSummaryList({ title, kicker, matches, emptyText, showScore }: {
+  title: string; kicker: string; matches: Match[]; emptyText: string; showScore?: boolean;
+}) {
+  return (
+    <div className="bg-card border border-line rounded-lg p-5 sm:p-6 shadow-paper">
+      <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent mb-2">{kicker}</p>
+      <h3 className="font-serif text-[22px] font-medium ink leading-tight" style={{fontVariationSettings: '"opsz" 48'}}>
+        {title}
+      </h3>
+      <ul className="mt-5 space-y-3.5">
+        {matches.length === 0 ? (
+          <li className="text-[13.5px] ink-faint italic font-serif">{emptyText}</li>
+        ) : matches.map(m => (
+          <li key={m.matchId} className="flex items-center justify-between gap-3 text-[14px] py-1">
+            <span className="ink leading-tight">
+              <span className="ink-faint mr-1">{flagFor(m.homeTeam)}</span>
+              <span className="font-medium">{m.homeTeam}</span>
+              {" "}<span className="ink-faint">vs</span>{" "}
+              <span className="font-medium">{m.awayTeam}</span>
+              <span className="ink-faint ml-1">{flagFor(m.awayTeam)}</span>
+            </span>
+            <span className="font-mono text-[12px] tabular ink-soft flex-shrink-0">
+              {showScore && m.homeScore !== null
+                ? <span className="ink font-semibold">{m.homeScore} – {m.awayScore}</span>
+                : relativeTime(m.kickoffUtc)
+              }
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function HeadToHead({ a, b, matches, onClose }: {
+  a: LeaderboardEntry; b: LeaderboardEntry; matches: Match[]; onClose: () => void;
+}) {
+  const finished = matches.filter(m => m.status === "FINISHED");
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-4 anim-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-line rounded-lg shadow-lift max-w-lg w-full max-h-[85vh] overflow-y-auto anim-scale-in"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
+          <div>
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-accent mb-1">
+              Head to head
+            </p>
+            <h2 className="font-serif text-[22px] font-medium ink" style={{fontVariationSettings: '"opsz" 48'}}>
+              {a.name} <span className="italic ink-faint">vs</span> {b.name}
+            </h2>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 flex items-center justify-center rounded-md ink-faint hover:ink hover:bg-paper-deep text-lg font-mono transition-colors"
+          >
+            ×
+          </button>
         </div>
-        <div className="p-5">
-          {/* Score summary */}
-          <div className="grid grid-cols-3 text-center mb-5 bg-slate-50 rounded-xl p-4">
-            <div>
-              <p className="font-black text-emerald-700 text-2xl">{a.totalScore}</p>
-              <p className="text-xs text-slate-500 font-medium truncate">{a.name}</p>
+
+        <div className="p-6">
+          <div className="grid grid-cols-3 gap-3 mb-7">
+            <div className="text-center">
+              <div className="font-serif font-medium text-[44px] ink tabular leading-none" style={{fontVariationSettings: '"opsz" 100'}}>
+                {a.totalScore}
+              </div>
+              <p className="mt-2 text-[12px] ink-soft font-medium truncate">{a.name}</p>
             </div>
-            <div className="flex flex-col items-center justify-center">
-              <p className="text-slate-300 text-xs uppercase tracking-wider">Total pts</p>
-              <p className="text-slate-400 text-xs mt-1">vs</p>
+            <div className="text-center flex items-center justify-center">
+              <span className="font-serif italic text-[18px] ink-faint" style={{fontVariationSettings: '"opsz" 32'}}>
+                vs
+              </span>
             </div>
-            <div>
-              <p className="font-black text-blue-700 text-2xl">{b.totalScore}</p>
-              <p className="text-xs text-slate-500 font-medium truncate">{b.name}</p>
+            <div className="text-center">
+              <div className="font-serif font-medium text-[44px] ink tabular leading-none" style={{fontVariationSettings: '"opsz" 100'}}>
+                {b.totalScore}
+              </div>
+              <p className="mt-2 text-[12px] ink-soft font-medium truncate">{b.name}</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 text-sm font-bold mb-3">
-            <span className="text-emerald-700 truncate">{a.name}</span>
-            <span className="text-center text-slate-400 text-xs uppercase tracking-wide">Match</span>
-            <span className="text-right text-blue-700 truncate">{b.name}</span>
-          </div>
-          <div className="space-y-1 text-sm">
-            {finishedMatches.map(m => {
-              const resultLabel = m.result === "H" ? m.homeTeam : m.result === "A" ? m.awayTeam : "Draw";
+          <div className="space-y-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.2em] ink-faint mb-3">
+              By round
+            </p>
+            {(Object.keys(ROUND_CONFIG) as (keyof typeof ROUND_CONFIG)[]).map(r => {
+              const aScore = a.scoreByRound[r] ?? 0;
+              const bScore = b.scoreByRound[r] ?? 0;
+              const winner = aScore > bScore ? "a" : bScore > aScore ? "b" : null;
               return (
-                <div key={m.matchId} className="grid grid-cols-3 items-center py-2 border-b border-slate-50">
-                  <span className="text-emerald-600 text-xs">—</span>
-                  <span className="text-center text-xs text-slate-500 leading-tight">
-                    {m.homeTeam} vs {m.awayTeam}<br />
-                    <span className="text-slate-400 font-medium">{resultLabel}</span>
-                  </span>
-                  <span className="text-right text-blue-600 text-xs">—</span>
+                <div key={r} className="grid grid-cols-3 items-center text-[13px] py-1.5 border-b border-[color:var(--line-soft)]">
+                  <span className={`font-mono tabular text-right ${winner === "a" ? "ink font-bold" : "ink-faint"}`}>{aScore}</span>
+                  <span className="text-center ink-soft text-[12px] truncate px-2">{ROUND_CONFIG[r].label}</span>
+                  <span className={`font-mono tabular text-left ${winner === "b" ? "ink font-bold" : "ink-faint"}`}>{bScore}</span>
                 </div>
               );
             })}
-            {finishedMatches.length === 0 && (
-              <p className="text-center text-slate-400 py-8 text-sm">No results yet</p>
-            )}
           </div>
+
+          {finished.length > 0 && (
+            <p className="mt-6 text-[12px] ink-faint italic font-serif text-center">
+              {finished.length} matches played &middot; {Math.abs(a.totalScore - b.totalScore)} point gap
+            </p>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+function ordinal(n: number): string {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function greetingForHour(h: number): string {
+  if (h < 5) return "Up late";
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  if (h < 21) return "Good evening";
+  return "Good evening";
 }

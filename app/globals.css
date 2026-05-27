@@ -1,11 +1,146 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Geist:wght@100..900&family=JetBrains+Mono:wght@400..700&display=swap');
 @import "tailwindcss";
 
-:root {
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+@layer base {
+  :root {
+    color-scheme: light only;
+
+    --paper:        #F5F1E8;
+    --paper-deep:   #ECE6D4;
+    --ink:          #0B1426;
+    --ink-soft:     #475065;
+    --ink-faint:    #8089A0;
+    --line:         #E0DACA;
+    --line-soft:    #ECE6D4;
+    --card:         #FFFEFA;
+    --card-shadow:  rgba(11, 20, 38, 0.06);
+
+    --accent:       #C9302C;   /* alert red */
+    --accent-soft:  #FBEAE9;
+    --gold:         #A07820;   /* mustard gold */
+    --gold-soft:    #F4E9CB;
+    --green:        #1B5E20;   /* deep forest */
+    --green-soft:   #E2EBE0;
+  }
+
+  html { color-scheme: light only; }
+
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: 'Geist', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Paper grain overlay */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(11, 20, 38, 0.022) 1px, transparent 0);
+    background-size: 18px 18px;
+    pointer-events: none;
+    z-index: 0;
+  }
 }
 
-body {
-  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
-  background-color: #f0f4f0;
+@layer utilities {
+  .font-serif {
+    font-family: 'Fraunces', Georgia, 'Times New Roman', serif;
+    font-optical-sizing: auto;
+  }
+  .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, 'Courier New', monospace;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+  .ink            { color: var(--ink); }
+  .ink-soft       { color: var(--ink-soft); }
+  .ink-faint      { color: var(--ink-faint); }
+  .bg-paper       { background-color: var(--paper); }
+  .bg-paper-deep  { background-color: var(--paper-deep); }
+  .bg-card        { background-color: var(--card); }
+  .bg-ink         { background-color: var(--ink); }
+  .bg-accent      { background-color: var(--accent); }
+  .bg-accent-soft { background-color: var(--accent-soft); }
+  .bg-gold        { background-color: var(--gold); }
+  .bg-gold-soft   { background-color: var(--gold-soft); }
+  .bg-green-deep  { background-color: var(--green); }
+  .bg-green-soft  { background-color: var(--green-soft); }
+  .text-accent    { color: var(--accent); }
+  .text-gold      { color: var(--gold); }
+  .text-green-deep{ color: var(--green); }
+  .border-line    { border-color: var(--line); }
+  .border-line-soft { border-color: var(--line-soft); }
+
+  .shadow-paper {
+    box-shadow:
+      0 1px 0 rgba(11, 20, 38, 0.04),
+      0 1px 3px rgba(11, 20, 38, 0.06);
+  }
+  .shadow-lift {
+    box-shadow:
+      0 1px 0 rgba(11, 20, 38, 0.04),
+      0 8px 24px -8px rgba(11, 20, 38, 0.12);
+  }
 }
+
+/* Animations */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.92); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+@keyframes ringPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(201, 48, 44, 0.45); }
+  70%  { box-shadow: 0 0 0 8px rgba(201, 48, 44, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(201, 48, 44, 0); }
+}
+@keyframes underlineGrow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+.anim-fade-up      { animation: fadeUp 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-fade-in      { animation: fadeIn 0.5s ease-out both; }
+.anim-scale-in     { animation: scaleIn 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-slide-right  { animation: slideRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.anim-ring-pulse   { animation: ringPulse 1.8s ease-out infinite; }
+.anim-underline    { animation: underlineGrow 0.6s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both; transform-origin: left; }
+
+/* Animated underline for editorial links */
+.editorial-underline {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  transition: background-size 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.editorial-underline:hover {
+  background-size: 100% 1px;
+}
+
+/* Tab switch fade */
+.tab-content { animation: fadeIn 0.3s ease-out both; }
+
+/* Selection ring for pick buttons */
+@keyframes pickPop {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.pick-selected { animation: pickPop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1); }
