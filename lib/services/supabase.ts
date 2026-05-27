@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Match, Pick, User, OddsData } from "../types";
+import { ROUND_CONFIG } from "../constants";
 import { MOCK_MATCHES, MOCK_PICKS, MOCK_USERS, MOCK_ODDS } from "./mockData";
 
 const isMock = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -21,15 +22,16 @@ export async function getAllMatches(): Promise<Match[]> {
 }
 
 function rowToMatch(r: Record<string, unknown>): Match {
+  const round = r.round as Match["round"];
   return {
     matchId:     r.match_id as string,
-    round:       r.round as Match["round"],
+    round,
     homeTeam:    r.home_team as string,
     awayTeam:    r.away_team as string,
     result:      (r.result as Match["result"]) ?? null,
     status:      r.status as Match["status"],
     kickoffUtc:  r.kickoff_utc as string,
-    pointsValue: r.points_value as number,
+    pointsValue: ROUND_CONFIG[round]?.pointsValue ?? 1,
     homeScore:   r.home_score as number | null,
     awayScore:   r.away_score as number | null,
   };
@@ -40,17 +42,16 @@ export async function upsertMatches(matches: Match[]): Promise<number> {
   if (matches.length === 0) return 0;
 
   const rows = matches.map(m => ({
-    match_id:     m.matchId,
-    round:        m.round,
-    home_team:    m.homeTeam,
-    away_team:    m.awayTeam,
-    result:       m.result,
-    status:       m.status,
-    kickoff_utc:  m.kickoffUtc,
-    points_value: m.pointsValue,
-    home_score:   m.homeScore,
-    away_score:   m.awayScore,
-    updated_at:   new Date().toISOString(),
+    match_id:    m.matchId,
+    round:       m.round,
+    home_team:   m.homeTeam,
+    away_team:   m.awayTeam,
+    result:      m.result,
+    status:      m.status,
+    kickoff_utc: m.kickoffUtc,
+    home_score:  m.homeScore,
+    away_score:  m.awayScore,
+    updated_at:  new Date().toISOString(),
   }));
 
   const { error } = await getClient()
@@ -84,10 +85,10 @@ function rowToPick(r: Record<string, unknown>): Pick {
   return {
     email:       r.email as string,
     matchId:     r.match_id as string,
-    round:       r.round as Pick["round"],
+    round:       (r.round ?? "GROUP") as Pick["round"],
     pick:        r.pick as Pick["pick"],
-    submittedAt: r.submitted_at as string,
-    updatedAt:   r.updated_at as string,
+    submittedAt: (r.submitted_at ?? new Date().toISOString()) as string,
+    updatedAt:   (r.updated_at ?? r.submitted_at ?? new Date().toISOString()) as string,
   };
 }
 
@@ -96,10 +97,8 @@ export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
   const rows = picks.map(p => ({
     email:        p.email,
     match_id:     p.matchId,
-    round:        p.round,
     pick:         p.pick,
-    submitted_at: p.submittedAt,
-    updated_at:   new Date().toISOString(),
+    submitted_at: new Date().toISOString(),
   }));
   const { error } = await getClient()
     .from("picks")
