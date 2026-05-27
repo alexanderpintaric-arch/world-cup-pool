@@ -112,7 +112,7 @@ export async function runSync(): Promise<SyncResult> {
       }
     }
   } catch (e) {
-    error = e instanceof Error ? e.message : String(e);
+    error = e instanceof Error ? e.message : ((e as any)?.message ?? JSON.stringify(e));
     console.error("Sync error:", e);
   }
 
