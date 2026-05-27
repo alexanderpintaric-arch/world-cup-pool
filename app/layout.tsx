@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { SessionProvider } from "next-auth/react";
+import { handleSignIn, handleSignOut } from "./actions";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
@@ -14,21 +15,41 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${geist.variable} ${geistMono.variable} antialiased bg-slate-50 min-h-screen`}>
+      <body className={`${geist.variable} ${geistMono.variable} antialiased min-h-screen`} style={{ background: "#f0f4f0" }}>
         <SessionProvider>
-          <nav className="sticky top-0 z-50 border-b border-slate-200 bg-white/80 backdrop-blur">
+          {/* Nav */}
+          <nav className="sticky top-0 z-50 border-b border-emerald-900/20 bg-emerald-900 shadow-md">
             <div className="mx-auto max-w-4xl flex items-center justify-between px-4 h-14">
-              <a href="/" className="font-bold text-slate-900 hover:text-blue-600 transition">
-                ⚽ 2026 WC Pool
+              <a href="/" className="flex items-center gap-2 whitespace-nowrap flex-shrink-0">
+                <span className="text-xl">⚽</span>
+                <span className="font-bold text-white text-base tracking-tight">
+                  WC Pool <span className="text-emerald-300">2026</span>
+                </span>
               </a>
-              <div className="flex items-center gap-4 text-sm">
-                <a href="/" className="text-slate-600 hover:text-slate-900 transition">Leaderboard</a>
-                <a href="/picks" className="text-slate-600 hover:text-slate-900 transition">My Picks</a>
+              <div className="flex items-center gap-1 sm:gap-3 text-sm ml-4">
+                <a href="/" className="px-2 py-1 rounded text-emerald-100 hover:text-white hover:bg-emerald-800 transition">
+                  Leaderboard
+                </a>
+                <a href="/picks" className="px-2 py-1 rounded text-emerald-100 hover:text-white hover:bg-emerald-800 transition">
+                  My Picks
+                </a>
                 <AuthButton />
               </div>
             </div>
           </nav>
-          <main className="mx-auto max-w-4xl px-4 py-8">{children}</main>
+
+          {/* Page hero strip */}
+          <div className="bg-emerald-900 pb-6 pt-1">
+            <div className="mx-auto max-w-4xl px-4">
+              <div className="flex items-center gap-3">
+                <div className="h-px flex-1 bg-emerald-700/50" />
+                <span className="text-emerald-400 text-xs font-medium tracking-widest uppercase">FIFA World Cup · Canada · Mexico · USA</span>
+                <div className="h-px flex-1 bg-emerald-700/50" />
+              </div>
+            </div>
+          </div>
+
+          <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
         </SessionProvider>
       </body>
     </html>
@@ -36,22 +57,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 
 async function AuthButton() {
-  const { auth, signIn, signOut } = await import("@/lib/auth");
+  const { auth } = await import("@/lib/auth");
   const session = await auth();
   if (session?.user) {
     return (
-      <form action={async () => { "use server"; await signOut(); }}>
-        <button type="submit" className="text-slate-600 hover:text-slate-900 transition">
+      <form action={handleSignOut}>
+        <button type="submit" className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-800 text-emerald-100 hover:bg-emerald-700 transition">
           Sign out
         </button>
       </form>
     );
   }
   return (
-    <form action={async () => { "use server"; await signIn("google"); }}>
-      <button type="submit" className="rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-blue-700 transition">
-        Sign in
-      </button>
-    </form>
+    <a href="/api/auth/signin/google?callbackUrl=/" className="px-3 py-1.5 rounded-lg text-sm font-semibold bg-yellow-400 text-emerald-900 hover:bg-yellow-300 transition shadow-sm">
+      Sign in
+    </a>
   );
 }
