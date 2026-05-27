@@ -58,6 +58,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No valid picks — round may be closed" }, { status: 400 });
   }
 
-  await upsertPicksBatch(validPicks);
+  try {
+    await upsertPicksBatch(validPicks);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : ((e as any)?.message ?? JSON.stringify(e));
+    console.error("upsertPicksBatch error:", e);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
   return NextResponse.json({ saved: validPicks.length });
 }
