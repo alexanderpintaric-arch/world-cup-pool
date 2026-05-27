@@ -98,6 +98,7 @@ export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
   const rows = picks.map(p => ({
     email:        p.email,
     match_id:     p.matchId,
+    round:        p.round,
     pick:         p.pick,
     submitted_at: new Date().toISOString(),
   }));
