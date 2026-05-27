@@ -1,46 +1,43 @@
+import { NextResponse } from "next/server";
 import { getAllMatches, getAllPicks, getAllUsers, getAllOdds } from "@/lib/services/supabase";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "@/lib/services/scoring";
-import { auth } from "@/lib/auth";
-import LeaderboardClient from "./LeaderboardClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const [matches, picks, users, odds, session] = await Promise.all([
+export async function GET() {
+  const [matches, picks, users, odds] = await Promise.all([
     getAllMatches(),
     getAllPicks(),
     getAllUsers(),
     getAllOdds(),
-    auth(),
   ]);
 
   const leaderboard = computeLeaderboard(users, picks, matches);
   const roundStates = getRoundStates(matches);
   const activeRound = getActiveRound(roundStates);
 
-  const now = new Date();
+  // Attach popular picks stats (post-deadline)
   const popularPicks: Record<string, { H: number; A: number; T: number; total: number }> = {};
+  const now = new Date();
+
   for (const rs of roundStates) {
-    if (!rs.deadline || now < new Date(rs.deadline)) continue;
+    if (!rs.deadline || now < new Date(rs.deadline)) continue; // only after deadline
     const roundMatches = matches.filter(m => m.round === rs.round);
     for (const match of roundMatches) {
-      const mp = picks.filter(p => p.matchId === match.matchId);
-      popularPicks[match.matchId] = { H: 0, A: 0, T: 0, total: mp.length };
-      for (const p of mp) {
+      const matchPicks = picks.filter(p => p.matchId === match.matchId);
+      popularPicks[match.matchId] = { H: 0, A: 0, T: 0, total: matchPicks.length };
+      for (const p of matchPicks) {
         if (p.pick) popularPicks[match.matchId][p.pick as "H"|"A"|"T"]++;
       }
     }
   }
 
-  return (
-    <LeaderboardClient
-      leaderboard={leaderboard}
-      matches={matches}
-      roundStates={roundStates}
-      activeRound={activeRound}
-      popularPicks={popularPicks}
-      odds={odds}
-      currentUserEmail={session?.user?.email ?? null}
-    />
-  );
+  return NextResponse.json({
+    leaderboard,
+    matches,
+    roundStates,
+    activeRound,
+    popularPicks,
+    odds,
+  });
 }
