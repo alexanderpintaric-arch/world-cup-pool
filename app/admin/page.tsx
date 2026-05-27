@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { auth, isAdmin } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getLastSync } from "@/lib/services/supabase";
