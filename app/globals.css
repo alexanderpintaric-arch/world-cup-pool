@@ -1,22 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --font-display: var(--font-fraunces);
-  --font-sans: var(--font-dm-sans);
-}
-
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
 }
 
 body {
-  font-family: var(--font-dm-sans, "DM Sans", system-ui, sans-serif);
-  background-color: #F8F7F4;
-  color: #1C1917;
-}
-
-.font-display {
-  font-family: var(--font-fraunces, Georgia, serif);
-  font-optical-sizing: auto;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  background-color: #f0f4f0;
 }

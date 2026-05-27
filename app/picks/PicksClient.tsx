@@ -73,24 +73,21 @@ export default function PicksClient({
   const roundsWithMatches = roundStates.filter(r => r.matchCount > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
 
       {/* Page header */}
       <div className="flex items-start justify-between flex-wrap gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-stone-900">My Picks</h1>
-          <p className="text-stone-500 text-sm mt-1">
-            Hi {userName} — picks save instantly as you go
-          </p>
+          <h1 className="text-2xl font-bold text-slate-900">My Picks</h1>
+          <p className="text-slate-500 text-sm mt-0.5">Hi {userName} — picks save instantly as you go</p>
         </div>
         {activeRound?.deadline && (
           <CountdownTimer deadline={activeRound.deadline} label={`${activeRound.label} deadline`} />
         )}
       </div>
 
-      {/* Error banner */}
       {error && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </div>
       )}
@@ -101,59 +98,50 @@ export default function PicksClient({
           <button
             key={rs.round}
             onClick={() => setSelectedRound(rs.round)}
-            className={`rounded-lg px-4 py-2 text-sm font-medium transition-all
+            className={`rounded-full px-4 py-1.5 text-sm font-semibold transition
               ${selectedRound === rs.round
-                ? "bg-green-800 text-white shadow-sm"
-                : rs.isOpen
-                  ? "bg-white border border-amber-300 text-stone-700 hover:border-amber-400 ring-2 ring-amber-100"
-                  : "bg-white border border-stone-200 text-stone-600 hover:border-stone-300 hover:text-stone-900"
-              }`}
+                ? "bg-emerald-800 text-white shadow-sm"
+                : "bg-white border border-slate-200 text-slate-600 hover:border-emerald-300 hover:text-emerald-700"
+              }
+              ${rs.isOpen && selectedRound !== rs.round ? "ring-2 ring-emerald-300 ring-offset-1" : ""}
+            `}
           >
             {rs.label}
-            {rs.isOpen && selectedRound !== rs.round && (
-              <span className="ml-1.5 inline-block h-1.5 w-1.5 rounded-full bg-amber-400 align-middle" />
-            )}
-            {rs.isComplete && (
-              <span className="ml-1.5 text-xs text-green-600">✓</span>
-            )}
+            {rs.isOpen && <span className="ml-1.5 text-emerald-300">●</span>}
+            {rs.isComplete && <span className="ml-1.5 text-emerald-500">✓</span>}
           </button>
         ))}
         {roundsWithMatches.length === 0 && (
-          <p className="text-stone-400 text-sm">Waiting for match schedule…</p>
+          <p className="text-slate-400 text-sm">Waiting for match schedule…</p>
         )}
       </div>
 
-      {/* Progress */}
+      {/* Progress bar */}
       {totalCount > 0 && (
-        <div className="bg-white rounded-xl border border-stone-200 px-5 py-4 shadow-sm">
-          <div className="flex items-center justify-between text-sm mb-3">
-            <span className="font-medium text-stone-700">
-              {pickedCount} <span className="text-stone-400 font-normal">of</span> {totalCount} picks made
-            </span>
-            <span className="text-stone-400 text-xs">
-              {!isOpen && currentRoundState?.isComplete && <span className="text-green-700 font-medium">Round complete</span>}
-              {!isOpen && !currentRoundState?.isComplete && <span>Picks locked</span>}
-              {isOpen && pct === 100 && <span className="text-green-700 font-medium">All done!</span>}
-              {isOpen && pct < 100 && <span>{currentRoundState?.pointsValue}pt per correct pick</span>}
+        <div className="bg-white rounded-xl border border-slate-200 px-4 py-3 shadow-sm">
+          <div className="flex justify-between text-xs text-slate-500 mb-2">
+            <span className="font-medium text-slate-700">{pickedCount} of {totalCount} picks made</span>
+            <span>
+              {!isOpen && currentRoundState?.isComplete && <span className="text-emerald-600 font-medium">✓ Round complete</span>}
+              {!isOpen && !currentRoundState?.isComplete && <span className="text-slate-400">Picks locked</span>}
+              {isOpen && pct === 100 && <span className="text-emerald-600 font-medium">All done!</span>}
             </span>
           </div>
-          <div className="h-1.5 w-full rounded-full bg-stone-100 overflow-hidden">
+          <div className="h-2 w-full rounded-full bg-slate-100 overflow-hidden">
             <div
-              className="h-1.5 rounded-full bg-green-700 transition-all duration-500"
+              className="h-2 rounded-full bg-emerald-500 transition-all duration-500"
               style={{ width: `${pct}%` }}
             />
           </div>
         </div>
       )}
 
-      {/* Match grid */}
+      {/* Match cards */}
       {roundMatches.length === 0 ? (
-        <div className="rounded-xl border border-stone-200 bg-white p-12 text-center text-stone-400 shadow-sm">
-          <p className="text-sm">
-            {selectedRound === "GROUP"
-              ? "Group stage matches will appear here once the schedule is loaded."
-              : "This round's bracket will be available once the previous round completes."}
-          </p>
+        <div className="rounded-xl border border-slate-200 bg-white p-10 text-center text-slate-400 shadow-sm">
+          {selectedRound === "GROUP"
+            ? "Group stage matches will appear here once the schedule is loaded."
+            : "This round's bracket will be available once the previous round completes."}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -168,23 +156,19 @@ export default function PicksClient({
                 result={match.result}
               />
               {saving[match.matchId] && (
-                <div className="absolute top-2.5 right-3 text-[11px] text-stone-400 font-medium animate-pulse">
-                  saving…
-                </div>
+                <div className="absolute top-2 right-2 text-xs text-slate-300 animate-pulse bg-white/80 rounded px-1">saving…</div>
               )}
               {saved[match.matchId] && (
-                <div className="absolute top-2.5 right-3 text-[11px] text-green-600 font-semibold">
-                  saved ✓
-                </div>
+                <div className="absolute top-2 right-2 text-xs text-emerald-500 bg-white/80 rounded px-1">saved ✓</div>
               )}
             </div>
           ))}
         </div>
       )}
 
-      {currentRoundState && totalCount > 0 && (
-        <p className="text-center text-xs text-stone-400 pb-2">
-          {currentRoundState.label} · {currentRoundState.pointsValue} point{currentRoundState.pointsValue !== 1 ? "s" : ""} per correct pick
+      {currentRoundState && (
+        <p className="text-center text-xs text-slate-400 pb-2">
+          {currentRoundState.label} · <span className="font-medium">{currentRoundState.pointsValue} point{currentRoundState.pointsValue !== 1 ? "s" : ""}</span> per correct pick
         </p>
       )}
     </div>
