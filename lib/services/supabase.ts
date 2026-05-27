@@ -1,5 +1,8 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Match, Pick, User, OddsData } from "../types";
+import { MOCK_MATCHES, MOCK_PICKS, MOCK_USERS, MOCK_ODDS } from "./mockData";
+
+const isMock = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 function getClient() {
   return createClient(
@@ -11,6 +14,7 @@ function getClient() {
 // ── Matches ────────────────────────────────────────────────────────────────
 
 export async function getAllMatches(): Promise<Match[]> {
+  if (isMock) return MOCK_MATCHES;
   const { data, error } = await getClient().from("matches").select("*");
   if (error) throw error;
   return (data ?? []).map(rowToMatch);
@@ -32,6 +36,7 @@ function rowToMatch(r: Record<string, unknown>): Match {
 }
 
 export async function upsertMatches(matches: Match[]): Promise<number> {
+  if (isMock) return 0;
   if (matches.length === 0) return 0;
 
   const rows = matches.map(m => ({
@@ -59,6 +64,7 @@ export async function upsertMatches(matches: Match[]): Promise<number> {
 // ── Picks ──────────────────────────────────────────────────────────────────
 
 export async function getPicksForUser(email: string): Promise<Pick[]> {
+  if (isMock) return MOCK_PICKS.filter(p => p.email === "alex@example.com");
   const { data, error } = await getClient()
     .from("picks")
     .select("*")
@@ -68,6 +74,7 @@ export async function getPicksForUser(email: string): Promise<Pick[]> {
 }
 
 export async function getAllPicks(): Promise<Pick[]> {
+  if (isMock) return MOCK_PICKS;
   const { data, error } = await getClient().from("picks").select("*");
   if (error) throw error;
   return (data ?? []).map(rowToPick);
@@ -85,7 +92,7 @@ function rowToPick(r: Record<string, unknown>): Pick {
 }
 
 export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
-  if (picks.length === 0) return;
+  if (isMock || picks.length === 0) return;
   const rows = picks.map(p => ({
     email:        p.email,
     match_id:     p.matchId,
@@ -103,6 +110,7 @@ export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
 // ── Users ──────────────────────────────────────────────────────────────────
 
 export async function getAllUsers(): Promise<User[]> {
+  if (isMock) return MOCK_USERS;
   const { data, error } = await getClient().from("users").select("*");
   if (error) throw error;
   return (data ?? []).map(r => ({
@@ -113,6 +121,7 @@ export async function getAllUsers(): Promise<User[]> {
 }
 
 export async function upsertUser(user: User): Promise<void> {
+  if (isMock) return;
   const { error } = await getClient()
     .from("users")
     .upsert({ email: user.email, name: user.name, created_at: user.createdAt },
@@ -123,6 +132,7 @@ export async function upsertUser(user: User): Promise<void> {
 // ── Odds ───────────────────────────────────────────────────────────────────
 
 export async function getAllOdds(): Promise<OddsData[]> {
+  if (isMock) return MOCK_ODDS;
   const { data, error } = await getClient().from("odds").select("*");
   if (error) throw error;
   return (data ?? []).map(r => ({
@@ -138,7 +148,7 @@ export async function getAllOdds(): Promise<OddsData[]> {
 }
 
 export async function upsertOdds(odds: OddsData[]): Promise<void> {
-  if (odds.length === 0) return;
+  if (isMock || odds.length === 0) return;
   const rows = odds.map(o => ({
     match_id:   o.matchId,
     home_odds:  o.homeOdds,
@@ -164,6 +174,7 @@ export async function logSync(entry: {
   emailsSent: number;
   error: string;
 }): Promise<void> {
+  if (isMock) return;
   const { error } = await getClient().from("sync_log").insert({
     synced_at:        entry.syncedAt,
     matches_updated:  entry.matchesUpdated,
@@ -175,6 +186,7 @@ export async function logSync(entry: {
 }
 
 export async function getLastSync(): Promise<{ syncedAt: string; matchesUpdated: number; error: string } | null> {
+  if (isMock) return { syncedAt: new Date().toISOString(), matchesUpdated: 12, error: "" };
   const { data, error } = await getClient()
     .from("sync_log")
     .select("*")

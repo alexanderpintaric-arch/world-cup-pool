@@ -13,6 +13,13 @@ interface Props {
   currentUserEmail: string | null;
 }
 
+const MEDAL = ["🥇", "🥈", "🥉"];
+const RANK_BG = [
+  "bg-yellow-50 border-l-4 border-yellow-400",
+  "bg-slate-50 border-l-4 border-slate-400",
+  "bg-orange-50 border-l-4 border-orange-400",
+];
+
 export default function LeaderboardClient({
   leaderboard, matches, roundStates, activeRound, popularPicks, currentUserEmail,
 }: Props) {
@@ -33,16 +40,17 @@ export default function LeaderboardClient({
   const entryB = leaderboard.find(e => e.email === compareB);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
+
       {/* Live matches banner */}
       {liveMatches.length > 0 && (
-        <div className="rounded-xl border border-green-300 bg-green-50 p-3 flex flex-wrap gap-3">
-          <span className="flex items-center gap-1.5 text-sm font-semibold text-green-700">
-            <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" /> Live now
+        <div className="rounded-xl bg-emerald-700 text-white px-4 py-3 flex flex-wrap items-center gap-3 shadow">
+          <span className="flex items-center gap-1.5 text-sm font-semibold">
+            <span className="h-2 w-2 rounded-full bg-green-300 animate-pulse" /> Live now
           </span>
           {liveMatches.map(m => (
-            <span key={m.matchId} className="text-sm text-green-800">
-              {m.homeTeam} {m.homeScore ?? "–"} : {m.awayScore ?? "–"} {m.awayTeam}
+            <span key={m.matchId} className="text-sm text-emerald-100">
+              {m.homeTeam} <span className="font-bold text-white">{m.homeScore ?? "–"} : {m.awayScore ?? "–"}</span> {m.awayTeam}
             </span>
           ))}
         </div>
@@ -50,18 +58,16 @@ export default function LeaderboardClient({
 
       {/* Active round nudge */}
       {activeRound && (
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 flex items-center justify-between">
+        <div className="rounded-xl border border-emerald-200 bg-white px-5 py-4 flex items-center justify-between shadow-sm gap-4">
           <div>
-            <p className="font-semibold text-blue-800">{activeRound.label} picks are open</p>
+            <p className="font-bold text-emerald-800 text-base">{activeRound.label} picks are open</p>
             {activeRound.deadline && (
-              <p className="text-sm text-blue-600">
-                Deadline: {new Date(activeRound.deadline).toLocaleString("en-CA", {
-                  dateStyle: "medium", timeStyle: "short",
-                })}
+              <p className="text-sm text-slate-500 mt-0.5">
+                Deadline: {new Date(activeRound.deadline).toLocaleString("en-CA", { dateStyle: "medium", timeStyle: "short" })}
               </p>
             )}
           </div>
-          <a href="/picks" className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition">
+          <a href="/picks" className="flex-shrink-0 rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-600 transition shadow-sm">
             Submit Picks →
           </a>
         </div>
@@ -70,20 +76,26 @@ export default function LeaderboardClient({
       {/* Compare hint */}
       {leaderboard.length > 1 && (
         <p className="text-xs text-slate-400 text-center">
-          {compareA ? `${entryA?.name} selected — click another row to compare` : "Click two rows to compare picks head-to-head"}
+          {compareA
+            ? `${entryA?.name} selected — click another name to compare`
+            : "Tap any two rows to compare picks head-to-head"}
         </p>
       )}
 
       {/* Leaderboard table */}
-      <div className="rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
+        <div className="bg-emerald-900 px-5 py-3 flex items-center justify-between">
+          <h2 className="text-white font-bold text-sm tracking-wide uppercase">Standings</h2>
+          <span className="text-emerald-400 text-xs">{leaderboard.length} players</span>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-slate-100 text-left text-xs text-slate-500 uppercase tracking-wide">
+              <tr className="border-b border-slate-100 text-left text-xs text-slate-400 uppercase tracking-wide bg-slate-50">
                 <th className="px-4 py-3 w-10">#</th>
                 <th className="px-4 py-3">Player</th>
                 <th className="px-4 py-3 text-right">Score</th>
-                <th className="px-4 py-3 text-right hidden sm:table-cell">Max</th>
+                <th className="px-4 py-3 text-right hidden sm:table-cell text-slate-300">Max</th>
                 {(Object.keys(ROUND_CONFIG) as (keyof typeof ROUND_CONFIG)[]).map(r => (
                   <th key={r} className="px-2 py-3 text-right hidden md:table-cell text-xs">
                     {ROUND_CONFIG[r].label.split(" ")[0]}
@@ -92,10 +104,10 @@ export default function LeaderboardClient({
                 <th className="px-4 py-3 text-right hidden sm:table-cell">Correct</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50">
+            <tbody className="divide-y divide-slate-100">
               {leaderboard.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-8 text-center text-slate-400">
+                  <td colSpan={10} className="px-4 py-10 text-center text-slate-400">
                     No entries yet — be the first to submit picks!
                   </td>
                 </tr>
@@ -103,29 +115,32 @@ export default function LeaderboardClient({
               {leaderboard.map((entry, i) => {
                 const isMe = entry.email === currentUserEmail;
                 const isSelected = entry.email === compareA || entry.email === compareB;
+                const rankStyle = i < 3 ? RANK_BG[i] : "";
                 return (
                   <tr
                     key={entry.email}
                     onClick={() => handleRowClick(entry.email)}
-                    className={`transition cursor-pointer
+                    className={`transition cursor-pointer hover:bg-slate-50
                       ${isMe ? "bg-blue-50" : ""}
-                      ${isSelected ? "bg-yellow-50 ring-1 ring-inset ring-yellow-300" : ""}
-                      hover:bg-slate-50
+                      ${isSelected ? "!bg-yellow-50 ring-1 ring-inset ring-yellow-300" : ""}
+                      ${!isMe && !isSelected && i < 3 ? rankStyle : ""}
                     `}
                   >
-                    <td className="px-4 py-3 font-bold text-slate-400">{i + 1}</td>
-                    <td className="px-4 py-3 font-medium text-slate-900">
-                      {entry.name}
-                      {isMe && <span className="ml-1.5 text-xs text-blue-500">you</span>}
+                    <td className="px-4 py-3 font-bold text-slate-400 w-10">
+                      {i < 3 ? MEDAL[i] : <span className="text-slate-300">{i + 1}</span>}
                     </td>
-                    <td className="px-4 py-3 text-right font-bold text-slate-900">{entry.totalScore}</td>
-                    <td className="px-4 py-3 text-right text-slate-400 hidden sm:table-cell">{entry.maxPossibleScore}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">
+                      {entry.name}
+                      {isMe && <span className="ml-1.5 text-xs font-normal text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full">you</span>}
+                    </td>
+                    <td className="px-4 py-3 text-right font-bold text-lg text-slate-900">{entry.totalScore}</td>
+                    <td className="px-4 py-3 text-right text-slate-300 text-xs hidden sm:table-cell">{entry.maxPossibleScore}</td>
                     {(Object.keys(ROUND_CONFIG) as (keyof typeof ROUND_CONFIG)[]).map(r => (
-                      <td key={r} className="px-2 py-3 text-right text-slate-500 hidden md:table-cell">
+                      <td key={r} className="px-2 py-3 text-right text-slate-400 text-xs hidden md:table-cell">
                         {entry.scoreByRound[r] ?? 0}
                       </td>
                     ))}
-                    <td className="px-4 py-3 text-right text-slate-400 hidden sm:table-cell">
+                    <td className="px-4 py-3 text-right text-slate-400 text-xs hidden sm:table-cell">
                       {entry.correctPicks}/{entry.totalPicks}
                     </td>
                   </tr>
@@ -136,84 +151,78 @@ export default function LeaderboardClient({
         </div>
       </div>
 
-      {/* Head-to-head comparison modal */}
-      {showCompare && entryA && entryB && (
-        <HeadToHead
-          a={entryA} b={entryB}
-          matches={matches}
-          popularPicks={popularPicks}
-          onClose={() => { setShowCompare(false); setCompareA(null); setCompareB(null); }}
-        />
-      )}
-
-      {/* Round progress */}
+      {/* Round status pills */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {roundStates.filter(r => r.matchCount > 0).map(rs => (
-          <div key={rs.round} className={`rounded-lg border p-3 text-sm
-            ${rs.isComplete ? "border-green-200 bg-green-50" :
-              rs.isOpen ? "border-blue-200 bg-blue-50" : "border-slate-200 bg-white"}`}>
-            <p className="font-semibold text-slate-700">{rs.label}</p>
-            <p className="text-xs text-slate-500 mt-0.5">
+          <div key={rs.round} className={`rounded-xl border p-3 text-sm bg-white shadow-sm
+            ${rs.isComplete ? "border-emerald-200" : rs.isOpen ? "border-emerald-400 ring-1 ring-emerald-200" : "border-slate-200"}`}>
+            <div className="flex items-center gap-1.5 mb-0.5">
+              {rs.isComplete && <span className="text-emerald-500 text-xs">✓</span>}
+              {rs.isOpen && <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />}
+              <p className="font-semibold text-slate-800 text-sm">{rs.label}</p>
+            </div>
+            <p className="text-xs text-slate-400">
               {rs.isComplete ? "Complete" : rs.isOpen ? "Open for picks" : "Coming soon"}
               {" · "}{rs.pointsValue}pt/pick
             </p>
           </div>
         ))}
       </div>
+
+      {/* Head-to-head modal */}
+      {showCompare && entryA && entryB && (
+        <HeadToHead
+          a={entryA} b={entryB}
+          matches={matches}
+          onClose={() => { setShowCompare(false); setCompareA(null); setCompareB(null); }}
+        />
+      )}
     </div>
   );
 }
 
-function HeadToHead({
-  a, b, matches, popularPicks, onClose,
-}: {
-  a: LeaderboardEntry;
-  b: LeaderboardEntry;
+function HeadToHead({ a, b, matches, onClose }: {
+  a: LeaderboardEntry; b: LeaderboardEntry;
   matches: Match[];
-  popularPicks: Record<string, { H: number; A: number; T: number; total: number }>;
   onClose: () => void;
 }) {
   const finishedMatches = matches.filter(m => m.status === "FINISHED");
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
-      <div
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[80vh] overflow-y-auto p-6"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
-          <h2 className="font-bold text-lg">Head to Head</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl">✕</button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="bg-emerald-900 rounded-t-2xl px-5 py-4 flex items-center justify-between">
+          <h2 className="font-bold text-white">Head to Head</h2>
+          <button onClick={onClose} className="text-emerald-300 hover:text-white text-xl leading-none">✕</button>
         </div>
-        <div className="grid grid-cols-3 text-sm font-semibold mb-2">
-          <span className="text-blue-600 truncate">{a.name}</span>
-          <span className="text-center text-slate-400">Match</span>
-          <span className="text-right text-purple-600 truncate">{b.name}</span>
-        </div>
-        <div className="space-y-2 text-sm">
-          {finishedMatches.map(m => {
-            const pickA = a.email; // placeholder — real implementation needs picks passed in
-            const pickB = b.email;
-            const resultLabel = m.result === "H" ? m.homeTeam : m.result === "A" ? m.awayTeam : "Draw";
-            return (
-              <div key={m.matchId} className="grid grid-cols-3 items-center py-1.5 border-b border-slate-50">
-                <span className="text-blue-600">—</span>
-                <span className="text-center text-xs text-slate-500">
-                  {m.homeTeam} vs {m.awayTeam}<br/>
-                  <span className="text-slate-400">{resultLabel}</span>
-                </span>
-                <span className="text-right text-purple-600">—</span>
-              </div>
-            );
-          })}
-          {finishedMatches.length === 0 && (
-            <p className="text-center text-slate-400 py-4">No results yet</p>
-          )}
-        </div>
-        <div className="mt-4 grid grid-cols-3 font-bold text-center border-t pt-3">
-          <span className="text-blue-600">{a.totalScore} pts</span>
-          <span className="text-slate-400 text-sm">Total</span>
-          <span className="text-purple-600">{b.totalScore} pts</span>
+        <div className="p-5">
+          <div className="grid grid-cols-3 text-sm font-bold mb-3">
+            <span className="text-emerald-700 truncate">{a.name}</span>
+            <span className="text-center text-slate-400 text-xs uppercase tracking-wide">Match</span>
+            <span className="text-right text-blue-700 truncate">{b.name}</span>
+          </div>
+          <div className="space-y-2 text-sm">
+            {finishedMatches.map(m => {
+              const resultLabel = m.result === "H" ? m.homeTeam : m.result === "A" ? m.awayTeam : "Draw";
+              return (
+                <div key={m.matchId} className="grid grid-cols-3 items-center py-2 border-b border-slate-50">
+                  <span className="text-emerald-600 text-xs">—</span>
+                  <span className="text-center text-xs text-slate-500 leading-tight">
+                    {m.homeTeam} vs {m.awayTeam}<br />
+                    <span className="text-slate-400 font-medium">{resultLabel}</span>
+                  </span>
+                  <span className="text-right text-blue-600 text-xs">—</span>
+                </div>
+              );
+            })}
+            {finishedMatches.length === 0 && (
+              <p className="text-center text-slate-400 py-6 text-sm">No results yet</p>
+            )}
+          </div>
+          <div className="mt-4 grid grid-cols-3 font-bold text-center border-t border-slate-100 pt-4">
+            <span className="text-emerald-700 text-lg">{a.totalScore} <span className="text-xs font-normal text-slate-400">pts</span></span>
+            <span className="text-slate-400 text-xs uppercase tracking-wide self-center">Total</span>
+            <span className="text-blue-700 text-lg text-right">{b.totalScore} <span className="text-xs font-normal text-slate-400">pts</span></span>
+          </div>
         </div>
       </div>
     </div>

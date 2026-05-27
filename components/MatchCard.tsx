@@ -7,83 +7,67 @@ interface Props {
   odds: OddsData | null;
   onPick: (matchId: string, pick: MatchResult) => void;
   disabled: boolean;
-  popularPick?: { H: number; A: number; T: number; total: number };
-  result?: MatchResult; // actual result (post-match)
+  result?: MatchResult;
 }
 
-const FLAG_EMOJIS: Record<string, string> = {};
-
-function probBar(prob: number | null) {
-  if (prob === null) return null;
-  return (
-    <span className="text-xs text-slate-400 font-normal">{prob}%</span>
-  );
-}
-
-export default function MatchCard({
-  match, currentPick, odds, onPick, disabled, popularPick, result,
-}: Props) {
+export default function MatchCard({ match, currentPick, odds, onPick, disabled, result }: Props) {
   const isKnockout = match.round !== "GROUP";
+  const isLive = match.status === "IN_PLAY" || match.status === "PAUSED" || match.status === "LIVE";
+  const isFinished = match.status === "FINISHED";
+
   const options: { value: MatchResult; label: string; prob: number | null }[] = [
     { value: "H", label: match.homeTeam, prob: odds?.homeProb ?? null },
     ...(!isKnockout ? [{ value: "T" as MatchResult, label: "Draw", prob: odds?.drawProb ?? null }] : []),
     { value: "A", label: match.awayTeam, prob: odds?.awayProb ?? null },
   ];
 
-  const isLive = match.status === "IN_PLAY" || match.status === "PAUSED" || match.status === "LIVE";
-  const isFinished = match.status === "FINISHED";
-
   return (
-    <div className={`rounded-xl border bg-white p-4 shadow-sm transition
-      ${isLive ? "border-green-400 ring-1 ring-green-300" : "border-slate-200"}`}>
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-xs text-slate-400">
+    <div className={`rounded-xl border bg-white shadow-sm overflow-hidden transition-all
+      ${isLive ? "border-emerald-400 ring-1 ring-emerald-300 shadow-emerald-100" : "border-slate-200"}`}>
+
+      {/* Match header */}
+      <div className={`px-4 py-2 flex items-center justify-between text-xs
+        ${isLive ? "bg-emerald-700 text-white" : "bg-slate-50 text-slate-400 border-b border-slate-100"}`}>
+        <span>
           {new Date(match.kickoffUtc).toLocaleString("en-CA", {
             month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
           })}
         </span>
-        {isLive && (
-          <span className="flex items-center gap-1 text-xs font-semibold text-green-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" /> LIVE
-          </span>
-        )}
-        {isFinished && match.homeScore !== null && (
-          <span className="text-xs font-mono font-bold text-slate-600">
-            {match.homeScore} – {match.awayScore}
-          </span>
-        )}
+        <span className="flex items-center gap-1.5 font-medium">
+          {isLive && <><span className="h-1.5 w-1.5 rounded-full bg-green-300 animate-pulse" /> LIVE</>}
+          {isFinished && match.homeScore !== null && (
+            <span className="font-mono font-bold text-slate-600">{match.homeScore} – {match.awayScore}</span>
+          )}
+        </span>
       </div>
 
       {/* Pick buttons */}
-      <div className={`grid gap-2 ${isKnockout ? "grid-cols-2" : "grid-cols-3"}`}>
+      <div className={`p-3 grid gap-2 ${isKnockout ? "grid-cols-2" : "grid-cols-3"}`}>
         {options.map(opt => {
           const picked = currentPick === opt.value;
           const correct = isFinished && result === opt.value;
           const wrong = isFinished && picked && result !== opt.value;
-          const pop = popularPick && popularPick.total > 0
-            ? Math.round((popularPick[opt.value as "H"|"A"|"T"] / popularPick.total) * 100)
-            : null;
+
+          let btnClass = "relative flex flex-col items-center rounded-lg border-2 px-2 py-3 text-sm font-semibold transition cursor-pointer select-none ";
+          if (correct)       btnClass += "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm";
+          else if (wrong)    btnClass += "border-red-200 bg-red-50 text-red-400 line-through";
+          else if (picked)   btnClass += "border-emerald-500 bg-emerald-700 text-white shadow-sm";
+          else               btnClass += "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50";
+
+          if (disabled && !picked && !correct && !wrong) btnClass += " opacity-70 cursor-default";
 
           return (
             <button
               key={opt.value}
               onClick={() => !disabled && onPick(match.matchId, opt.value)}
-              disabled={disabled}
-              className={`relative flex flex-col items-center rounded-lg border-2 px-2 py-3 text-sm font-medium transition
-                ${picked && !isFinished ? "border-blue-500 bg-blue-50 text-blue-700" : ""}
-                ${correct ? "border-green-500 bg-green-50 text-green-700" : ""}
-                ${wrong ? "border-red-300 bg-red-50 text-red-600 line-through" : ""}
-                ${!picked && !correct && !wrong ? "border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700" : ""}
-                ${disabled ? "cursor-default" : "cursor-pointer"}
-              `}
+              disabled={disabled && !picked}
+              className={btnClass}
             >
-              <span className="text-center leading-tight">{opt.label}</span>
+              <span className="text-center leading-tight text-xs sm:text-sm">{opt.label}</span>
               {opt.prob !== null && !isFinished && (
-                <span className="mt-1 text-xs opacity-60">{opt.prob}%</span>
-              )}
-              {pop !== null && (
-                <span className="mt-1 text-xs opacity-50">{pop}% picked</span>
+                <span className={`mt-1 text-xs font-normal ${picked ? "text-emerald-200" : "text-slate-400"}`}>
+                  {opt.prob}%
+                </span>
               )}
             </button>
           );

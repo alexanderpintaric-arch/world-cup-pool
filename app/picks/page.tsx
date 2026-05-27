@@ -4,13 +4,19 @@ import { getAllMatches, getPicksForUser, getAllOdds } from "@/lib/services/supab
 import { getRoundStates, getActiveRound } from "@/lib/services/scoring";
 import PicksClient from "./PicksClient";
 
+const isMock = !process.env.NEXT_PUBLIC_SUPABASE_URL;
+
 export default async function PicksPage() {
   const session = await auth();
-  if (!session?.user?.email) redirect("/api/auth/signin");
+  if (!isMock && !session?.user?.email) redirect("/api/auth/signin");
+
+  const mockEmail = "alex@example.com";
+  const email = session?.user?.email ?? mockEmail;
+  const name = session?.user?.name ?? "Alex P.";
 
   const [matches, userPicks, odds] = await Promise.all([
     getAllMatches(),
-    getPicksForUser(session.user.email),
+    getPicksForUser(email),
     getAllOdds(),
   ]);
 
@@ -24,8 +30,8 @@ export default async function PicksPage() {
       odds={odds}
       roundStates={roundStates}
       activeRound={activeRound}
-      userEmail={session.user.email}
-      userName={session.user.name ?? ""}
+      userEmail={email}
+      userName={name}
     />
   );
 }
