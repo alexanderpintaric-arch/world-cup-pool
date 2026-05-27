@@ -21,22 +21,33 @@ export default function MatchCard({ match, currentPick, odds, onPick, disabled, 
     { value: "A", label: match.awayTeam, prob: odds?.awayProb ?? null },
   ];
 
-  return (
-    <div className={`rounded-xl border bg-white shadow-sm overflow-hidden transition-all
-      ${isLive ? "border-emerald-400 ring-1 ring-emerald-300 shadow-emerald-100" : "border-slate-200"}`}>
+  const kickoff = new Date(match.kickoffUtc);
+  const dateLabel = kickoff.toLocaleString("en-CA", {
+    month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+  });
 
-      {/* Match header */}
-      <div className={`px-4 py-2 flex items-center justify-between text-xs
-        ${isLive ? "bg-emerald-700 text-white" : "bg-slate-50 text-slate-400 border-b border-slate-100"}`}>
-        <span>
-          {new Date(match.kickoffUtc).toLocaleString("en-CA", {
-            month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-          })}
-        </span>
-        <span className="flex items-center gap-1.5 font-medium">
-          {isLive && <><span className="h-1.5 w-1.5 rounded-full bg-green-300 animate-pulse" /> LIVE</>}
+  return (
+    <div className={`rounded-xl bg-white overflow-hidden transition-all
+      ${isLive
+        ? "border border-amber-300 shadow-[0_0_0_3px_rgba(251,191,36,0.12)]"
+        : "border border-stone-200 shadow-sm hover:shadow-md hover:border-stone-300"
+      }`}>
+
+      {/* Date / status row */}
+      <div className={`px-4 py-2.5 flex items-center justify-between
+        ${isLive ? "bg-amber-50 border-b border-amber-200" : "border-b border-stone-100"}`}>
+        <span className="text-xs text-stone-400 font-medium">{dateLabel}</span>
+        <span className="flex items-center gap-1.5 text-xs font-semibold">
+          {isLive && (
+            <span className="flex items-center gap-1.5 text-amber-700">
+              <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
+              Live
+            </span>
+          )}
           {isFinished && match.homeScore !== null && (
-            <span className="font-mono font-bold text-slate-600">{match.homeScore} – {match.awayScore}</span>
+            <span className="font-mono tabular-nums text-stone-500 font-bold">
+              {match.homeScore} – {match.awayScore}
+            </span>
           )}
         </span>
       </div>
@@ -48,24 +59,25 @@ export default function MatchCard({ match, currentPick, odds, onPick, disabled, 
           const correct = isFinished && result === opt.value;
           const wrong = isFinished && picked && result !== opt.value;
 
-          let btnClass = "relative flex flex-col items-center rounded-lg border-2 px-2 py-3 text-sm font-semibold transition cursor-pointer select-none ";
-          if (correct)       btnClass += "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm";
-          else if (wrong)    btnClass += "border-red-200 bg-red-50 text-red-400 line-through";
-          else if (picked)   btnClass += "border-emerald-500 bg-emerald-700 text-white shadow-sm";
-          else               btnClass += "border-slate-200 text-slate-700 hover:border-emerald-300 hover:bg-emerald-50";
+          let cls = "relative flex flex-col items-center justify-center gap-0.5 rounded-lg border px-2 py-3 text-[13px] font-medium transition-all select-none cursor-pointer ";
 
-          if (disabled && !picked && !correct && !wrong) btnClass += " opacity-70 cursor-default";
+          if (correct)     cls += "border-green-300 bg-green-50 text-green-800";
+          else if (wrong)  cls += "border-stone-150 bg-stone-50 text-stone-400 line-through";
+          else if (picked) cls += "border-green-800 bg-green-800 text-white shadow-sm";
+          else             cls += "border-stone-200 bg-stone-50 text-stone-800 hover:border-stone-300 hover:bg-white";
+
+          if (disabled && !picked && !correct && !wrong) cls += " opacity-60 cursor-default";
 
           return (
             <button
               key={opt.value}
               onClick={() => !disabled && onPick(match.matchId, opt.value)}
               disabled={disabled && !picked}
-              className={btnClass}
+              className={cls}
             >
-              <span className="text-center leading-tight text-xs sm:text-sm">{opt.label}</span>
+              <span className="text-center leading-tight text-[12px] sm:text-[13px] font-medium">{opt.label}</span>
               {opt.prob !== null && !isFinished && (
-                <span className={`mt-1 text-xs font-normal ${picked ? "text-emerald-200" : "text-slate-400"}`}>
+                <span className={`text-[11px] font-normal tabular-nums ${picked ? "text-green-300" : "text-stone-400"}`}>
                   {opt.prob}%
                 </span>
               )}

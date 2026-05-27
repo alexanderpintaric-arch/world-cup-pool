@@ -1,62 +1,52 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { handleSignOut } from "./actions";
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist-sans" });
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  axes: ["opsz"],
+});
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  variable: "--font-dm-sans",
+});
 
 export const metadata: Metadata = {
-  title: "2026 World Cup Pool",
+  title: "WC Pool 2026",
   description: "Predict every match. Climb the leaderboard.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <body className={`${geist.variable} ${geistMono.variable} antialiased min-h-screen`} style={{ background: "#f0f4f0" }}>
+      <body className={`${fraunces.variable} ${dmSans.variable}`}>
 
-        {/* Nav */}
-        <nav className="sticky top-0 z-50 bg-emerald-950 shadow-lg">
-          <div className="mx-auto max-w-4xl flex items-center justify-between px-4 h-14">
-            <a href="/" className="flex items-center gap-2.5 whitespace-nowrap flex-shrink-0">
-              <span className="text-xl">⚽</span>
-              <span className="font-black text-white text-base tracking-tight">
-                WC Pool <span className="text-yellow-400">2026</span>
+        <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-stone-200">
+          <div className="mx-auto max-w-5xl flex items-center justify-between px-5 h-14">
+            <a href="/" className="flex items-center gap-2.5 select-none">
+              <span className="text-base leading-none">⚽</span>
+              <span className="font-display text-[15px] font-semibold text-stone-900 tracking-tight">
+                WC Pool <span className="text-green-700">2026</span>
               </span>
             </a>
-            <div className="flex items-center gap-1 sm:gap-2 text-sm ml-4">
-              <a href="/" className="px-3 py-1.5 rounded-lg text-emerald-300 hover:text-white hover:bg-emerald-800 transition font-medium">
+            <nav className="flex items-center gap-0.5 text-[14px]">
+              <a href="/" className="px-3 py-1.5 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors font-medium">
                 Standings
               </a>
-              <a href="/picks" className="px-3 py-1.5 rounded-lg text-emerald-300 hover:text-white hover:bg-emerald-800 transition font-medium">
+              <a href="/picks" className="px-3 py-1.5 rounded-lg text-stone-600 hover:text-stone-900 hover:bg-stone-100 transition-colors font-medium">
                 My Picks
               </a>
-              <AuthButton />
-            </div>
-          </div>
-        </nav>
-
-        {/* Tournament banner */}
-        <div className="bg-gradient-to-b from-emerald-950 to-emerald-900 py-5">
-          <div className="mx-auto max-w-4xl px-4">
-            <div className="flex flex-col items-center gap-1.5">
-              <div className="flex items-center gap-3 text-sm text-emerald-300 font-medium">
-                <span>🇨🇦</span>
-                <span className="text-emerald-600">—</span>
-                <span className="text-yellow-400 font-bold tracking-widest uppercase text-xs">FIFA World Cup 2026</span>
-                <span className="text-emerald-600">—</span>
-                <span>🇺🇸</span>
+              <div className="ml-2">
+                <AuthButton />
               </div>
-              <div className="flex items-center gap-4 text-emerald-500 text-xs">
-                <span>🇲🇽 Mexico · 🇨🇦 Canada · 🇺🇸 United States</span>
-              </div>
-              <p className="text-emerald-600 text-xs tracking-wide">June 11 – July 19, 2026 · 64 Matches</p>
-            </div>
+            </nav>
           </div>
-        </div>
+        </header>
 
-        <main className="mx-auto max-w-4xl px-4 py-6">{children}</main>
+        <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
 
       </body>
     </html>
@@ -69,14 +59,20 @@ async function AuthButton() {
   if (session?.user) {
     return (
       <form action={handleSignOut}>
-        <button type="submit" className="px-3 py-1.5 rounded-lg text-sm font-medium bg-emerald-800 text-emerald-200 hover:bg-emerald-700 transition">
+        <button
+          type="submit"
+          className="px-3 py-1.5 rounded-lg text-[14px] font-medium bg-stone-100 text-stone-700 hover:bg-stone-200 transition-colors"
+        >
           Sign out
         </button>
       </form>
     );
   }
   return (
-    <a href="/api/auth/signin?callbackUrl=/" className="px-4 py-1.5 rounded-lg text-sm font-bold bg-yellow-400 text-emerald-950 hover:bg-yellow-300 transition shadow-sm">
+    <a
+      href="/api/auth/signin?callbackUrl=/"
+      className="px-4 py-1.5 rounded-lg text-[14px] font-semibold bg-green-800 text-white hover:bg-green-700 transition-colors shadow-sm"
+    >
       Sign in
     </a>
   );
