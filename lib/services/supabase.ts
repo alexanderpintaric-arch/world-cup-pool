@@ -42,16 +42,17 @@ export async function upsertMatches(matches: Match[]): Promise<number> {
   if (matches.length === 0) return 0;
 
   const rows = matches.map(m => ({
-    match_id:    m.matchId,
-    round:       m.round,
-    home_team:   m.homeTeam,
-    away_team:   m.awayTeam,
-    result:      m.result,
-    status:      m.status,
-    kickoff_utc: m.kickoffUtc,
-    home_score:  m.homeScore,
-    away_score:  m.awayScore,
-    updated_at:  new Date().toISOString(),
+    match_id:     m.matchId,
+    round:        m.round,
+    home_team:    m.homeTeam,
+    away_team:    m.awayTeam,
+    result:       m.result,
+    status:       m.status,
+    kickoff_utc:  m.kickoffUtc,
+    points_value: m.pointsValue,
+    home_score:   m.homeScore,
+    away_score:   m.awayScore,
+    updated_at:   new Date().toISOString(),
   }));
 
   const { error } = await getClient()
