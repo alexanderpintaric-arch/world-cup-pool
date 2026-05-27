@@ -6,13 +6,24 @@ import LeaderboardClient from "./LeaderboardClient";
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [matches, picks, users, odds, session] = await Promise.all([
-    getAllMatches(),
-    getAllPicks(),
-    getAllUsers(),
-    getAllOdds(),
-    auth(),
-  ]);
+  let matches, picks, users, odds, session;
+  try {
+    [matches, picks, users, odds, session] = await Promise.all([
+      getAllMatches(),
+      getAllPicks(),
+      getAllUsers(),
+      getAllOdds(),
+      auth(),
+    ]);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-red-800">
+        <p className="font-bold mb-1">Startup error</p>
+        <pre className="text-xs whitespace-pre-wrap">{msg}</pre>
+      </div>
+    );
+  }
 
   const leaderboard = computeLeaderboard(users, picks, matches);
   const roundStates = getRoundStates(matches);
