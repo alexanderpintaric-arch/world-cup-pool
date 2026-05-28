@@ -17,15 +17,24 @@ export default async function SignInPage({
 
         {/* Brand mark */}
         <div className="text-center mb-8">
-          <a href="/" className="inline-flex items-baseline gap-2 group">
-            <span
-              className="font-serif italic text-[30px] font-medium ink leading-none"
-              style={{ fontVariationSettings: '"opsz" 60' }}
-            >
-              Nutmeg
-            </span>
-            <span className="font-mono text-[12px] font-medium tabular ink-faint group-hover:text-accent transition-colors">
-              WC&rsquo;26
+          <a href="/" className="inline-flex flex-col items-center gap-3 group">
+            <img
+              src="/nutmeg-mark.svg"
+              alt="Nutmeg"
+              width={52}
+              height={52}
+              className="rounded-xl shadow-lift"
+            />
+            <span className="inline-flex items-baseline gap-2">
+              <span
+                className="font-serif italic text-[28px] font-medium ink leading-none"
+                style={{ fontVariationSettings: '"opsz" 60' }}
+              >
+                Nutmeg
+              </span>
+              <span className="font-mono text-[12px] font-medium tabular ink-faint group-hover:text-accent transition-colors">
+                WC&rsquo;26
+              </span>
             </span>
           </a>
           <p className="mt-3 text-[13.5px] ink-soft leading-relaxed">
