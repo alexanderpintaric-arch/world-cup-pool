@@ -11,12 +11,17 @@ export const ROUND_CONFIG: Record<Round, { label: string; pointsValue: number; o
 
 // football-data.org stage name -> our Round
 export const STAGE_MAP: Record<string, Round> = {
-  "GROUP_STAGE":         "GROUP",
-  "LAST_32":             "ROUND_OF_32",
-  "LAST_16":             "ROUND_OF_16",
-  "QUARTER_FINALS":      "QUARTER_FINALS",
-  "SEMI_FINALS":         "SEMI_FINALS",
-  "FINAL":               "FINAL",
+  "GROUP_STAGE":              "GROUP",
+  "LAST_32":                  "ROUND_OF_32",
+  "LAST_16":                  "ROUND_OF_16",
+  "QUARTER_FINALS":           "QUARTER_FINALS",
+  "SEMI_FINALS":              "SEMI_FINALS",
+  "FINAL":                    "FINAL",
+  // 3rd-place playoff — bucket with Final (same round, same points)
+  "THIRD_PLACE":              "FINAL",
+  "THIRD_PLACE_PLAY_OFF":     "FINAL",
+  "3RD_PLACE_PLAYOFF":        "FINAL",
+  "PLAY_OFF_ROUND_ONE":       "ROUND_OF_32",
 };
 
 export const SHEET_NAMES = {

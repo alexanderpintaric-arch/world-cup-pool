@@ -436,7 +436,11 @@ function UngroupedRemainder({
   pointsValue: number;
   popularCounts: Record<string, PopularCount>;
 }) {
-  const remainder = allRoundMatches.filter(m => !groupMatchIds.has(m.matchId));
+  const remainder = allRoundMatches.filter(m =>
+    !groupMatchIds.has(m.matchId) &&
+    // Skip placeholder matches where both teams are still TBD
+    !(m.homeTeam === "TBD" && m.awayTeam === "TBD")
+  );
   if (remainder.length === 0) return null;
   return (
     <section>

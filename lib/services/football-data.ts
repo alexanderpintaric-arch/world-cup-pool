@@ -50,8 +50,12 @@ export async function fetchAllWCMatches(): Promise<Match[]> {
   const data = await res.json();
   const fdMatches: FDMatch[] = data.matches ?? [];
 
-  return fdMatches.map((m): Match => {
-    const round: Round = STAGE_MAP[m.stage] ?? "GROUP";
+  return fdMatches.flatMap((m): Match[] => {
+    const round: Round | undefined = STAGE_MAP[m.stage];
+    if (!round) {
+      console.warn(`[football-data] Unknown stage "${m.stage}" for match ${m.id} — skipping`);
+      return [];
+    }
     const status = mapStatus(m.status);
 
     const homeScore =
@@ -64,7 +68,7 @@ export async function fetchAllWCMatches(): Promise<Match[]> {
       m.score?.extraTime?.away != null ? m.score.extraTime!.away :
       m.score?.fullTime?.away ?? null;
 
-    return {
+    return [{
       matchId:     String(m.id),
       round,
       homeTeam:    m.homeTeam?.name || m.homeTeam?.tla || "TBD",
@@ -75,6 +79,6 @@ export async function fetchAllWCMatches(): Promise<Match[]> {
       pointsValue: ROUND_CONFIG[round].pointsValue,
       homeScore,
       awayScore,
-    };
+    }];
   });
 }
