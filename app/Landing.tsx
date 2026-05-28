@@ -70,8 +70,8 @@ export default function Landing({ matches, participantCount }: Props) {
         </div>
 
         <h1 className="font-serif font-medium leading-[0.95] tracking-[-0.025em] ink anim-fade-up" style={{fontSize: 'clamp(2.75rem, 7.5vw, 5.5rem)', fontVariationSettings: '"opsz" 120'}}>
-          Bracket politics,<br />
-          <span className="italic text-accent" style={{fontVariationSettings: '"opsz" 144'}}>settled by 104 games.</span>
+          The beautiful game,<br />
+          <span className="italic text-accent" style={{fontVariationSettings: '"opsz" 144'}}>made personal.</span>
         </h1>
 
         <div className="mt-8 sm:mt-10 max-w-2xl anim-fade-up" style={{animationDelay: '120ms'}}>
