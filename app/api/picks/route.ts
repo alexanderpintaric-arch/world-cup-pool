@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
-import { getPicksForUser, upsertPicksBatch, deletePick, getAllMatches } from "@/lib/services/supabase";
+import { getPicksForUser, upsertPicksBatch, deletePick, getAllMatches, getAllOdds } from "@/lib/services/supabase";
 import { getRoundStates } from "@/lib/services/scoring";
 import type { Pick } from "@/lib/types";
 
@@ -41,11 +41,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "No picks provided" }, { status: 400 });
   }
 
-  const allMatches = await getAllMatches();
+  const [allMatches, allOdds] = await Promise.all([getAllMatches(), getAllOdds()]);
   const roundStates = getRoundStates(allMatches);
   const roundStateMap = new Map(roundStates.map(r => [r.round, r]));
   const availableRounds = new Set(roundStates.filter(r => r.isAvailable).map(r => r.round));
   const matchMap = new Map(allMatches.map(m => [m.matchId, m]));
+  const oddsMap = new Map(allOdds.map(o => [o.matchId, o]));
+
+  // Decimal odds of the chosen outcome at this moment — snapshotted onto the pick
+  const oddsForPick = (matchId: string, pick: "H" | "A" | "T"): number | null => {
+    const o = oddsMap.get(matchId);
+    if (!o) return null;
+    if (pick === "H") return o.homeOdds ?? null;
+    if (pick === "A") return o.awayOdds ?? null;
+    return o.drawOdds ?? null;
+  };
 
   const nowMs = Date.now();
   const now = new Date().toISOString();
@@ -76,6 +86,7 @@ export async function POST(req: Request) {
       round:       match.round,
       pick:        p.pick as Pick["pick"],
       leagueId,
+      odds:        oddsForPick(p.matchId, p.pick as "H" | "A" | "T"),
       submittedAt: now,
       updatedAt:   now,
     });

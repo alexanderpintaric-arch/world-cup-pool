@@ -28,6 +28,7 @@ create table picks (
   round        text not null,
   pick         text not null,  -- 'H' | 'A' | 'T'
   league_id    text not null,  -- scopes picks per league
+  odds         numeric,        -- decimal odds of the picked outcome at pick time (nullable)
   submitted_at timestamptz default now(),
   updated_at   timestamptz default now(),
   primary key (email, match_id, league_id)  -- one pick per match per league per user

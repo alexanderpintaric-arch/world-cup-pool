@@ -32,12 +32,12 @@ const MOCK_LEAGUE_ID = "mock-league";
 
 export const MOCK_PICKS: Pick[] = [
   // Alex's picks
-  { email: "alex@example.com", matchId: "1", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "2", round: "GROUP", pick: "T", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "3", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "4", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "7", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "8", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "1", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, odds: 1.55, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "2", round: "GROUP", pick: "T", leagueId: MOCK_LEAGUE_ID, odds: 3.10, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "3", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, odds: 1.40, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "4", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, odds: 2.20, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "7", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, odds: 1.30, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "8", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, odds: 1.85, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
   // Sarah
   { email: "sarah@example.com", matchId: "1", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
   { email: "sarah@example.com", matchId: "2", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },

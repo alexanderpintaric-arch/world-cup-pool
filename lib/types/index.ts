@@ -28,6 +28,8 @@ export interface Pick {
   round: Round;
   pick: MatchResult;
   leagueId: string;
+  /** Decimal odds of the picked outcome, snapshotted at pick time. Null if unknown. */
+  odds?: number | null;
   submittedAt: string;
   updatedAt: string;
 }

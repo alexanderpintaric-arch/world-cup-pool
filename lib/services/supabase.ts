@@ -100,6 +100,7 @@ function rowToPick(r: Record<string, unknown>): Pick {
     round:       (r.round ?? "GROUP") as Pick["round"],
     pick:        r.pick as Pick["pick"],
     leagueId:    (r.league_id ?? "unknown") as string,
+    odds:        (r.odds as number | null) ?? null,
     submittedAt: (r.submitted_at ?? new Date().toISOString()) as string,
     updatedAt:   (r.updated_at ?? r.submitted_at ?? new Date().toISOString()) as string,
   };
@@ -124,6 +125,7 @@ export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
     round:        p.round,
     pick:         p.pick,
     league_id:    p.leagueId,
+    odds:         p.odds ?? null,
     submitted_at: new Date().toISOString(),
   }));
   const { error } = await getClient()

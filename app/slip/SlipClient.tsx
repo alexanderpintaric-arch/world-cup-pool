@@ -59,6 +59,13 @@ export default function SlipClient({
     return map;
   }, [userPicks]);
 
+  // Odds snapshotted at the moment each pick was made (null if unknown)
+  const oddsMap = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const p of userPicks) map.set(p.matchId, p.odds ?? null);
+    return map;
+  }, [userPicks]);
+
   // Build per-round data
   const roundData = useMemo(() => {
     return roundStates.map(rs => {
@@ -124,6 +131,8 @@ export default function SlipClient({
       for (const m of rd.matches) {
         const pick = pickMap.get(m.matchId);
         const label = pick ? pickLabel(pick, m) : "(no pick)";
+        const odds = oddsMap.get(m.matchId);
+        const oddsStr = pick && odds ? ` @ ${odds.toFixed(2)}` : "";
         const score = scoreStr(m);
         const isFinished = m.status === "FINISHED";
         const isCorrect  = isFinished && pick && pick === m.result;
@@ -131,7 +140,7 @@ export default function SlipClient({
         const flag = isCorrect ? `  WON +${m.pointsValue}` : isWrong ? "  LOST" : "";
         const matchup = score ? `${m.homeTeam} ${score} ${m.awayTeam}` : `${m.homeTeam} v ${m.awayTeam}`;
         lines.push(`  ${matchup}`);
-        lines.push(`   > ${label}${flag}`);
+        lines.push(`   > ${label}${oddsStr}${flag}`);
       }
       if (rd.finishedCount > 0) {
         lines.push(`  SUBTOTAL ......... ${rd.pts} pts`);
@@ -284,6 +293,7 @@ export default function SlipClient({
                         key={m.matchId}
                         match={m}
                         pick={pickMap.get(m.matchId) ?? null}
+                        odds={oddsMap.get(m.matchId) ?? null}
                       />
                     ))}
                   </div>
@@ -408,9 +418,10 @@ function MetaLine({ label, value }: { label: string; value: string }) {
   );
 }
 
-function PickRow({ match, pick }: {
+function PickRow({ match, pick, odds }: {
   match: Match;
   pick: MatchResult;
+  odds: number | null;
 }) {
   const isFinished = match.status === "FINISHED";
   const isLive     = match.status === "IN_PLAY" || match.status === "LIVE" || match.status === "PAUSED";
@@ -455,6 +466,9 @@ function PickRow({ match, pick }: {
           : "ink font-medium"}`}
         >
           &rsaquo; {label}
+          {!notPicked && odds != null && (
+            <span className="ink-faint/70 font-normal tabular ml-1.5">@ {odds.toFixed(2)}</span>
+          )}
         </span>
         <span className="lead" />
         <span className="flex-shrink-0 text-[10.5px] tracking-[0.06em] uppercase">{status}</span>
