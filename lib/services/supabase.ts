@@ -65,16 +65,27 @@ export async function upsertMatches(matches: Match[]): Promise<number> {
 
 // ── Picks ──────────────────────────────────────────────────────────────────
 
-export async function getPicksForUser(email: string): Promise<Pick[]> {
+export async function getPicksForUser(email: string, leagueId?: string): Promise<Pick[]> {
   if (isMock) return MOCK_PICKS.filter(p => p.email === "alex@example.com");
-  const { data, error } = await getClient()
-    .from("picks")
-    .select("*")
-    .eq("email", email);
+  let query = getClient().from("picks").select("*").eq("email", email);
+  if (leagueId) query = query.eq("league_id", leagueId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map(rowToPick);
 }
 
+/** All picks within a specific league — used for community page and popular counts. */
+export async function getPicksForLeague(leagueId: string): Promise<Pick[]> {
+  if (isMock) return MOCK_PICKS;
+  const { data, error } = await getClient()
+    .from("picks")
+    .select("*")
+    .eq("league_id", leagueId);
+  if (error) throw error;
+  return (data ?? []).map(rowToPick);
+}
+
+/** @deprecated Use getPicksForLeague for scoped queries */
 export async function getAllPicks(): Promise<Pick[]> {
   if (isMock) return MOCK_PICKS;
   const { data, error } = await getClient().from("picks").select("*");
@@ -88,6 +99,7 @@ function rowToPick(r: Record<string, unknown>): Pick {
     matchId:     r.match_id as string,
     round:       (r.round ?? "GROUP") as Pick["round"],
     pick:        r.pick as Pick["pick"],
+    leagueId:    (r.league_id ?? "unknown") as string,
     submittedAt: (r.submitted_at ?? new Date().toISOString()) as string,
     updatedAt:   (r.updated_at ?? r.submitted_at ?? new Date().toISOString()) as string,
   };
@@ -100,11 +112,12 @@ export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
     match_id:     p.matchId,
     round:        p.round,
     pick:         p.pick,
+    league_id:    p.leagueId,
     submitted_at: new Date().toISOString(),
   }));
   const { error } = await getClient()
     .from("picks")
-    .upsert(rows, { onConflict: "email,match_id" });
+    .upsert(rows, { onConflict: "email,match_id,league_id" });
   if (error) throw error;
 }
 

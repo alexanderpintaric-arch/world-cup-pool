@@ -28,37 +28,39 @@ export const MOCK_USERS: User[] = [
   { email: "emily@example.com", name: "Emily S.", createdAt: "2026-05-03T00:00:00Z" },
 ];
 
+const MOCK_LEAGUE_ID = "mock-league";
+
 export const MOCK_PICKS: Pick[] = [
   // Alex's picks
-  { email: "alex@example.com", matchId: "1", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "2", round: "GROUP", pick: "T", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "3", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "4", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "7", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "alex@example.com", matchId: "8", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "1", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "2", round: "GROUP", pick: "T", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "3", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "4", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "7", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "alex@example.com", matchId: "8", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
   // Sarah
-  { email: "sarah@example.com", matchId: "1", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "sarah@example.com", matchId: "2", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "sarah@example.com", matchId: "3", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "sarah@example.com", matchId: "7", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "sarah@example.com", matchId: "1", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "sarah@example.com", matchId: "2", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "sarah@example.com", matchId: "3", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "sarah@example.com", matchId: "7", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
   // Mike
-  { email: "mike@example.com", matchId: "1", round: "GROUP", pick: "T", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "mike@example.com", matchId: "2", round: "GROUP", pick: "T", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "mike@example.com", matchId: "3", round: "GROUP", pick: "A", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "mike@example.com", matchId: "7", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "mike@example.com", matchId: "8", round: "GROUP", pick: "A", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "mike@example.com", matchId: "1", round: "GROUP", pick: "T", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "mike@example.com", matchId: "2", round: "GROUP", pick: "T", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "mike@example.com", matchId: "3", round: "GROUP", pick: "A", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "mike@example.com", matchId: "7", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "mike@example.com", matchId: "8", round: "GROUP", pick: "A", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
   // Jessica
-  { email: "jessica@example.com", matchId: "1", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "jessica@example.com", matchId: "2", round: "GROUP", pick: "A", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "jessica@example.com", matchId: "7", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "jessica@example.com", matchId: "1", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "jessica@example.com", matchId: "2", round: "GROUP", pick: "A", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "jessica@example.com", matchId: "7", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
   // Tom
-  { email: "tom@example.com", matchId: "1", round: "GROUP", pick: "A", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "tom@example.com", matchId: "3", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "tom@example.com", matchId: "7", round: "GROUP", pick: "T", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "tom@example.com", matchId: "1", round: "GROUP", pick: "A", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "tom@example.com", matchId: "3", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "tom@example.com", matchId: "7", round: "GROUP", pick: "T", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
   // Emily
-  { email: "emily@example.com", matchId: "1", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "emily@example.com", matchId: "2", round: "GROUP", pick: "T", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
-  { email: "emily@example.com", matchId: "8", round: "GROUP", pick: "H", submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "emily@example.com", matchId: "1", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "emily@example.com", matchId: "2", round: "GROUP", pick: "T", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
+  { email: "emily@example.com", matchId: "8", round: "GROUP", pick: "H", leagueId: MOCK_LEAGUE_ID, submittedAt: "2026-06-10T12:00:00Z", updatedAt: "2026-06-10T12:00:00Z" },
 ];
 
 export const MOCK_ODDS: OddsData[] = [

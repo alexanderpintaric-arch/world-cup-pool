@@ -27,6 +27,7 @@ export interface Pick {
   matchId: string;
   round: Round;
   pick: MatchResult;
+  leagueId: string;
   submittedAt: string;
   updatedAt: string;
 }

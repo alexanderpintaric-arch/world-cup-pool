@@ -1,8 +1,10 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import {
-  getAllMatches, getAllPicks, getAllUsers, getPicksForUser,
+  getAllMatches, getPicksForLeague, getPicksForUser, getAllUsers,
 } from "@/lib/services/supabase";
+import { getUserLeagues, getLeagueMembers } from "@/lib/services/leagues";
 import { getRoundStates, getActiveRound } from "@/lib/services/scoring";
 import CommunityClient from "./CommunityClient";
 
@@ -15,11 +17,35 @@ export default async function CommunityPage() {
   const mockEmail = "alex@example.com";
   const email = session?.user?.email ?? mockEmail;
 
-  const [matches, allPicks, allUsers, userPicks] = await Promise.all([
+  // Determine active league (required for league-scoped picks)
+  let leagueId: string;
+  let allUsers: Awaited<ReturnType<typeof getAllUsers>>;
+
+  if (isMock) {
+    leagueId = "mock-league";
+    allUsers = (await import("@/lib/services/mockData")).MOCK_USERS;
+  } else {
+    const leagues = await getUserLeagues(email);
+    if (leagues.length === 0) redirect("/onboarding");
+
+    const cookieStore = await cookies();
+    const activeLeagueId = cookieStore.get("wcp_league")?.value;
+    const activeLeague = leagues.find(l => l.id === activeLeagueId) ?? leagues[0];
+    leagueId = activeLeague.id;
+
+    // Filter allUsers to only league members so names/avatars are league-scoped
+    const [fetchedUsers, members] = await Promise.all([
+      getAllUsers(),
+      getLeagueMembers(leagueId),
+    ]);
+    const memberEmails = new Set(members.map(m => m.email));
+    allUsers = fetchedUsers.filter(u => memberEmails.has(u.email));
+  }
+
+  const [matches, allPicks, userPicks] = await Promise.all([
     getAllMatches(),
-    getAllPicks(),
-    getAllUsers(),
-    getPicksForUser(email),
+    getPicksForLeague(leagueId),
+    getPicksForUser(email, leagueId),
   ]);
 
   const roundStates = getRoundStates(matches);
@@ -27,7 +53,7 @@ export default async function CommunityPage() {
   const matchMap     = new Map(matches.map(m => [m.matchId, m]));
   const userMap      = new Map(allUsers.map(u => [u.email, u]));
 
-  // ── Pick counts (all matches, all picks) ───────────────────────────────
+  // ── Pick counts (all matches, league picks) ────────────────────────────
   // Used for bar widths — always visible regardless of kickoff status.
   const counts: Record<string, { H: number; A: number; T: number; total: number }> = {};
   for (const pick of allPicks) {

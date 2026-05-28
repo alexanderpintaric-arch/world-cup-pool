@@ -1,7 +1,8 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import {
-  getAllMatches, getPicksForUser, getAllOdds, getAllPicks,
+  getAllMatches, getPicksForUser, getAllOdds, getPicksForLeague,
 } from "@/lib/services/supabase";
 import { getUserLeagues } from "@/lib/services/leagues";
 import { getRoundStates, getActiveRound } from "@/lib/services/scoring";
@@ -13,21 +14,29 @@ export default async function PicksPage() {
   const session = await auth();
   if (!isMock && !session?.user?.email) redirect("/api/auth/signin");
 
-  // League gate
-  if (!isMock && session?.user?.email) {
-    const leagues = await getUserLeagues(session.user.email);
-    if (leagues.length === 0) redirect("/onboarding");
-  }
-
   const mockEmail = "alex@example.com";
   const email = session?.user?.email ?? mockEmail;
   const name  = session?.user?.name  ?? "Alex P.";
 
+  // League gate
+  let leagueId: string;
+  if (isMock) {
+    leagueId = "mock-league";
+  } else {
+    const leagues = await getUserLeagues(email);
+    if (leagues.length === 0) redirect("/onboarding");
+
+    const cookieStore = await cookies();
+    const activeLeagueId = cookieStore.get("wcp_league")?.value;
+    const activeLeague = leagues.find(l => l.id === activeLeagueId) ?? leagues[0];
+    leagueId = activeLeague.id;
+  }
+
   const [matches, userPicks, odds, allPicks] = await Promise.all([
     getAllMatches(),
-    getPicksForUser(email),
+    getPicksForUser(email, leagueId),
     getAllOdds(),
-    getAllPicks(),
+    getPicksForLeague(leagueId),
   ]);
 
   const roundStates = getRoundStates(matches);

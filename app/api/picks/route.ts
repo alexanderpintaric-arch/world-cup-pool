@@ -1,5 +1,6 @@
 export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getPicksForUser, upsertPicksBatch, getAllMatches } from "@/lib/services/supabase";
 import { getRoundStates } from "@/lib/services/scoring";
@@ -10,7 +11,14 @@ export async function GET() {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  const picks = await getPicksForUser(session.user.email);
+
+  const cookieStore = await cookies();
+  const leagueId = cookieStore.get("wcp_league")?.value;
+  if (!leagueId) {
+    return NextResponse.json({ error: "No active league" }, { status: 400 });
+  }
+
+  const picks = await getPicksForUser(session.user.email, leagueId);
   return NextResponse.json(picks);
 }
 
@@ -18,6 +26,12 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.email) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const cookieStore = await cookies();
+  const leagueId = cookieStore.get("wcp_league")?.value;
+  if (!leagueId) {
+    return NextResponse.json({ error: "No active league — please join or create a league first" }, { status: 400 });
   }
 
   const body = await req.json();
@@ -49,6 +63,7 @@ export async function POST(req: Request) {
       matchId:     p.matchId,
       round:       match.round,
       pick:        p.pick as Pick["pick"],
+      leagueId,
       submittedAt: now,
       updatedAt:   now,
     });
