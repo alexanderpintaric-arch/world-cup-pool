@@ -11,10 +11,10 @@ type NamedEntry = { name: string; email: string };
 type NamedPicks = { H: NamedEntry[]; A: NamedEntry[]; T: NamedEntry[] };
 type Option     = "H" | "A" | "T";
 
-// Bar colours — single ink family: darkest for top pick, lighter for minority
-const INK_RANK_1 = "#1E1C18"; // darkest — majority pick
-const INK_RANK_2 = "#3D3A33"; // medium  — second pick
-const INK_RANK_3 = "#5E5B52"; // lightest — minority pick
+// Bar colours — ink + accent: near-black / brand red / dark stone
+const INK_RANK_1 = "#1E1C18";           // darkest  — majority pick
+const INK_RANK_2 = "var(--color-accent)"; // brand red — second pick
+const INK_RANK_3 = "#635D58";           // dark stone — minority pick
 
 interface ModalState {
   matchId:      string;
@@ -394,8 +394,8 @@ export default function CommunityClient({
 }
 
 // ── Ranked colour helper ──────────────────────────────────────────────────────
-// Assigns dark → medium → light ink shades in descending pick-count order so
-// the most-popular outcome is always the darkest/most visually dominant.
+// Assigns near-black / brand-red / dark-stone in descending pick-count order so
+// the most-popular outcome is always the darkest/boldest segment.
 // Winner override (green) still applies post-match.
 
 function getRankedColors(H: number, A: number, T: number, isKnockout: boolean): Record<Option, string> {
