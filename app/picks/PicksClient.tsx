@@ -703,7 +703,7 @@ function GroupStandings({ matches, picks }: {
       {/* Subtle header */}
       <div className="flex items-center justify-between px-3 py-1.5 bg-paper-deep/40 border-b border-line/40">
         <span className="font-mono text-[9px] uppercase tracking-[0.18em] ink-faint">
-          Projected standings
+          My projected standings
         </span>
         <span className={`font-mono text-[9px] transition-colors ${allPicked ? "text-green-deep/70" : "ink-faint/60"}`}>
           {allPicked ? "All picked ✓" : `${pending} match${pending !== 1 ? "es" : ""} unpicked`}
