@@ -11,11 +11,16 @@ type NamedEntry = { name: string; email: string };
 type NamedPicks = { H: NamedEntry[]; A: NamedEntry[]; T: NamedEntry[] };
 type Option     = "H" | "A" | "T";
 
+// Bar colours — blue / stone / red, all AA-compliant with white text
+const BAR_HOME = "#1E40AF";
+const BAR_DRAW = "#57534E";
+const BAR_AWAY = "#B91C1C";
+
 interface ModalState {
   matchId:      string;
-  option:       Option;
-  optionLabel:  string;
-  matchLabel:   string;
+  homeTeam:     string;
+  awayTeam:     string;
+  isKnockout:   boolean;
   isPreKickoff: boolean;
   result:       Option | null;
 }
@@ -27,12 +32,13 @@ interface Props {
   counts:      Record<string, PickCount>;
   named:       Record<string, NamedPicks>;
   myPicks:     Record<string, Option>;
+  userEmail:   string;
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
 
 export default function CommunityClient({
-  matches, roundStates, activeRound, counts, named, myPicks,
+  matches, roundStates, activeRound, counts, named, myPicks, userEmail,
 }: Props) {
   const [selectedRound, setSelectedRound] = useState<Round>(
     activeRound?.round ?? "GROUP"
@@ -51,20 +57,16 @@ export default function CommunityClient({
 
   const isGroupStage = selectedRound === "GROUP";
 
-  function openModal(match: Match, option: Option) {
-    const isPreKickoff = match.status === "SCHEDULED";
-    const optionLabel  =
-      option === "H" ? match.homeTeam :
-      option === "A" ? match.awayTeam : "Draw";
+  function openModal(match: Match) {
     const result: Option | null =
       match.result === "H" || match.result === "A" || match.result === "T"
         ? match.result : null;
     setModal({
       matchId:     match.matchId,
-      option,
-      optionLabel,
-      matchLabel:  `${match.homeTeam} vs ${match.awayTeam}`,
-      isPreKickoff,
+      homeTeam:    match.homeTeam,
+      awayTeam:    match.awayTeam,
+      isKnockout:  match.round !== "GROUP",
+      isPreKickoff: match.status === "SCHEDULED",
       result,
     });
   }
@@ -165,7 +167,7 @@ export default function CommunityClient({
                     matchNumber={mi + 1}
                     count={counts[match.matchId] ?? { H: 0, A: 0, T: 0, total: 0 }}
                     myPick={myPicks[match.matchId] ?? null}
-                    onSegmentClick={opt => openModal(match, opt)}
+                    onBarClick={() => openModal(match)}
                   />
                 ))}
               </div>
@@ -191,7 +193,7 @@ export default function CommunityClient({
                       match={match}
                       count={counts[match.matchId] ?? { H: 0, A: 0, T: 0, total: 0 }}
                       myPick={myPicks[match.matchId] ?? null}
-                      onSegmentClick={opt => openModal(match, opt)}
+                      onBarClick={() => openModal(match)}
                     />
                   ))}
                 </div>
@@ -216,7 +218,7 @@ export default function CommunityClient({
                   matchNumber={i + 1}
                   count={counts[match.matchId] ?? { H: 0, A: 0, T: 0, total: 0 }}
                   myPick={myPicks[match.matchId] ?? null}
-                  onSegmentClick={opt => openModal(match, opt)}
+                  onBarClick={() => openModal(match)}
                 />
               ))}
             </div>
@@ -228,8 +230,10 @@ export default function CommunityClient({
       {modal && (
         <PickModal
           modal={modal}
-          users={named[modal.matchId]?.[modal.option] ?? []}
-          count={counts[modal.matchId]?.[modal.option] ?? 0}
+          namedPicks={named[modal.matchId] ?? null}
+          counts={counts[modal.matchId] ?? { H: 0, A: 0, T: 0, total: 0 }}
+          myPick={myPicks[modal.matchId] ?? null}
+          userEmail={userEmail}
           onClose={() => setModal(null)}
         />
       )}
@@ -241,14 +245,14 @@ export default function CommunityClient({
 // ── MatchPicksCard ────────────────────────────────────────────────────────────
 
 function MatchPicksCard({
-  match, groupLetter, matchNumber, count, myPick, onSegmentClick,
+  match, groupLetter, matchNumber, count, myPick, onBarClick,
 }: {
-  match:          Match;
-  groupLetter?:   string | null;
-  matchNumber?:   number;
-  count:          PickCount;
-  myPick:         Option | null;
-  onSegmentClick: (opt: Option) => void;
+  match:        Match;
+  groupLetter?: string | null;
+  matchNumber?: number;
+  count:        PickCount;
+  myPick:       Option | null;
+  onBarClick:   () => void;
 }) {
   const isKnockout = match.round !== "GROUP";
   const isFinished = match.status === "FINISHED";
@@ -355,65 +359,47 @@ function MatchPicksCard({
           </div>
         </div>
 
-        {/* Stacked bar — three tones of ink (dark → medium → light).
-            Winner turns green; losers dim to 30% so the result is obvious. */}
+        {/* Stacked bar — single clickable button; segments are visual divs.
+            Colours: blue (home) / stone (draw) / red (away).
+            Winner turns green after result; losers dim to 20% opacity. */}
         {total > 0 ? (
-          <div className="flex h-9 rounded-md overflow-hidden" style={{ gap: "1px", background: "var(--color-line)" }}>
+          <button
+            className="flex h-9 rounded-md overflow-hidden w-full cursor-pointer hover:opacity-90 transition-opacity"
+            style={{ gap: "1px", background: "var(--color-line)" }}
+            onClick={onBarClick}
+            title="See all picks"
+          >
             {H > 0 && (
-              <button
-                style={{ flex: H }}
-                className={`group flex items-center justify-center cursor-pointer min-w-0 transition-opacity hover:opacity-80
-                  ${result === "H" ? "bg-green-deep"
-                    : result !== null ? "bg-ink opacity-25"
-                    : "bg-ink"}
-                  ${myPick === "H" ? "ring-2 ring-inset ring-white/20" : ""}`}
-                onClick={() => onSegmentClick("H")}
-                title={`${match.homeTeam}: ${pctH}% · ${H} ${H === 1 ? "pick" : "picks"}`}
+              <div
+                style={{ flex: H, background: result === "H" ? "var(--color-green-deep)" : BAR_HOME }}
+                className={`flex items-center justify-center min-w-0 ${result !== null && result !== "H" ? "opacity-20" : ""} ${myPick === "H" ? "ring-2 ring-inset ring-white/25" : ""}`}
               >
-                {pctH >= 13 && (
-                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">
-                    {pctH}%
-                  </span>
+                {pctH >= 14 && (
+                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">{pctH}%</span>
                 )}
-              </button>
+              </div>
             )}
             {!isKnockout && T > 0 && (
-              <button
-                style={{ flex: T }}
-                className={`group flex items-center justify-center cursor-pointer min-w-0 transition-opacity hover:opacity-80
-                  ${result === "T" ? "bg-green-deep"
-                    : result !== null ? "bg-ink-soft opacity-25"
-                    : "bg-ink-soft"}
-                  ${myPick === "T" ? "ring-2 ring-inset ring-white/20" : ""}`}
-                onClick={() => onSegmentClick("T")}
-                title={`Draw: ${pctT}% · ${T} ${T === 1 ? "pick" : "picks"}`}
+              <div
+                style={{ flex: T, background: result === "T" ? "var(--color-green-deep)" : BAR_DRAW }}
+                className={`flex items-center justify-center min-w-0 ${result !== null && result !== "T" ? "opacity-20" : ""} ${myPick === "T" ? "ring-2 ring-inset ring-white/25" : ""}`}
               >
-                {pctT >= 13 && (
-                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">
-                    {pctT}%
-                  </span>
+                {pctT >= 14 && (
+                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">{pctT}%</span>
                 )}
-              </button>
+              </div>
             )}
             {A > 0 && (
-              <button
-                style={{ flex: A }}
-                className={`group flex items-center justify-center cursor-pointer min-w-0 transition-opacity hover:opacity-80
-                  ${result === "A" ? "bg-green-deep"
-                    : result !== null ? "bg-ink-faint opacity-25"
-                    : "bg-ink-faint"}
-                  ${myPick === "A" ? "ring-2 ring-inset ring-white/20" : ""}`}
-                onClick={() => onSegmentClick("A")}
-                title={`${match.awayTeam}: ${pctA}% · ${A} ${A === 1 ? "pick" : "picks"}`}
+              <div
+                style={{ flex: A, background: result === "A" ? "var(--color-green-deep)" : BAR_AWAY }}
+                className={`flex items-center justify-center min-w-0 ${result !== null && result !== "A" ? "opacity-20" : ""} ${myPick === "A" ? "ring-2 ring-inset ring-white/25" : ""}`}
               >
-                {pctA >= 13 && (
-                  <span className="font-mono text-[10px] text-ink/70 tabular leading-none select-none">
-                    {pctA}%
-                  </span>
+                {pctA >= 14 && (
+                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">{pctA}%</span>
                 )}
-              </button>
+              </div>
             )}
-          </div>
+          </button>
         ) : (
           <div className="h-9 rounded-md bg-paper-deep border border-line flex items-center justify-center">
             <span className="font-mono text-[10.5px] ink-faint">No picks yet — be the first</span>
@@ -426,10 +412,10 @@ function MatchPicksCard({
           <button
             className={`flex flex-col items-start gap-px cursor-pointer transition-colors hover:ink group min-w-0
               ${myPick === "H" ? "ink" : "ink-faint"}`}
-            onClick={() => onSegmentClick("H")}
+            onClick={onBarClick}
           >
             <div className="flex items-center gap-1.5">
-              <span className={`h-2 w-2 rounded-sm flex-shrink-0 ${result === "H" ? "bg-green-deep" : "bg-ink"}`} />
+              <span className="h-2 w-2 rounded-sm flex-shrink-0" style={{ background: result === "H" ? "var(--color-green-deep)" : BAR_HOME }} />
               <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctH}%</span>
             </div>
             <span className="font-mono text-[10px] leading-none pl-3.5">
@@ -447,10 +433,10 @@ function MatchPicksCard({
             <button
               className={`flex flex-col items-center gap-px cursor-pointer transition-colors hover:ink
                 ${myPick === "T" ? "ink" : "ink-faint"}`}
-              onClick={() => onSegmentClick("T")}
+              onClick={onBarClick}
             >
               <div className="flex items-center gap-1.5">
-                <span className={`h-2 w-2 rounded-sm flex-shrink-0 ${result === "T" ? "bg-green-deep" : "bg-ink-soft"}`} />
+                <span className="h-2 w-2 rounded-sm flex-shrink-0" style={{ background: result === "T" ? "var(--color-green-deep)" : BAR_DRAW }} />
                 <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctT}%</span>
               </div>
               <span className="font-mono text-[10px] leading-none pl-3.5">Draw</span>
@@ -466,11 +452,11 @@ function MatchPicksCard({
           <button
             className={`flex flex-col items-end gap-px cursor-pointer transition-colors hover:ink text-right
               ${myPick === "A" ? "ink" : "ink-faint"}`}
-            onClick={() => onSegmentClick("A")}
+            onClick={onBarClick}
           >
             <div className="flex items-center gap-1.5">
               <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctA}%</span>
-              <span className={`h-2 w-2 rounded-sm flex-shrink-0 ${result === "A" ? "bg-green-deep" : "bg-ink-faint"}`} />
+              <span className="h-2 w-2 rounded-sm flex-shrink-0" style={{ background: result === "A" ? "var(--color-green-deep)" : BAR_AWAY }} />
             </div>
             <span className="font-mono text-[10px] leading-none pr-3.5">
               {A} {A === 1 ? "pick" : "picks"}
@@ -486,7 +472,7 @@ function MatchPicksCard({
         {/* "Click to reveal" hint — only show when there are picks */}
         {total > 0 && (
           <p className="mt-2 font-mono text-[9.5px] ink-faint/60 text-center leading-none">
-            tap a segment to see who picked
+            tap to see all picks
           </p>
         )}
       </div>
@@ -497,18 +483,58 @@ function MatchPicksCard({
 // ── PickModal ─────────────────────────────────────────────────────────────────
 
 function PickModal({
-  modal, users, count, onClose,
+  modal, namedPicks, counts, myPick, userEmail, onClose,
 }: {
-  modal:    ModalState;
-  users:    NamedEntry[];
-  count:    number;
-  onClose:  () => void;
+  modal:       ModalState;
+  namedPicks:  NamedPicks | null;
+  counts:      PickCount;
+  myPick:      Option | null;
+  userEmail:   string;
+  onClose:     () => void;
 }) {
-  const optionIsCorrect = modal.result !== null && modal.option === modal.result;
-  const optionIsWrong   = modal.result !== null && modal.option !== modal.result;
+  const { H, A, T, total } = counts;
+  const pctH = total > 0 ? Math.round((H / total) * 100) : 0;
+  const pctA = total > 0 ? Math.round((A / total) * 100) : 0;
+  const pctT = total > 0 ? Math.round((T / total) * 100) : 0;
 
   const initials = (name: string) =>
     name.split(/\s+/).map(s => s[0] ?? "").join("").slice(0, 2).toUpperCase();
+
+  // Sections to render: Home, optionally Draw, Away
+  type Section = {
+    opt:    Option;
+    label:  string;
+    color:  string;
+    count:  number;
+    pct:    number;
+    users:  NamedEntry[];
+  };
+  const sections: Section[] = [
+    {
+      opt:   "H",
+      label: modal.homeTeam,
+      color: modal.result === "H" ? "var(--color-green-deep)" : BAR_HOME,
+      count: H,
+      pct:   pctH,
+      users: namedPicks?.H ?? [],
+    },
+    ...(!modal.isKnockout ? [{
+      opt:   "T" as Option,
+      label: "Draw",
+      color: modal.result === "T" ? "var(--color-green-deep)" : BAR_DRAW,
+      count: T,
+      pct:   pctT,
+      users: namedPicks?.T ?? [],
+    }] : []),
+    {
+      opt:   "A",
+      label: modal.awayTeam,
+      color: modal.result === "A" ? "var(--color-green-deep)" : BAR_AWAY,
+      count: A,
+      pct:   pctA,
+      users: namedPicks?.A ?? [],
+    },
+  ];
 
   return (
     <div
@@ -520,108 +546,151 @@ function PickModal({
 
       {/* Card */}
       <div
-        className="relative bg-paper border border-line rounded-t-2xl sm:rounded-xl shadow-lift w-full sm:max-w-sm overflow-hidden anim-scale-in"
+        className="relative bg-paper border border-line rounded-t-2xl sm:rounded-xl shadow-lift w-full sm:max-w-md overflow-hidden anim-scale-in"
         onClick={e => e.stopPropagation()}
       >
+        {/* Mobile drag handle */}
+        <div className="sm:hidden absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-line" />
+
         {/* Header */}
-        <div className={`px-5 py-4 border-b flex items-start justify-between gap-4
-          ${optionIsCorrect
-            ? "border-green-deep/20 bg-green-soft/60"
-            : optionIsWrong
-              ? "border-line bg-paper-deep/50"
-              : "border-line"
-          }`}
-        >
+        <div className="px-5 pt-6 sm:pt-4 pb-4 border-b border-line flex items-start justify-between gap-4">
           <div className="min-w-0">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] ink-faint mb-1 truncate">
-              {modal.matchLabel}
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] ink-faint mb-1">
+              Pick breakdown
             </p>
-            <div className="flex items-baseline gap-2 flex-wrap">
-              <p
-                className={`font-serif font-medium text-[19px] leading-tight
-                  ${optionIsCorrect ? "text-green-deep" : "ink"}`}
-                style={{ fontVariationSettings: '"opsz" 32' }}
-              >
-                {modal.optionLabel}
-              </p>
-              {optionIsCorrect && (
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-green-deep font-semibold">
-                  ✓ Winner
-                </span>
-              )}
-              {optionIsWrong && modal.result !== null && (
-                <span className="font-mono text-[10px] uppercase tracking-[0.14em] ink-faint">
-                  Not the winner
-                </span>
-              )}
-            </div>
+            <p
+              className="font-serif font-medium text-[18px] ink leading-tight"
+              style={{ fontVariationSettings: '"opsz" 32' }}
+            >
+              {modal.homeTeam} <span className="ink-faint font-light italic text-[15px]">vs</span> {modal.awayTeam}
+            </p>
             <p className="mt-1 font-mono text-[11px] ink-faint">
-              {modal.isPreKickoff
-                ? `${count} ${count === 1 ? "person" : "people"} picked this`
-                : `${count} ${count === 1 ? "pick" : "picks"}`}
+              {total === 0
+                ? "No picks yet"
+                : `${total} ${total === 1 ? "pick" : "picks"} in the pool`}
             </p>
           </div>
           <button
             onClick={onClose}
-            className="flex-shrink-0 h-7 w-7 rounded-full bg-paper-deep hover:bg-line flex items-center justify-center ink-faint hover:ink transition-colors"
+            className="flex-shrink-0 h-7 w-7 rounded-full bg-paper-deep hover:bg-line flex items-center justify-center ink-faint hover:ink transition-colors mt-0.5"
             aria-label="Close"
           >
             <span className="text-[13px] leading-none">✕</span>
           </button>
         </div>
 
-        {/* User list */}
-        <div className="px-5 py-4 max-h-72 overflow-y-auto overscroll-contain">
-          {modal.isPreKickoff ? (
-            <div className="py-6 text-center">
-              <div className="text-[28px] mb-3">🔒</div>
-              <p className="font-serif italic text-[16px] ink-soft leading-snug" style={{ fontVariationSettings: '"opsz" 32' }}>
-                Names are kept private until kickoff.
-              </p>
-              <p className="mt-2 font-mono text-[11px] ink-faint">
-                {count === 0
-                  ? "Nobody has picked this yet."
-                  : `${count} ${count === 1 ? "person has" : "people have"} made their pick here.`}
-                {count > 0 && " Check back after the match starts."}
-              </p>
-            </div>
-          ) : users.length === 0 ? (
-            <div className="py-6 text-center">
-              <p className="font-mono text-[12px] ink-faint">Nobody picked this option.</p>
-            </div>
-          ) : (
-            <div className="space-y-2.5">
-              {users.map(user => (
-                <div key={user.email} className="flex items-center gap-3">
-                  <div
-                    className={`h-8 w-8 rounded-full flex items-center justify-center text-[11px] font-semibold flex-shrink-0 tracking-wide
-                      ${optionIsCorrect
-                        ? "bg-green-soft text-green-deep"
-                        : "bg-paper-deep ink-soft"
-                      }`}
-                  >
-                    {initials(user.name)}
-                  </div>
+        {/* Sections */}
+        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(100dvh - 240px)" }}>
+          {sections.map((sec, idx) => {
+            const isWinner  = modal.result === sec.opt;
+            const isLoser   = modal.result !== null && modal.result !== sec.opt;
+            const isMyPick  = myPick === sec.opt;
+
+            return (
+              <div
+                key={sec.opt}
+                className={`px-5 py-4 ${idx < sections.length - 1 ? "border-b border-line" : ""} ${isLoser ? "opacity-50" : ""}`}
+              >
+                {/* Section header */}
+                <div className="flex items-center gap-2.5 mb-2.5">
+                  {/* Color swatch */}
                   <span
-                    className={`text-[14px] font-medium flex-1 min-w-0 truncate
-                      ${optionIsCorrect ? "ink" : optionIsWrong ? "ink-faint" : "ink"}`}
+                    className="h-3 w-3 rounded-sm flex-shrink-0"
+                    style={{ background: sec.color }}
+                  />
+                  {/* Option label */}
+                  <span
+                    className={`font-serif text-[15px] font-medium leading-none flex-1 min-w-0 truncate
+                      ${isWinner ? "text-green-deep" : "ink"}`}
+                    style={{ fontVariationSettings: '"opsz" 24' }}
                   >
-                    {user.name}
+                    {sec.label}
+                    {isWinner && (
+                      <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.12em] text-green-deep font-semibold not-italic">
+                        ✓ winner
+                      </span>
+                    )}
                   </span>
-                  {optionIsCorrect && (
-                    <span className="font-mono text-[11px] text-green-deep font-semibold flex-shrink-0">✓</span>
-                  )}
-                  {optionIsWrong && modal.result !== null && (
-                    <span className="font-mono text-[11px] ink-faint opacity-40 flex-shrink-0">✗</span>
-                  )}
+                  {/* Stats */}
+                  <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                    <span className="font-mono text-[13px] font-semibold tabular ink">{sec.pct}%</span>
+                    <span className="font-mono text-[10px] ink-faint">({sec.count})</span>
+                    {isMyPick && (
+                      <span className={`font-mono text-[10px] font-semibold
+                        ${isWinner ? "text-green-deep" : isLoser ? "ink-faint line-through" : "text-accent"}`}>
+                        you
+                      </span>
+                    )}
+                  </div>
                 </div>
-              ))}
+
+                {/* Mini progress bar */}
+                <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: "var(--color-line)" }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${sec.pct}%`, background: sec.color }}
+                  />
+                </div>
+
+                {/* User chips / privacy message */}
+                {modal.isPreKickoff ? (
+                  <div className="flex items-center gap-2 py-1">
+                    <span className="text-[14px]">🔒</span>
+                    <span className="font-mono text-[11px] ink-faint">
+                      {sec.count === 0
+                        ? "Nobody picked this yet."
+                        : `${sec.count} ${sec.count === 1 ? "person" : "people"} — revealed at kickoff.`}
+                    </span>
+                  </div>
+                ) : sec.users.length === 0 ? (
+                  <p className="font-mono text-[11px] ink-faint py-1">Nobody picked this.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {sec.users.map(user => {
+                      const isMe = user.email === userEmail;
+                      return (
+                        <div
+                          key={user.email}
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium
+                            ${isWinner
+                              ? "bg-green-soft text-green-deep"
+                              : isMe
+                                ? "bg-ink text-paper"
+                                : "bg-paper-deep ink"
+                            }`}
+                        >
+                          <span
+                            className={`h-4 w-4 rounded-full flex items-center justify-center text-[8.5px] font-bold flex-shrink-0
+                              ${isWinner ? "bg-green-deep/20" : isMe ? "bg-paper/15" : "bg-line"}`}
+                          >
+                            {initials(user.name)}
+                          </span>
+                          <span className="leading-none truncate max-w-[120px]">{user.name}</span>
+                          {isMe && (
+                            <span className={`font-mono text-[9px] font-bold leading-none opacity-70`}>
+                              you
+                            </span>
+                          )}
+                          {isWinner && (
+                            <span className="font-mono text-[10px] text-green-deep leading-none">✓</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {total === 0 && (
+            <div className="px-5 py-10 text-center">
+              <p className="font-serif italic text-[16px] ink-soft" style={{ fontVariationSettings: '"opsz" 32' }}>
+                No picks have been made yet.
+              </p>
             </div>
           )}
         </div>
-
-        {/* Mobile drag handle hint */}
-        <div className="sm:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-line" />
       </div>
     </div>
   );

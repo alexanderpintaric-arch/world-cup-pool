@@ -75,6 +75,7 @@ export default async function CommunityPage() {
       counts={counts}
       named={named}
       myPicks={myPicks}
+      userEmail={email}
     />
   );
 }
