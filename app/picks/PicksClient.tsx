@@ -206,6 +206,16 @@ export default function PicksClient({
           <p className="mt-3 text-[15px] ink-soft max-w-xl">
             Every selection saves the second you tap it. Change your mind as often as you like — until the deadline.
           </p>
+          <a
+            href="/summary"
+            className="mt-3 inline-flex items-center gap-1.5 font-mono text-[11.5px] ink-faint hover:ink-soft transition-colors"
+          >
+            <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+              <rect x="1" y="1" width="10" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M3.5 4h5M3.5 6h5M3.5 8h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            View summary
+          </a>
         </div>
         {activeRound?.deadline && (
           <CountdownTimer

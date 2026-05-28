@@ -33,6 +33,19 @@ const TABS = [
     ),
   },
   {
+    href: "/summary",
+    label: "Summary",
+    exact: false,
+    icon: (active: boolean) => (
+      <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
+        <rect x="3" y="3" width="14" height="14" rx="2"
+          stroke="currentColor" strokeWidth="1.5" opacity={active ? 1 : 0.6}/>
+        <path d="M6.5 7h7M6.5 10h7M6.5 13h4"
+          stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" opacity={active ? 1 : 0.6}/>
+      </svg>
+    ),
+  },
+  {
     href: "/community",
     label: "The Pool",
     exact: false,
