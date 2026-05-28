@@ -528,7 +528,7 @@ export default function PicksClient({
 
 /* ─────────────────────────────────────────────────────────── */
 
-function GroupHeader({ letter, teams, picked, total }: {
+function GroupHeader({ letter, teams: _teams, picked, total }: {
   letter: string; teams: string[]; picked: number; total: number;
 }) {
   return (
@@ -539,15 +539,10 @@ function GroupHeader({ letter, teams, picked, total }: {
         </div>
         <div>
           <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-accent mb-1">
-            Group {letter}
+            Group
           </p>
-          <p className="font-serif text-[15px] ink leading-tight max-w-md" style={{fontVariationSettings: '"opsz" 24'}}>
-            {teams.map(t => (
-              <span key={t} className="inline-block mr-1.5">
-                <Flag team={t} size={14} className="opacity-70" />{" "}
-                <span>{t}</span>
-              </span>
-            ))}
+          <p className="font-serif font-medium leading-none ink" style={{fontSize: '28px', fontVariationSettings: '"opsz" 80'}}>
+            Group {letter}
           </p>
         </div>
       </div>
