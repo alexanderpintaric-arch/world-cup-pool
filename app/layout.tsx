@@ -20,15 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto max-w-6xl flex items-center justify-between px-5 sm:px-8 h-14">
 
             {/* Brand */}
-            <a href="/" className="flex items-center gap-2.5 group select-none">
-              {/* Logo mark */}
-              <img
-                src="/nutmeg-mark.svg"
-                alt="Nutmeg"
-                width={28}
-                height={28}
-                className="flex-shrink-0 rounded-[5px]"
-              />
+            <a href="/" className="flex items-baseline gap-2 group select-none">
               <span className="font-serif italic text-[20px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 60'}}>
                 Nutmeg
               </span>
