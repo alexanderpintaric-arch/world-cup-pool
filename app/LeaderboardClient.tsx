@@ -646,8 +646,8 @@ function HeadToHead({ a, b, matches, onClose }: {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-4 anim-fade-in"
-      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm pt-4 px-4 pb-24 sm:p-4 anim-fade-in"
+      style={{ paddingBottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}
       onClick={onClose}
     >
       <div
