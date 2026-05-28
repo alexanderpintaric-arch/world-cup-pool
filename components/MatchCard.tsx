@@ -15,8 +15,6 @@ interface Props {
   currentPick: MatchResult | null;
   odds: OddsData | null;
   popular?: { H: number; A: number; T: number; total: number } | null;
-  /** Named picks revealed after kickoff. H/A/T = array of first names. */
-  breakdown?: { H: string[]; A: string[]; T: string[] } | null;
   groupLetter?: string | null;
   matchNumber?: number;
   onPick: (matchId: string, pick: MatchResult) => void;
@@ -26,24 +24,23 @@ interface Props {
 }
 
 export default function MatchCard({
-  match, currentPick, odds, popular, breakdown, groupLetter, matchNumber,
+  match, currentPick, odds, popular, groupLetter, matchNumber,
   onPick, disabled, result, pointsValue,
 }: Props) {
   const isKnockout = match.round !== "GROUP";
   const isLive     = match.status === "IN_PLAY" || match.status === "PAUSED" || match.status === "LIVE";
   const isFinished = match.status === "FINISHED";
-  const isStarted  = isLive || isFinished; // deadline passed — reveal picks
+  const isStarted  = isLive || isFinished;
 
   const options: {
     value: NonNullable<MatchResult>;
     label: string;
     prob: number | null;
     odds: number | null;
-    names: string[];
   }[] = [
-    { value: "H", label: match.homeTeam, prob: odds?.homeProb ?? null, odds: odds?.homeOdds ?? null, names: breakdown?.H ?? [] },
-    ...(!isKnockout ? [{ value: "T" as const, label: "Draw",          prob: odds?.drawProb ?? null, odds: odds?.drawOdds ?? null, names: breakdown?.T ?? [] }] : []),
-    { value: "A", label: match.awayTeam, prob: odds?.awayProb ?? null, odds: odds?.awayOdds ?? null, names: breakdown?.A ?? [] },
+    { value: "H", label: match.homeTeam, prob: odds?.homeProb ?? null, odds: odds?.homeOdds ?? null },
+    ...(!isKnockout ? [{ value: "T" as const, label: "Draw", prob: odds?.drawProb ?? null, odds: odds?.drawOdds ?? null }] : []),
+    { value: "A", label: match.awayTeam, prob: odds?.awayProb ?? null, odds: odds?.awayOdds ?? null },
   ];
 
   const kickoff   = new Date(match.kickoffUtc);
@@ -151,35 +148,6 @@ export default function MatchCard({
               {!isStarted && opt.odds !== null && (
                 <span className={`font-mono text-[8.5px] tabular leading-none ${picked ? "text-paper/50" : "text-[color:var(--ink-faint)]/60"}`}>
                   {toAmerican(opt.odds)}
-                </span>
-              )}
-
-              {/* Named pick chips — revealed after kickoff */}
-              {isStarted && opt.names.length > 0 && (
-                <div className="flex flex-wrap gap-0.5 justify-center mt-1 max-w-full">
-                  {opt.names.map(name => (
-                    <span
-                      key={name}
-                      className={`text-[8px] font-mono px-1.5 py-px rounded-sm leading-none whitespace-nowrap ${
-                        isFinished
-                          ? correct
-                            ? "bg-green-soft text-green-deep font-semibold"
-                            : "text-[color:var(--ink-faint)]/50 line-through"
-                          : picked
-                            ? "bg-white/10 text-paper/70"
-                            : "bg-paper-deep ink-faint"
-                      }`}
-                    >
-                      {name}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* No picks yet message */}
-              {isStarted && opt.names.length === 0 && (
-                <span className={`text-[8px] font-mono leading-none italic ${picked ? "text-paper/40" : "text-[color:var(--ink-faint)]/40"}`}>
-                  no picks
                 </span>
               )}
             </button>

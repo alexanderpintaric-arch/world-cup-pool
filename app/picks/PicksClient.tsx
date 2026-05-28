@@ -7,8 +7,7 @@ import { flagFor } from "@/lib/services/flags";
 import MatchCard from "@/components/MatchCard";
 import CountdownTimer from "@/components/CountdownTimer";
 
-type PickBreakdown = { H: string[]; A: string[]; T: string[] };
-type PopularCount  = { H: number;  A: number;  T: number; total: number };
+type PopularCount = { H: number; A: number; T: number; total: number };
 
 interface Props {
   matches: Match[];
@@ -18,7 +17,6 @@ interface Props {
   activeRound: RoundState | null;
   userEmail: string;
   userName: string;
-  breakdowns: Record<string, PickBreakdown>;
   popularCounts: Record<string, PopularCount>;
 }
 
@@ -40,8 +38,7 @@ const ROUND_TAGLINE: Record<Round, string> = {
 };
 
 export default function PicksClient({
-  matches, userPicks, odds, roundStates, activeRound, userName,
-  breakdowns, popularCounts,
+  matches, userPicks, odds, roundStates, activeRound, userName, popularCounts,
 }: Props) {
   const [selectedRound, setSelectedRound] = useState<Round>(
     activeRound?.round ?? "GROUP"
@@ -268,7 +265,6 @@ export default function PicksClient({
                       saving={saving[match.matchId]}
                       saved={saved[match.matchId]}
                       pointsValue={currentRoundState?.pointsValue ?? 1}
-                      breakdown={breakdowns[match.matchId] ?? null}
                       popular={popularCounts[match.matchId] ?? null}
                     />
                   ))}
@@ -287,7 +283,6 @@ export default function PicksClient({
             saving={saving}
             saved={saved}
             pointsValue={currentRoundState?.pointsValue ?? 1}
-            breakdowns={breakdowns}
             popularCounts={popularCounts}
           />
         </div>
@@ -305,7 +300,6 @@ export default function PicksClient({
               saving={saving[match.matchId]}
               saved={saved[match.matchId]}
               pointsValue={currentRoundState?.pointsValue ?? 1}
-              breakdown={breakdowns[match.matchId] ?? null}
               popular={popularCounts[match.matchId] ?? null}
             />
           ))}
@@ -367,7 +361,7 @@ function GroupHeader({ letter, teams, picked, total }: {
 
 function PickSlot({
   match, groupLetter, matchNumber, pick, odds, onPick, disabled, saving, saved, pointsValue,
-  breakdown, popular,
+  popular,
 }: {
   match: Match;
   groupLetter?: string | null;
@@ -379,7 +373,6 @@ function PickSlot({
   saving?: boolean;
   saved?: boolean;
   pointsValue: number;
-  breakdown?: PickBreakdown | null;
   popular?: PopularCount | null;
 }) {
   return (
@@ -394,7 +387,6 @@ function PickSlot({
         disabled={disabled}
         result={match.result}
         pointsValue={pointsValue}
-        breakdown={breakdown}
         popular={popular}
       />
       {(saving || saved) && (
@@ -410,7 +402,7 @@ function PickSlot({
 
 function UngroupedRemainder({
   allRoundMatches, groupMatchIds, picks, oddsMap, onPick, isAvailable,
-  saving, saved, pointsValue, breakdowns, popularCounts,
+  saving, saved, pointsValue, popularCounts,
 }: {
   allRoundMatches: Match[];
   groupMatchIds: Set<string>;
@@ -421,7 +413,6 @@ function UngroupedRemainder({
   saving: Record<string, boolean>;
   saved: Record<string, boolean>;
   pointsValue: number;
-  breakdowns: Record<string, PickBreakdown>;
   popularCounts: Record<string, PopularCount>;
 }) {
   const remainder = allRoundMatches.filter(m => !groupMatchIds.has(m.matchId));
@@ -448,7 +439,6 @@ function UngroupedRemainder({
             saving={saving[m.matchId]}
             saved={saved[m.matchId]}
             pointsValue={pointsValue}
-            breakdown={breakdowns[m.matchId] ?? null}
             popular={popularCounts[m.matchId] ?? null}
           />
         ))}
