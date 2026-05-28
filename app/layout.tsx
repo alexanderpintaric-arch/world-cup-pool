@@ -27,9 +27,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             {/* Nav */}
             <nav className="flex items-center gap-1 sm:gap-2">
-              <NavLink href="/">Standings</NavLink>
-              <NavLink href="/picks">My Picks</NavLink>
-              <NavLink href="/community">The Pool</NavLink>
+              <NavLinks />
               <div className="ml-1 sm:ml-3">
                 <AuthButton />
               </div>
@@ -55,6 +53,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
       </body>
     </html>
+  );
+}
+
+async function NavLinks() {
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  if (!session?.user) return null;
+  return (
+    <>
+      <NavLink href="/">Standings</NavLink>
+      <NavLink href="/picks">My Picks</NavLink>
+      <NavLink href="/community">The Pool</NavLink>
+    </>
   );
 }
 
