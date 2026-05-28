@@ -48,8 +48,6 @@ export default function PicksClient({
     for (const p of userPicks) init[p.matchId] = p.pick;
     return init;
   });
-  const [saving, setSaving] = useState<Record<string, boolean>>({});
-  const [saved, setSaved] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
   const oddsMap = useMemo(() => new Map(odds.map(o => [o.matchId, o])), [odds]);
@@ -75,7 +73,6 @@ export default function PicksClient({
   const pct = totalCount > 0 ? (pickedCount / totalCount) * 100 : 0;
 
   const savePick = useCallback(async (matchId: string, pick: MatchResult) => {
-    setSaving(s => ({ ...s, [matchId]: true }));
     setError(null);
     try {
       const res = await fetch("/api/picks", {
@@ -86,16 +83,9 @@ export default function PicksClient({
       if (!res.ok) {
         const d = await res.json().catch(() => ({}));
         setError(d.error ?? "Couldn’t save your pick");
-      } else {
-        if (pick !== null) {
-          setSaved(s => ({ ...s, [matchId]: true }));
-          setTimeout(() => setSaved(s => ({ ...s, [matchId]: false })), 1500);
-        }
       }
     } catch {
       setError("Network hiccup — pick not saved");
-    } finally {
-      setSaving(s => ({ ...s, [matchId]: false }));
     }
   }, []);
 
@@ -273,8 +263,6 @@ export default function PicksClient({
                       odds={oddsMap.get(match.matchId) ?? null}
                       onPick={handlePick}
                       disabled={!isAvailable || match.status !== "SCHEDULED"}
-                      saving={saving[match.matchId]}
-                      saved={saved[match.matchId]}
                       pointsValue={currentRoundState?.pointsValue ?? 1}
                       popular={popularCounts[match.matchId] ?? null}
                     />
@@ -291,8 +279,6 @@ export default function PicksClient({
             oddsMap={oddsMap}
             onPick={handlePick}
             isAvailable={isAvailable}
-            saving={saving}
-            saved={saved}
             pointsValue={currentRoundState?.pointsValue ?? 1}
             popularCounts={popularCounts}
           />
@@ -308,8 +294,6 @@ export default function PicksClient({
               odds={oddsMap.get(match.matchId) ?? null}
               onPick={handlePick}
               disabled={!isAvailable || match.status !== "SCHEDULED"}
-              saving={saving[match.matchId]}
-              saved={saved[match.matchId]}
               pointsValue={currentRoundState?.pointsValue ?? 1}
               popular={popularCounts[match.matchId] ?? null}
             />
@@ -371,8 +355,7 @@ function GroupHeader({ letter, teams, picked, total }: {
 }
 
 function PickSlot({
-  match, groupLetter, matchNumber, pick, odds, onPick, disabled, saving, saved, pointsValue,
-  popular,
+  match, groupLetter, matchNumber, pick, odds, onPick, disabled, pointsValue, popular,
 }: {
   match: Match;
   groupLetter?: string | null;
@@ -381,39 +364,28 @@ function PickSlot({
   odds: OddsData | null;
   onPick: (matchId: string, p: MatchResult) => void;
   disabled: boolean;
-  saving?: boolean;
-  saved?: boolean;
   pointsValue: number;
   popular?: PopularCount | null;
 }) {
   return (
-    <div className="relative">
-      <MatchCard
-        match={match}
-        currentPick={pick}
-        odds={odds}
-        groupLetter={groupLetter}
-        matchNumber={matchNumber}
-        onPick={onPick}
-        disabled={disabled}
-        result={match.result}
-        pointsValue={pointsValue}
-        popular={popular}
-      />
-      {(saving || saved) && (
-        <div className={`absolute top-3 right-3 text-[10px] font-mono uppercase tracking-[0.16em] px-1.5 py-0.5 rounded transition-opacity
-          ${saved ? "text-green-deep bg-green-soft anim-fade-in" : "ink-faint bg-paper-deep"}
-        `}>
-          {saved ? "Saved ✓" : "Saving…"}
-        </div>
-      )}
-    </div>
+    <MatchCard
+      match={match}
+      currentPick={pick}
+      odds={odds}
+      groupLetter={groupLetter}
+      matchNumber={matchNumber}
+      onPick={onPick}
+      disabled={disabled}
+      result={match.result}
+      pointsValue={pointsValue}
+      popular={popular}
+    />
   );
 }
 
 function UngroupedRemainder({
   allRoundMatches, groupMatchIds, picks, oddsMap, onPick, isAvailable,
-  saving, saved, pointsValue, popularCounts,
+  pointsValue, popularCounts,
 }: {
   allRoundMatches: Match[];
   groupMatchIds: Set<string>;
@@ -421,8 +393,6 @@ function UngroupedRemainder({
   oddsMap: Map<string, OddsData>;
   onPick: (id: string, p: MatchResult) => void;
   isAvailable: boolean;
-  saving: Record<string, boolean>;
-  saved: Record<string, boolean>;
   pointsValue: number;
   popularCounts: Record<string, PopularCount>;
 }) {
@@ -447,8 +417,6 @@ function UngroupedRemainder({
             odds={oddsMap.get(m.matchId) ?? null}
             onPick={onPick}
             disabled={!isAvailable || m.status !== "SCHEDULED"}
-            saving={saving[m.matchId]}
-            saved={saved[m.matchId]}
             pointsValue={pointsValue}
             popular={popularCounts[m.matchId] ?? null}
           />

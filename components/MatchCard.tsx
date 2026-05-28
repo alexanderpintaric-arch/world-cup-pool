@@ -132,7 +132,7 @@ export default function MatchCard({
               style={{ touchAction: "manipulation" }}
             >
               {opt.value === "T"
-                ? <span className={`text-[15px] leading-none ${picked ? "opacity-80" : "opacity-40"}`}>—</span>
+                ? <span className={`text-[18px] leading-none emoji ${picked ? "opacity-90" : "opacity-50"}`}>🤝</span>
                 : <Flag team={opt.label} size={18} className="mb-0.5" />
               }
 
