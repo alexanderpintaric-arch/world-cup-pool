@@ -258,11 +258,16 @@
 }
 .ticker-track {
   display: flex;
-  animation: marquee 44s linear infinite;
+  animation: marquee 24s linear infinite;
   will-change: transform;
 }
 .ticker-track:hover {
   animation-play-state: paused;
+}
+/* Soft fade at both edges so chips dissolve in/out instead of hard-clipping */
+.ticker-mask {
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 3%, #000 97%, transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 3%, #000 97%, transparent 100%);
 }
 @media (prefers-reduced-motion: reduce) {
   .ticker-track { animation: none; }

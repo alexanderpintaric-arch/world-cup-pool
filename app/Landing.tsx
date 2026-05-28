@@ -2,20 +2,23 @@ import type { Match, RoundState } from "@/lib/types";
 import { MAX_TOTAL_POINTS } from "@/lib/constants";
 import LandingShowcase from "./LandingShowcase";
 
+// `code` = flagcdn.com slug (ISO 3166-1 alpha-2, or gb-eng / gb-sct for
+// home nations). Image flags render identically on every OS — unlike
+// regional-indicator emoji, which Windows shows as bare letters.
 const SUPPORTERS = [
-  { name: "Alex P.",      country: "Japan",    flag: "🇯🇵" },
-  { name: "Matt S.",      country: "Italy",    flag: "🇮🇹" },
-  { name: "Uros C.",      country: "Serbia",   flag: "🇷🇸" },
-  { name: "Ryan B.",      country: "Germany",  flag: "🇩🇪" },
-  { name: "Jean Paul M.", country: "Portugal", flag: "🇵🇹" },
-  { name: "Max M.",       country: "England",  flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
-  { name: "Daniel R.",    country: "Colombia", flag: "🇨🇴" },
-  { name: "Stefan V.",    country: "Bosnia",   flag: "🇧🇦" },
-  { name: "Michael L.",   country: "Scotland", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿" },
-  { name: "Michael K.",   country: "Korea",    flag: "🇰🇷" },
-  { name: "Gerard A.",    country: "Nigeria",  flag: "🇳🇬" },
-  { name: "Michael O.",   country: "Canada",   flag: "🇨🇦" },
-  { name: "Dylan C.",     country: "Portugal", flag: "🇵🇹" },
+  { name: "Alex P.",      country: "Japan",    code: "jp" },
+  { name: "Matt S.",      country: "Italy",    code: "it" },
+  { name: "Uros C.",      country: "Serbia",   code: "rs" },
+  { name: "Ryan B.",      country: "Germany",  code: "de" },
+  { name: "Jean Paul M.", country: "Portugal", code: "pt" },
+  { name: "Max M.",       country: "England",  code: "gb-eng" },
+  { name: "Daniel R.",    country: "Colombia", code: "co" },
+  { name: "Stefan V.",    country: "Bosnia",   code: "ba" },
+  { name: "Michael L.",   country: "Scotland", code: "gb-sct" },
+  { name: "Michael K.",   country: "Korea",    code: "kr" },
+  { name: "Gerard A.",    country: "Nigeria",  code: "ng" },
+  { name: "Michael O.",   country: "Canada",   code: "ca" },
+  { name: "Dylan C.",     country: "Portugal", code: "pt" },
 ];
 
 interface Props {
@@ -118,21 +121,24 @@ export default function Landing({ matches, participantCount }: Props) {
         </div>
 
         {/* Stats strip */}
-        <div className="mt-16 grid grid-cols-2 sm:grid-cols-3 gap-px bg-line border border-line rounded-lg overflow-hidden anim-fade-up" style={{animationDelay: '300ms'}}>
+        <div className="mt-16 grid grid-cols-2 sm:grid-cols-3 gap-px bg-line border border-line rounded-xl overflow-hidden anim-fade-up shadow-paper" style={{animationDelay: '300ms'}}>
           {[
-            { v: String(totalMatches), l: "Matches",    e: "⚽" },
-            { v: String(teamCount),    l: "Teams",      e: "🌍" },
-            { v: String(groupCount),   l: "Groups",     e: "🎯" },
-            { v: String(daysUntil),    l: "Days to go", e: "⏳" },
-            { v: String(MAX_TOTAL_POINTS), l: "Max points", e: "🔥" },
-            { v: "1",                  l: "Champion",   e: "🏆" },
+            { v: String(totalMatches),     l: "Matches",    icon: "ball"     },
+            { v: String(teamCount),        l: "Teams",      icon: "globe"    },
+            { v: String(groupCount),       l: "Groups",     icon: "grid"     },
+            { v: String(daysUntil),        l: "Days to go", icon: "calendar" },
+            { v: String(MAX_TOTAL_POINTS), l: "Max points", icon: "star"     },
+            { v: "1",                      l: "Champion",   icon: "trophy"   },
           ].map((s) => (
-            <div key={s.l} className="bg-card px-5 py-4 sm:py-5">
-              <div className="font-serif font-medium text-[28px] sm:text-[34px] leading-none ink tabular" style={{fontVariationSettings: '"opsz" 80'}}>
+            <div key={s.l} className="group relative bg-card px-5 py-5 sm:py-6 overflow-hidden">
+              <StatIcon
+                name={s.icon}
+                className="absolute top-4 right-4 h-7 w-7 text-accent/25 transition-all duration-500 group-hover:text-accent/45 group-hover:scale-110"
+              />
+              <div className="font-serif font-medium text-[30px] sm:text-[38px] leading-none ink tabular" style={{fontVariationSettings: '"opsz" 80'}}>
                 {s.v}
               </div>
-              <div className="mt-2 flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint">
-                <span className="emoji text-[13px]">{s.e}</span>
+              <div className="mt-2.5 font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint">
                 {s.l}
               </div>
             </div>
@@ -140,27 +146,36 @@ export default function Landing({ matches, participantCount }: Props) {
         </div>
 
         {/* Supporter ticker */}
-        <div className="mt-4 flex items-stretch border border-line rounded-lg overflow-hidden bg-card shadow-paper anim-fade-up" style={{animationDelay: '350ms'}}>
-          {/* Label */}
-          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-ink text-paper flex-shrink-0 border-r border-line/20">
-            <span className="h-1.5 w-1.5 rounded-full bg-accent flex-shrink-0 anim-ring-pulse" />
-            <span className="font-mono text-[9.5px] uppercase tracking-[0.22em] whitespace-nowrap">
+        <div className="mt-4 flex items-stretch border border-line rounded-xl overflow-hidden bg-card shadow-paper anim-fade-up" style={{animationDelay: '350ms'}}>
+          {/* Live label */}
+          <div className="flex items-center gap-2.5 px-4 sm:px-5 bg-ink text-paper flex-shrink-0">
+            <span className="relative flex h-2 w-2 flex-shrink-0">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-accent opacity-60 animate-ping" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
+            </span>
+            <span className="font-mono text-[9.5px] sm:text-[10px] uppercase tracking-[0.24em] whitespace-nowrap font-medium">
               Picking sides
             </span>
           </div>
 
-          {/* Scrolling strip — content doubled for seamless loop */}
-          <div className="overflow-hidden flex-1 min-w-0">
-            <div className="ticker-track">
+          {/* Scrolling strip — content doubled for a seamless loop */}
+          <div className="ticker-mask overflow-hidden flex-1 min-w-0">
+            <div className="ticker-track py-2.5">
               {[...SUPPORTERS, ...SUPPORTERS].map((s, i) => (
-                <span
-                  key={i}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 shrink-0"
-                >
-                  <span className="emoji text-[16px] leading-none">{s.flag}</span>
-                  <span className="text-[13px] font-medium ink whitespace-nowrap">{s.name}</span>
-                  <span className="font-mono text-[11px] ink-faint whitespace-nowrap">{s.country}</span>
-                  <span className="text-[9px] ink-faint opacity-40 mx-1">·</span>
+                <span key={i} className="inline-flex items-center shrink-0">
+                  <span className="inline-flex items-center gap-2.5 px-4 transition-transform duration-200 hover:-translate-y-px">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={`https://flagcdn.com/w80/${s.code}.png`}
+                      alt=""
+                      width={28}
+                      height={20}
+                      className="h-[19px] w-auto rounded-[3px] ring-1 ring-ink/10 shadow-sm object-cover"
+                    />
+                    <span className="text-[13.5px] font-medium ink whitespace-nowrap leading-none">{s.name}</span>
+                    <span className="font-mono text-[10px] uppercase tracking-[0.1em] ink-faint whitespace-nowrap leading-none">{s.country}</span>
+                  </span>
+                  <span className="h-3.5 w-px bg-line shrink-0" />
                 </span>
               ))}
             </div>
@@ -399,6 +414,68 @@ export default function Landing({ matches, participantCount }: Props) {
 
     </div>
   );
+}
+
+// Editorial line-art icons for the stat cells (thin stroke, currentColor).
+function StatIcon({ name, className }: { name: string; className?: string }) {
+  const p = {
+    fill: "none",
+    viewBox: "0 0 24 24",
+    className,
+    "aria-hidden": true,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  switch (name) {
+    case "ball":
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M12 7.2l3.1 2.25-1.18 3.65h-3.84L8.9 9.45 12 7.2z" stroke="currentColor" strokeWidth="1.2" />
+          <path d="M12 7.2V4M15.1 9.45l2.9-1.1M13.92 13.1l1.95 2.6M10.08 13.1l-1.95 2.6M8.9 9.45L6 8.35" stroke="currentColor" strokeWidth="1.2" />
+        </svg>
+      );
+    case "globe":
+      return (
+        <svg {...p}>
+          <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M3.5 12h17" stroke="currentColor" strokeWidth="1.2" />
+          <path d="M12 3.5c2.7 2.4 2.7 14.6 0 17M12 3.5c-2.7 2.4-2.7 14.6 0 17" stroke="currentColor" strokeWidth="1.2" />
+        </svg>
+      );
+    case "grid":
+      return (
+        <svg {...p}>
+          <rect x="4" y="4" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+          <rect x="13" y="4" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+          <rect x="4" y="13" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+          <rect x="13" y="13" width="7" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.4" />
+        </svg>
+      );
+    case "calendar":
+      return (
+        <svg {...p}>
+          <rect x="4" y="5.5" width="16" height="14.5" rx="2.2" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M4 10h16M8.5 3.5v4M15.5 3.5v4" stroke="currentColor" strokeWidth="1.4" />
+        </svg>
+      );
+    case "star":
+      return (
+        <svg {...p}>
+          <path d="M12 3.8l2.55 5.17 5.7.83-4.12 4.02.97 5.68L12 16.8l-5.07 2.68.97-5.68L3.75 9.8l5.7-.83L12 3.8z" stroke="currentColor" strokeWidth="1.4" />
+        </svg>
+      );
+    case "trophy":
+      return (
+        <svg {...p}>
+          <path d="M7.5 4.5h9V9a4.5 4.5 0 01-9 0V4.5z" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M7.5 6.5H5a2 2 0 002.2 3.2M16.5 6.5H19a2 2 0 01-2.2 3.2" stroke="currentColor" strokeWidth="1.4" />
+          <path d="M12 13.5v2.5M9 20h6M10 20c0-1.5.7-2.2 2-2.2s2 .7 2 2.2" stroke="currentColor" strokeWidth="1.4" />
+        </svg>
+      );
+    default:
+      return null;
+  }
 }
 
 function SectionHeader({ kicker, title }: { kicker: string; title: string }) {
