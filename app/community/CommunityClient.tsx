@@ -11,10 +11,10 @@ type NamedEntry = { name: string; email: string };
 type NamedPicks = { H: NamedEntry[]; A: NamedEntry[]; T: NamedEntry[] };
 type Option     = "H" | "A" | "T";
 
-// Bar colours — blue / stone / red, all AA-compliant with white text
-const BAR_HOME = "#1E40AF";
-const BAR_DRAW = "#57534E";
-const BAR_AWAY = "#B91C1C";
+// Bar colours — green (home) / yellow (draw) / blue (away), dark enough for white text
+const BAR_HOME = "#1B7A3D";
+const BAR_DRAW = "#A07820";
+const BAR_AWAY = "#1E40AF";
 
 interface ModalState {
   matchId:      string;
@@ -293,26 +293,19 @@ export default function CommunityClient({
               style={{ animationDelay: `${gi * 40}ms` }}
             >
               {/* Group header */}
-              <div className="border-b border-line pb-3.5 flex items-center gap-4">
+              <div className="border-b border-line pb-4 flex items-center gap-4">
                 <div
-                  className="flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-md bg-ink text-paper font-serif font-bold text-[26px] leading-none shadow-paper"
+                  className="flex-shrink-0 flex items-center justify-center h-14 w-14 rounded-lg bg-ink text-paper font-serif font-bold text-[30px] leading-none shadow-paper"
                   style={{ fontVariationSettings: '"opsz" 80' }}
                 >
                   {group.letter}
                 </div>
-                <div>
-                  <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-accent mb-1">
-                    Group {group.letter}
-                  </p>
-                  <p className="font-serif text-[15px] ink leading-tight" style={{ fontVariationSettings: '"opsz" 24' }}>
-                    {group.teams.map(t => (
-                      <span key={t} className="inline-block mr-2.5">
-                        <Flag team={t} size={14} className="opacity-70" />{" "}
-                        <span>{t}</span>
-                      </span>
-                    ))}
-                  </p>
-                </div>
+                <h2
+                  className="font-serif font-medium text-[30px] sm:text-[38px] ink leading-none tracking-[-0.01em]"
+                  style={{ fontVariationSettings: '"opsz" 80' }}
+                >
+                  Group {group.letter}
+                </h2>
               </div>
 
               {/* Group matches */}
