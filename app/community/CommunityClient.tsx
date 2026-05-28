@@ -263,11 +263,6 @@ function MatchPicksCard({
   const dateLabel = kickoff.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   const timeLabel = kickoff.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
 
-  const myPickLabel =
-    myPick === "H" ? match.homeTeam :
-    myPick === "A" ? match.awayTeam :
-    myPick === "T" ? "Draw" : null;
-
   const result: Option | null =
     match.result === "H" || match.result === "A" || match.result === "T"
       ? match.result : null;
@@ -360,15 +355,18 @@ function MatchPicksCard({
           </div>
         </div>
 
-        {/* Stacked bar */}
+        {/* Stacked bar — three tones of ink (dark → medium → light).
+            Winner turns green; losers dim to 30% so the result is obvious. */}
         {total > 0 ? (
           <div className="flex h-9 rounded-md overflow-hidden" style={{ gap: "1px", background: "var(--color-line)" }}>
             {H > 0 && (
               <button
                 style={{ flex: H }}
-                className={`group flex items-center justify-center transition-opacity hover:opacity-75 cursor-pointer min-w-0
-                  ${result === "H" ? "bg-green-deep" : "bg-ink"}
-                  ${myPick === "H" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                className={`group flex items-center justify-center cursor-pointer min-w-0 transition-opacity hover:opacity-80
+                  ${result === "H" ? "bg-green-deep"
+                    : result !== null ? "bg-ink opacity-25"
+                    : "bg-ink"}
+                  ${myPick === "H" ? "ring-2 ring-inset ring-white/20" : ""}`}
                 onClick={() => onSegmentClick("H")}
                 title={`${match.homeTeam}: ${pctH}% · ${H} ${H === 1 ? "pick" : "picks"}`}
               >
@@ -382,9 +380,11 @@ function MatchPicksCard({
             {!isKnockout && T > 0 && (
               <button
                 style={{ flex: T }}
-                className={`group flex items-center justify-center transition-opacity hover:opacity-75 cursor-pointer min-w-0
-                  ${result === "T" ? "bg-green-deep" : "bg-ink-faint"}
-                  ${myPick === "T" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                className={`group flex items-center justify-center cursor-pointer min-w-0 transition-opacity hover:opacity-80
+                  ${result === "T" ? "bg-green-deep"
+                    : result !== null ? "bg-ink-soft opacity-25"
+                    : "bg-ink-soft"}
+                  ${myPick === "T" ? "ring-2 ring-inset ring-white/20" : ""}`}
                 onClick={() => onSegmentClick("T")}
                 title={`Draw: ${pctT}% · ${T} ${T === 1 ? "pick" : "picks"}`}
               >
@@ -398,14 +398,16 @@ function MatchPicksCard({
             {A > 0 && (
               <button
                 style={{ flex: A }}
-                className={`group flex items-center justify-center transition-opacity hover:opacity-75 cursor-pointer min-w-0
-                  ${result === "A" ? "bg-green-deep" : "bg-accent"}
-                  ${myPick === "A" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                className={`group flex items-center justify-center cursor-pointer min-w-0 transition-opacity hover:opacity-80
+                  ${result === "A" ? "bg-green-deep"
+                    : result !== null ? "bg-ink-faint opacity-25"
+                    : "bg-ink-faint"}
+                  ${myPick === "A" ? "ring-2 ring-inset ring-white/20" : ""}`}
                 onClick={() => onSegmentClick("A")}
                 title={`${match.awayTeam}: ${pctA}% · ${A} ${A === 1 ? "pick" : "picks"}`}
               >
                 {pctA >= 13 && (
-                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">
+                  <span className="font-mono text-[10px] text-ink/70 tabular leading-none select-none">
                     {pctA}%
                   </span>
                 )}
@@ -426,14 +428,15 @@ function MatchPicksCard({
               ${myPick === "H" ? "ink" : "ink-faint"}`}
             onClick={() => onSegmentClick("H")}
           >
-            <span className="font-mono text-[12px] font-semibold tabular leading-none">
-              {pctH}%
-            </span>
-            <span className="font-mono text-[10px] leading-none">
+            <div className="flex items-center gap-1.5">
+              <span className={`h-2 w-2 rounded-sm flex-shrink-0 ${result === "H" ? "bg-green-deep" : "bg-ink"}`} />
+              <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctH}%</span>
+            </div>
+            <span className="font-mono text-[10px] leading-none pl-3.5">
               {H} {H === 1 ? "pick" : "picks"}
             </span>
             {myPick === "H" && (
-              <span className={`font-mono text-[9px] font-semibold mt-0.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
+              <span className={`font-mono text-[9px] font-semibold mt-0.5 pl-3.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
                 {myPickCorrect ? "✓ you" : myPickWrong ? "✗ you" : "← you"}
               </span>
             )}
@@ -446,12 +449,13 @@ function MatchPicksCard({
                 ${myPick === "T" ? "ink" : "ink-faint"}`}
               onClick={() => onSegmentClick("T")}
             >
-              <span className="font-mono text-[12px] font-semibold tabular leading-none">
-                {pctT}%
-              </span>
-              <span className="font-mono text-[10px] leading-none">Draw</span>
+              <div className="flex items-center gap-1.5">
+                <span className={`h-2 w-2 rounded-sm flex-shrink-0 ${result === "T" ? "bg-green-deep" : "bg-ink-soft"}`} />
+                <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctT}%</span>
+              </div>
+              <span className="font-mono text-[10px] leading-none pl-3.5">Draw</span>
               {myPick === "T" && (
-                <span className={`font-mono text-[9px] font-semibold mt-0.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
+                <span className={`font-mono text-[9px] font-semibold mt-0.5 pl-3.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
                   {myPickCorrect ? "✓ you" : myPickWrong ? "✗ you" : "you"}
                 </span>
               )}
@@ -464,14 +468,15 @@ function MatchPicksCard({
               ${myPick === "A" ? "ink" : "ink-faint"}`}
             onClick={() => onSegmentClick("A")}
           >
-            <span className="font-mono text-[12px] font-semibold tabular leading-none">
-              {pctA}%
-            </span>
-            <span className="font-mono text-[10px] leading-none">
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctA}%</span>
+              <span className={`h-2 w-2 rounded-sm flex-shrink-0 ${result === "A" ? "bg-green-deep" : "bg-ink-faint"}`} />
+            </div>
+            <span className="font-mono text-[10px] leading-none pr-3.5">
               {A} {A === 1 ? "pick" : "picks"}
             </span>
             {myPick === "A" && (
-              <span className={`font-mono text-[9px] font-semibold mt-0.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
+              <span className={`font-mono text-[9px] font-semibold mt-0.5 pr-3.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
                 {myPickCorrect ? "you ✓" : myPickWrong ? "you ✗" : "you →"}
               </span>
             )}
