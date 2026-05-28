@@ -219,15 +219,6 @@ export default function LeaderboardClient({
       {/* ── LEAGUE INVITE CARD ───────────────────────────────── */}
       <InviteCard league={activeLeague} />
 
-      {/* ── BUY-IN / POT ─────────────────────────────────────── */}
-      {(activeLeague.isOwner || activeLeague.buyIn > 0) && (
-        <PotWidget
-          leagueId={activeLeague.id}
-          buyIn={activeLeague.buyIn}
-          memberCount={activeLeague.memberCount}
-          isOwner={activeLeague.isOwner}
-        />
-      )}
 
       {/* ── LIVE BANNER ──────────────────────────────────────── */}
       {liveMatches.length > 0 && (
@@ -738,118 +729,13 @@ function HeadToHead({ a, b, matches, onClose }: {
   );
 }
 
-function PotWidget({
-  leagueId, buyIn, memberCount, isOwner,
-}: {
-  leagueId: string; buyIn: number; memberCount: number; isOwner: boolean;
+function InviteCard({ league }: {
+  league: { id: string; name: string; code: string; memberCount: number; buyIn: number; isOwner: boolean };
 }) {
-  const [editing, setEditing] = useState(false);
-  const [inputVal, setInputVal] = useState(String(buyIn));
-  const [isPending, startTransition] = useTransition();
-
-  const potSize = buyIn * memberCount;
-
-  function openEdit() {
-    setInputVal(String(buyIn));
-    setEditing(true);
-  }
-
-  function save() {
-    const amount = Math.max(0, parseInt(inputVal, 10) || 0);
-    setInputVal(String(amount));
-    startTransition(async () => {
-      await handleSetLeagueBuyIn(leagueId, amount);
-      setEditing(false);
-    });
-  }
-
-  function handleKey(e: React.KeyboardEvent) {
-    if (e.key === "Enter") save();
-    if (e.key === "Escape") setEditing(false);
-  }
-
-  return (
-    <div className="anim-fade-up bg-card border border-line rounded-lg shadow-paper overflow-hidden">
-      <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
-
-        {/* Left: buy-in per player */}
-        <div>
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint mb-1.5">
-            Buy-in per player
-          </p>
-          {editing ? (
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[18px] font-bold ink">$</span>
-              <input
-                type="number"
-                min="0"
-                value={inputVal}
-                onChange={e => setInputVal(e.target.value)}
-                onBlur={save}
-                onKeyDown={handleKey}
-                autoFocus
-                className="w-24 font-mono text-[22px] font-bold ink bg-paper-deep border border-accent/40 rounded-md px-2 py-0.5 outline-none focus:border-accent tabular"
-              />
-            </div>
-          ) : (
-            <div className="flex items-center gap-2.5">
-              <p className="font-mono text-[22px] font-bold ink tracking-tight leading-none">
-                ${buyIn === 0 ? <span className="ink-faint font-normal text-[16px]">not set</span> : buyIn}
-              </p>
-              {isOwner && (
-                <button
-                  onClick={openEdit}
-                  disabled={isPending}
-                  className="font-mono text-[11px] ink-faint hover:ink-soft transition-colors px-1.5 py-0.5 rounded hover:bg-paper-deep"
-                  title="Edit buy-in"
-                >
-                  {isPending ? "…" : "Edit"}
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Divider */}
-        <div className="h-10 w-px bg-line hidden sm:block" />
-
-        {/* Right: total pot */}
-        <div className="text-right sm:text-left">
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint mb-1.5">
-            Total pot
-          </p>
-          <p className="font-mono text-[22px] font-bold leading-none tracking-tight">
-            {buyIn > 0 ? (
-              <span className="ink">${potSize}</span>
-            ) : (
-              <span className="ink-faint font-normal text-[16px]">—</span>
-            )}
-          </p>
-          {buyIn > 0 && (
-            <p className="font-mono text-[10.5px] ink-faint mt-1">
-              {memberCount} {memberCount === 1 ? "player" : "players"} × ${buyIn}
-            </p>
-          )}
-        </div>
-
-      </div>
-      {isOwner && buyIn === 0 && !editing && (
-        <div className="px-5 py-2.5 border-t border-[color:var(--line-soft)] bg-paper-deep/50">
-          <p className="text-[12px] ink-faint">
-            You haven&rsquo;t set a buy-in yet.{" "}
-            <button onClick={openEdit} className="text-accent hover:underline font-medium">
-              Set one now
-            </button>{" "}
-            to show everyone the pot size.
-          </p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function InviteCard({ league }: { league: { name: string; code: string; memberCount: number } }) {
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState(String(league.buyIn));
+  const [isPending, startTransition] = useTransition();
 
   async function copy() {
     try { await navigator.clipboard.writeText(league.code); } catch {}
@@ -857,41 +743,116 @@ function InviteCard({ league }: { league: { name: string; code: string; memberCo
     setTimeout(() => setCopied(false), 1800);
   }
 
+  function saveBuyIn() {
+    const amount = Math.max(0, parseInt(inputVal, 10) || 0);
+    setInputVal(String(amount));
+    startTransition(async () => {
+      await handleSetLeagueBuyIn(league.id, amount);
+      setEditing(false);
+    });
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter") saveBuyIn();
+    if (e.key === "Escape") { setInputVal(String(league.buyIn)); setEditing(false); }
+  }
+
+  const showFooter = league.isOwner || league.buyIn > 0;
+  const pot = league.buyIn * league.memberCount;
+
   return (
-    <div className="anim-fade-up bg-card border border-line rounded-lg px-5 py-4 flex items-center justify-between gap-4 flex-wrap shadow-paper">
-      <div className="flex items-center gap-4">
-        <div>
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint mb-1">
-            League invite code
-          </p>
-          <p
-            className="font-mono text-[22px] font-bold ink tracking-[0.14em] leading-none"
-          >
-            {league.code}
-          </p>
+    <div className="anim-fade-up bg-card border border-line rounded-lg shadow-paper overflow-hidden">
+      {/* ── Main row ── */}
+      <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-4">
+          <div>
+            <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint mb-1">
+              League invite code
+            </p>
+            <p className="font-mono text-[22px] font-bold ink tracking-[0.14em] leading-none">
+              {league.code}
+            </p>
+          </div>
+          <div className="h-8 w-px bg-line hidden sm:block" />
+          <div className="hidden sm:block">
+            <p className="text-[13px] ink-soft leading-snug">
+              Share this code so friends can join{" "}
+              <span className="font-medium ink">{league.name}</span>.
+            </p>
+            <p className="text-[12px] ink-faint">
+              {league.memberCount} {league.memberCount === 1 ? "member" : "members"} so far
+            </p>
+          </div>
         </div>
-        <div className="h-8 w-px bg-line hidden sm:block" />
-        <div className="hidden sm:block">
-          <p className="text-[13px] ink-soft leading-snug">
-            Share this code so friends can join{" "}
-            <span className="font-medium ink">{league.name}</span>.
-          </p>
-          <p className="text-[12px] ink-faint">
-            {league.memberCount} {league.memberCount === 1 ? "member" : "members"} so far
-          </p>
-        </div>
+        <button
+          onClick={copy}
+          className={`flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-semibold transition-all
+            ${copied
+              ? "bg-green-soft text-green-deep"
+              : "bg-paper-deep hover:bg-line ink border border-line"
+            }`}
+        >
+          <span className="font-mono text-[11px]">{copied ? "✓" : "⎘"}</span>
+          {copied ? "Copied!" : "Copy code"}
+        </button>
       </div>
-      <button
-        onClick={copy}
-        className={`flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-semibold transition-all
-          ${copied
-            ? "bg-green-soft text-green-deep"
-            : "bg-paper-deep hover:bg-line ink border border-line"
-          }`}
-      >
-        <span className="font-mono text-[11px]">{copied ? "✓" : "⎘"}</span>
-        {copied ? "Copied!" : "Copy code"}
-      </button>
+
+      {/* ── Buy-in footer strip ── */}
+      {showFooter && (
+        <div className="px-5 py-2 border-t border-[color:var(--line-soft)] bg-paper-deep/40 flex items-center gap-2 flex-wrap">
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[11px] ink-faint">$</span>
+              <input
+                type="number"
+                min="0"
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                onBlur={saveBuyIn}
+                onKeyDown={handleKey}
+                autoFocus
+                className="w-16 font-mono text-[12px] ink bg-card border border-line rounded px-2 py-0.5 outline-none focus:border-accent/50 tabular"
+              />
+              <span className="font-mono text-[11px] ink-faint">per player</span>
+              <button onClick={saveBuyIn} disabled={isPending} className="font-mono text-[10px] text-accent hover:underline ml-1">
+                {isPending ? "…" : "save"}
+              </button>
+              <button onClick={() => { setInputVal(String(league.buyIn)); setEditing(false); }} className="font-mono text-[10px] ink-faint hover:ink-soft hover:underline">
+                cancel
+              </button>
+            </div>
+          ) : league.buyIn > 0 ? (
+            <>
+              <span className="font-mono text-[11px] ink-faint">
+                <span className="ink-soft font-medium tabular">${league.buyIn}</span> buy-in
+              </span>
+              <span className="font-mono text-[10px] ink-faint/40">·</span>
+              <span className="font-mono text-[11px] ink-faint">
+                <span className="ink-soft font-medium tabular">${pot}</span> total pot
+              </span>
+              {league.isOwner && (
+                <button
+                  onClick={() => { setInputVal(String(league.buyIn)); setEditing(true); }}
+                  className="font-mono text-[10px] ink-faint/50 hover:ink-faint transition-colors ml-auto"
+                >
+                  edit
+                </button>
+              )}
+            </>
+          ) : (
+            // owner only, buyIn === 0
+            <>
+              <span className="font-mono text-[11px] ink-faint/60">No buy-in set</span>
+              <button
+                onClick={() => setEditing(true)}
+                className="font-mono text-[10px] text-accent/70 hover:text-accent transition-colors ml-1"
+              >
+                + set one
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
