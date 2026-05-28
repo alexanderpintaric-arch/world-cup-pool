@@ -147,9 +147,9 @@
   100% { transform: scale(1); }
 }
 @keyframes pickGlow {
-  0%   { box-shadow: 0 0 0 0px rgba(11, 20, 38, 0.5); }
-  60%  { box-shadow: 0 0 0 10px rgba(11, 20, 38, 0); }
-  100% { box-shadow: 0 0 0 0px rgba(11, 20, 38, 0); }
+  0%   { box-shadow: 0 0 0 0px rgba(160, 120, 32, 0.55); }
+  60%  { box-shadow: 0 0 0 10px rgba(160, 120, 32, 0); }
+  100% { box-shadow: 0 0 0 0px rgba(160, 120, 32, 0); }
 }
 .pick-selected {
   animation:

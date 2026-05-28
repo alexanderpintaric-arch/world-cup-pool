@@ -117,7 +117,7 @@ export default function MatchCard({
           let cls = "relative flex flex-col items-center justify-center gap-0.5 rounded-md px-2 py-3 text-center transition-all select-none cursor-pointer min-h-[72px] ";
           if (correct)        cls += "bg-green-soft border-2 border-green-deep ink";
           else if (wrong)     cls += "bg-paper-deep border-2 border-line ink-faint";
-          else if (picked)    cls += "bg-ink border-2 border-ink text-paper pick-selected";
+          else if (picked)    cls += "bg-gold border-2 border-gold text-paper pick-selected";
           else                cls += "bg-paper border-2 border-line hover:border-ink/40 hover:bg-card ink";
           if (disabled && !picked && !correct && !wrong) cls += " opacity-50 cursor-not-allowed hover:border-line hover:bg-paper";
 
