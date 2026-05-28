@@ -2,6 +2,22 @@ import type { Match, RoundState } from "@/lib/types";
 import { MAX_TOTAL_POINTS } from "@/lib/constants";
 import LandingShowcase from "./LandingShowcase";
 
+const SUPPORTERS = [
+  { name: "Alex P.",      country: "Japan",    flag: "🇯🇵" },
+  { name: "Matt S.",      country: "Italy",    flag: "🇮🇹" },
+  { name: "Uros C.",      country: "Serbia",   flag: "🇷🇸" },
+  { name: "Ryan B.",      country: "Germany",  flag: "🇩🇪" },
+  { name: "Jean Paul M.", country: "Portugal", flag: "🇵🇹" },
+  { name: "Max M.",       country: "England",  flag: "🏴󠁧󠁢󠁥󠁮󠁧󠁿" },
+  { name: "Daniel R.",    country: "Colombia", flag: "🇨🇴" },
+  { name: "Stefan V.",    country: "Bosnia",   flag: "🇧🇦" },
+  { name: "Michael L.",   country: "Scotland", flag: "🏴󠁧󠁢󠁳󠁣󠁴󠁿" },
+  { name: "Michael K.",   country: "Korea",    flag: "🇰🇷" },
+  { name: "Gerard A.",    country: "Nigeria",  flag: "🇳🇬" },
+  { name: "Michael O.",   country: "Canada",   flag: "🇨🇦" },
+  { name: "Dylan C.",     country: "Portugal", flag: "🇵🇹" },
+];
+
 interface Props {
   matches: Match[];
   roundStates: RoundState[];
@@ -53,6 +69,9 @@ export default function Landing({ matches, participantCount }: Props) {
   const totalMatches = Math.max(matches.length, 104);
   const teamCount = 48;
   const groupCount = 12;
+  const daysUntil = Math.max(0, Math.ceil(
+    (new Date("2026-06-11").getTime() - Date.now()) / (1000 * 60 * 60 * 24)
+  ));
 
   return (
     <div className="space-y-20 sm:space-y-28">
@@ -101,26 +120,55 @@ export default function Landing({ matches, participantCount }: Props) {
         {/* Stats strip */}
         <div className="mt-16 grid grid-cols-2 sm:grid-cols-3 gap-px bg-line border border-line rounded-lg overflow-hidden anim-fade-up" style={{animationDelay: '300ms'}}>
           {[
-            { v: String(totalMatches), l: "Matches" },
-            { v: String(teamCount), l: "Teams" },
-            { v: String(groupCount), l: "Groups" },
-            { v: "39",  l: "Days" },
-            { v: String(MAX_TOTAL_POINTS), l: "Max points" },
-            { v: "1",   l: "Champion" },
+            { v: String(totalMatches), l: "Matches",    e: "⚽" },
+            { v: String(teamCount),    l: "Teams",      e: "🌍" },
+            { v: String(groupCount),   l: "Groups",     e: "🎯" },
+            { v: String(daysUntil),    l: "Days to go", e: "⏳" },
+            { v: String(MAX_TOTAL_POINTS), l: "Max points", e: "🔥" },
+            { v: "1",                  l: "Champion",   e: "🏆" },
           ].map((s) => (
             <div key={s.l} className="bg-card px-5 py-4 sm:py-5">
               <div className="font-serif font-medium text-[28px] sm:text-[34px] leading-none ink tabular" style={{fontVariationSettings: '"opsz" 80'}}>
                 {s.v}
               </div>
-              <div className="mt-1.5 font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint">
+              <div className="mt-2 flex items-center gap-1.5 font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint">
+                <span className="emoji text-[13px]">{s.e}</span>
                 {s.l}
               </div>
             </div>
           ))}
         </div>
 
+        {/* Supporter ticker */}
+        <div className="mt-4 flex items-stretch border border-line rounded-lg overflow-hidden bg-card shadow-paper anim-fade-up" style={{animationDelay: '350ms'}}>
+          {/* Label */}
+          <div className="flex items-center gap-2.5 px-4 py-2.5 bg-ink text-paper flex-shrink-0 border-r border-line/20">
+            <span className="h-1.5 w-1.5 rounded-full bg-accent flex-shrink-0 anim-ring-pulse" />
+            <span className="font-mono text-[9.5px] uppercase tracking-[0.22em] whitespace-nowrap">
+              Picking sides
+            </span>
+          </div>
+
+          {/* Scrolling strip — content doubled for seamless loop */}
+          <div className="overflow-hidden flex-1 min-w-0">
+            <div className="ticker-track">
+              {[...SUPPORTERS, ...SUPPORTERS].map((s, i) => (
+                <span
+                  key={i}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 shrink-0"
+                >
+                  <span className="emoji text-[16px] leading-none">{s.flag}</span>
+                  <span className="text-[13px] font-medium ink whitespace-nowrap">{s.name}</span>
+                  <span className="font-mono text-[11px] ink-faint whitespace-nowrap">{s.country}</span>
+                  <span className="text-[9px] ink-faint opacity-40 mx-1">·</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
         {participantCount > 0 && (
-          <p className="mt-5 text-[13px] ink-faint anim-fade-up" style={{animationDelay: '380ms'}}>
+          <p className="mt-3 text-[13px] ink-faint anim-fade-up" style={{animationDelay: '400ms'}}>
             <span className="font-mono tabular ink-soft font-semibold">{participantCount}</span>{" "}
             {participantCount === 1 ? "friend has" : "friends have"} already joined.
           </p>

@@ -251,6 +251,23 @@
   .anim-print, .anim-fade-up, .anim-fade-in { animation: none !important; }
 }
 
+/* ── Supporter ticker marquee ──────────────────────────────────────────────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.ticker-track {
+  display: flex;
+  animation: marquee 44s linear infinite;
+  will-change: transform;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track { animation: none; }
+}
+
 /* ── Landing showcase: looping "tap to pick" demo ─────────────────────────── */
 
 /* The favourite option fills green as if just selected */
