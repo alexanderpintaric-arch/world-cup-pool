@@ -87,8 +87,10 @@ export default function PicksClient({
         const d = await res.json().catch(() => ({}));
         setError(d.error ?? "Couldn’t save your pick");
       } else {
-        setSaved(s => ({ ...s, [matchId]: true }));
-        setTimeout(() => setSaved(s => ({ ...s, [matchId]: false })), 1500);
+        if (pick !== null) {
+          setSaved(s => ({ ...s, [matchId]: true }));
+          setTimeout(() => setSaved(s => ({ ...s, [matchId]: false })), 1500);
+        }
       }
     } catch {
       setError("Network hiccup — pick not saved");
@@ -98,7 +100,16 @@ export default function PicksClient({
   }, []);
 
   function handlePick(matchId: string, pick: MatchResult) {
-    setPicks(p => ({ ...p, [matchId]: pick }));
+    if (pick === null) {
+      // Undo: remove from local state
+      setPicks(p => {
+        const next = { ...p };
+        delete next[matchId];
+        return next;
+      });
+    } else {
+      setPicks(p => ({ ...p, [matchId]: pick }));
+    }
     savePick(matchId, pick);
   }
 

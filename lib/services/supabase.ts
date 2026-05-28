@@ -105,6 +105,17 @@ function rowToPick(r: Record<string, unknown>): Pick {
   };
 }
 
+export async function deletePick(email: string, matchId: string, leagueId: string): Promise<void> {
+  if (isMock) return;
+  const { error } = await getClient()
+    .from("picks")
+    .delete()
+    .eq("email", email)
+    .eq("match_id", matchId)
+    .eq("league_id", leagueId);
+  if (error) throw error;
+}
+
 export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
   if (isMock || picks.length === 0) return;
   const rows = picks.map(p => ({

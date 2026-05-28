@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
-import { getPicksForUser, upsertPicksBatch, getAllMatches } from "@/lib/services/supabase";
+import { getPicksForUser, upsertPicksBatch, deletePick, getAllMatches } from "@/lib/services/supabase";
 import { getRoundStates } from "@/lib/services/scoring";
 import type { Pick } from "@/lib/types";
 
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const picks: { matchId: string; pick: string }[] = body.picks;
+  const picks: { matchId: string; pick: string | null }[] = body.picks;
 
   if (!Array.isArray(picks) || picks.length === 0) {
     return NextResponse.json({ error: "No picks provided" }, { status: 400 });
@@ -43,18 +43,25 @@ export async function POST(req: Request) {
 
   const allMatches = await getAllMatches();
   const roundStates = getRoundStates(allMatches);
-  // Round must be available (previous round complete) — match must not have started
   const availableRounds = new Set(roundStates.filter(r => r.isAvailable).map(r => r.round));
   const matchMap = new Map(allMatches.map(m => [m.matchId, m]));
 
   const now = new Date().toISOString();
   const validPicks: Pick[] = [];
+  const deleteMatchIds: string[] = [];
 
   for (const p of picks) {
     const match = matchMap.get(p.matchId);
     if (!match) continue;
     if (!availableRounds.has(match.round)) continue;
-    if (match.status !== "SCHEDULED") continue; // match already started or finished
+    if (match.status !== "SCHEDULED") continue;
+
+    // null pick = undo / remove
+    if (p.pick === null) {
+      deleteMatchIds.push(p.matchId);
+      continue;
+    }
+
     if (!["H", "A", "T"].includes(p.pick)) continue;
     if (p.pick === "T" && match.round !== "GROUP") continue;
 
@@ -69,16 +76,23 @@ export async function POST(req: Request) {
     });
   }
 
-  if (validPicks.length === 0) {
+  if (validPicks.length === 0 && deleteMatchIds.length === 0) {
     return NextResponse.json({ error: "No valid picks — round unavailable or match already started" }, { status: 400 });
   }
 
   try {
-    await upsertPicksBatch(validPicks);
+    // Run upserts and deletes in parallel
+    await Promise.all([
+      validPicks.length > 0 ? upsertPicksBatch(validPicks) : Promise.resolve(),
+      ...deleteMatchIds.map(matchId =>
+        deletePick(session.user!.email!, matchId, leagueId)
+      ),
+    ]);
   } catch (e) {
     const msg = e instanceof Error ? e.message : ((e as any)?.message ?? JSON.stringify(e));
-    console.error("upsertPicksBatch error:", e);
+    console.error("picks save error:", e);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-  return NextResponse.json({ saved: validPicks.length });
+
+  return NextResponse.json({ saved: validPicks.length, deleted: deleteMatchIds.length });
 }

@@ -17,7 +17,7 @@ interface Props {
   popular?: { H: number; A: number; T: number; total: number } | null;
   groupLetter?: string | null;
   matchNumber?: number;
-  onPick: (matchId: string, pick: MatchResult) => void;
+  onPick: (matchId: string, pick: MatchResult) => void; // null = remove pick
   disabled: boolean;
   result?: MatchResult;
   pointsValue: number;
@@ -127,7 +127,7 @@ export default function MatchCard({
           return (
             <button
               key={opt.value}
-              onClick={() => !disabled && onPick(match.matchId, opt.value)}
+              onClick={() => !disabled && onPick(match.matchId, picked ? null : opt.value)}
               disabled={disabled && !picked}
               className={cls}
             >
