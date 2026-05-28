@@ -8,7 +8,7 @@ export default async function OnboardingPage({
   searchParams: Promise<{ mode?: string }>;
 }) {
   const session = await auth();
-  if (!session?.user?.email) redirect("/api/auth/signin");
+  if (!session?.user?.email) redirect("/auth/signin");
 
   const params = await searchParams;
   const defaultMode = params.mode === "join" ? "join" : "create";

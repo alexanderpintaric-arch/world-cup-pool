@@ -12,7 +12,7 @@ const isMock = !process.env.NEXT_PUBLIC_SUPABASE_URL;
 
 export default async function CommunityPage() {
   const session = await auth();
-  if (!isMock && !session?.user?.email) redirect("/api/auth/signin");
+  if (!isMock && !session?.user?.email) redirect("/auth/signin");
 
   const mockEmail = "alex@example.com";
   const email = session?.user?.email ?? mockEmail;

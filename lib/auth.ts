@@ -4,6 +4,9 @@ import { upsertUser } from "./services/supabase";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   secret: process.env.AUTH_SECRET ?? process.env.NEXTAUTH_SECRET,
+  pages: {
+    signIn: "/auth/signin",
+  },
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,

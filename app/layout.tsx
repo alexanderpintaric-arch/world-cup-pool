@@ -126,7 +126,7 @@ async function AuthButton() {
   }
   return (
     <a
-      href="/api/auth/signin?callbackUrl=/"
+      href="/auth/signin"
       className="px-3.5 py-1.5 rounded-md text-[13px] font-semibold bg-ink text-paper hover:bg-accent transition-colors"
     >
       Sign&nbsp;in

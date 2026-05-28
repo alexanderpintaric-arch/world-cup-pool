@@ -86,7 +86,7 @@ export default function Landing({ matches, participantCount }: Props) {
 
         <div className="mt-9 flex flex-wrap items-center gap-4 anim-fade-up" style={{animationDelay: '200ms'}}>
           <a
-            href="/api/auth/signin?callbackUrl=/picks"
+            href="/auth/signin?callbackUrl=/picks"
             className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-md bg-ink text-paper text-[15px] font-semibold hover:bg-accent transition-all shadow-paper hover:shadow-lift"
           >
             Sign in with Google
@@ -242,7 +242,7 @@ export default function Landing({ matches, participantCount }: Props) {
               Make your picks before the group stage starts. After that, you&rsquo;ll have until each new round opens to commit.
             </p>
             <a
-              href="/api/auth/signin?callbackUrl=/picks"
+              href="/auth/signin?callbackUrl=/picks"
               className="mt-8 group inline-flex items-center gap-3 px-6 py-3.5 rounded-md bg-paper text-ink text-[15px] font-semibold hover:bg-gold hover:text-ink transition-colors"
             >
               Sign in and start picking

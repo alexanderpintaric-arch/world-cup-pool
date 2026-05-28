@@ -5,12 +5,13 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import type { League } from "@/lib/types";
 
-export async function handleSignIn() {
-  await signIn("google");
+export async function handleSignIn(formData: FormData) {
+  const callbackUrl = (formData.get("callbackUrl") as string) || "/";
+  await signIn("google", { redirectTo: callbackUrl });
 }
 
 export async function handleSignOut() {
-  await signOut();
+  await signOut({ redirectTo: "/" });
 }
 
 // ── League actions ─────────────────────────────────────────────────────────
@@ -30,7 +31,7 @@ export async function handleCreateLeague(
   formData: FormData
 ): Promise<LeagueActionState> {
   const session = await auth();
-  if (!session?.user?.email) redirect("/api/auth/signin");
+  if (!session?.user?.email) redirect("/auth/signin");
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name)          return { error: "Please enter a league name." };
@@ -52,7 +53,7 @@ export async function handleJoinLeague(
   formData: FormData
 ): Promise<LeagueActionState> {
   const session = await auth();
-  if (!session?.user?.email) redirect("/api/auth/signin");
+  if (!session?.user?.email) redirect("/auth/signin");
 
   const code = String(formData.get("code") ?? "").trim();
   if (!code) return { error: "Please enter a league code." };
