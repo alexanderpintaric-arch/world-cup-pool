@@ -132,7 +132,7 @@ export async function fetchWCOdds(knownMatches: Match[]): Promise<OddsData[]> {
 
   const params = new URLSearchParams({
     apiKey: key,
-    regions: "eu",
+    bookmakers: "fanduel",
     markets: "h2h",
     oddsFormat: "decimal",
   });
