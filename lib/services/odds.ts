@@ -37,27 +37,40 @@ function normalizeProbs(h: number, d: number | null, a: number): [number, number
 
 const CANONICAL: Record<string, string> = {
   // United States
-  "united states":                 "usa",
-  "united states of america":      "usa",
+  "united states":                  "usa",
+  "united states of america":       "usa",
   // Korea
-  "south korea":                   "korea republic",
-  "korea":                         "korea republic",
+  "south korea":                    "korea republic",
+  "korea":                          "korea republic",
   // Iran
-  "iran":                          "ir iran",
+  "iran":                           "ir iran",
   // Czech Republic
-  "czech republic":                "czechia",
+  "czech republic":                 "czechia",
   // Ivory Coast
-  "ivory coast":                   "cote divoire",
-  "côte divoire":                  "cote divoire",
-  "cote d ivoire":                 "cote divoire",
+  "ivory coast":                    "cote divoire",
+  "côte d ivoire":                  "cote divoire",
+  "cote d ivoire":                  "cote divoire",
+  "cote divoire":                   "cote divoire",
+  // Bosnia — football-data uses "Bosnia-Herzegovina" (→ "bosnia herzegovina"),
+  // The Odds API uses "Bosnia and Herzegovina"
+  "bosnia and herzegovina":         "bosnia herzegovina",
+  "bosnia & herzegovina":           "bosnia herzegovina",
   // DR Congo
-  "dr congo":                      "congo dr",
-  "democratic republic of congo":  "congo dr",
+  "dr congo":                       "congo dr",
+  "democratic republic of congo":   "congo dr",
+  "democratic republic of the congo": "congo dr",
+  // North Macedonia (some sources drop "North")
+  "macedonia":                      "north macedonia",
+  // Cape Verde / Cabo Verde
+  "cape verde":                     "cabo verde",
+  // Palestine
+  "state of palestine":             "palestine",
   // Other common mismatches
-  "republic of ireland":           "ireland",
-  "northern ireland":              "northern ireland",
-  "trinidad & tobago":             "trinidad and tobago",
-  "guinea bissau":                 "guinea-bissau",
+  "republic of ireland":            "ireland",
+  "trinidad & tobago":              "trinidad and tobago",
+  "guinea bissau":                  "guinea-bissau",
+  // New Zealand alias
+  "new zealand":                    "new zealand",
 };
 
 function normalizeTeam(name: string): string {
@@ -116,12 +129,17 @@ export async function fetchWCOdds(knownMatches: Match[]): Promise<OddsData[]> {
   const results: OddsData[] = [];
 
   for (const g of games) {
-    const lookupKey = `${normalizeTeam(g.home_team)}|${normalizeTeam(g.away_team)}`;
-    const matchId = matchLookup.get(lookupKey);
+    const normHome  = normalizeTeam(g.home_team);
+    const normAway  = normalizeTeam(g.away_team);
+    const lookupKey = `${normHome}|${normAway}`;
+    const matchId   = matchLookup.get(lookupKey);
     if (!matchId) {
       // Try reversed (some APIs swap home/away in pre-match period)
-      const reversed = `${normalizeTeam(g.away_team)}|${normalizeTeam(g.home_team)}`;
-      if (!matchLookup.get(reversed)) continue; // genuinely unknown match
+      const reversed = `${normAway}|${normHome}`;
+      if (!matchLookup.get(reversed)) {
+        console.warn(`[odds] Unmatched: "${g.home_team}" vs "${g.away_team}" (normalised: "${normHome}" | "${normAway}")`);
+        continue;
+      }
     }
     const resolvedId = matchId ?? matchLookup.get(`${normalizeTeam(g.away_team)}|${normalizeTeam(g.home_team)}`)!;
 
