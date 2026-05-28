@@ -500,7 +500,11 @@ function UngroupedRemainder({
 
 /* ─── Group standings projection ───────────────────────────── */
 
-function computeGroupStandings(matches: Match[], picks: Record<string, MatchResult>) {
+function computeGroupStandings(
+  matches: Match[],
+  picks: Record<string, MatchResult>,
+  mode: "projected" | "actual" = "projected"
+) {
   const stats = new Map<string, { played: number; w: number; d: number; l: number; pts: number }>();
 
   for (const m of matches) {
@@ -516,15 +520,16 @@ function computeGroupStandings(matches: Match[], picks: Record<string, MatchResu
   for (const m of matches) {
     if (m.homeTeam === "TBD" || m.awayTeam === "TBD") continue;
     const isFinished = m.status === "FINISHED";
-    // Finished → use actual result; scheduled + picked → use pick; otherwise skip
-    const result: MatchResult = isFinished ? m.result : (picks[m.matchId] ?? null);
+    const result: MatchResult =
+      mode === "actual"
+        ? (isFinished ? m.result : null)
+        : (isFinished ? m.result : (picks[m.matchId] ?? null));
     if (!result) continue;
 
     resolved++;
     const h = stats.get(m.homeTeam)!;
     const a = stats.get(m.awayTeam)!;
-    h.played++;
-    a.played++;
+    h.played++; a.played++;
 
     if (result === "H")      { h.w++; h.pts += 3; a.l++; }
     else if (result === "A") { a.w++; a.pts += 3; h.l++; }
@@ -546,73 +551,81 @@ function GroupStandings({ matches, picks }: {
   matches: Match[];
   picks: Record<string, MatchResult>;
 }) {
-  const { rows, resolved, total } = computeGroupStandings(matches, picks);
-  if (rows.length === 0) return null;
+  const { rows: projRows, resolved, total } = computeGroupStandings(matches, picks, "projected");
+  const { rows: actRows, resolved: actResolved } = computeGroupStandings(matches, picks, "actual");
+
+  if (projRows.length === 0) return null;
 
   const pending = total - resolved;
   const allPicked = pending === 0;
+  // Only show actual column once at least one match has been played
+  const showActual = actResolved > 0;
+  const actualPts = new Map(actRows.map(r => [r.team, r.pts]));
 
   return (
-    <div className="mt-4 rounded-lg border border-line overflow-hidden bg-card shadow-paper">
-      {/* Header */}
-      <div className="px-4 py-2 border-b border-[color:var(--line-soft)] flex items-center justify-between gap-2">
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] ink-faint">
+    <div className="mt-3 rounded-md border border-line/60 overflow-hidden">
+      {/* Subtle header */}
+      <div className="flex items-center justify-between px-3 py-1.5 bg-paper-deep/40 border-b border-line/40">
+        <span className="font-mono text-[9px] uppercase tracking-[0.18em] ink-faint">
           Projected standings
-        </p>
-        <p className={`font-mono text-[10px] ${allPicked ? "text-green-deep" : "ink-faint"}`}>
-          {allPicked
-            ? "All matches picked ✓"
-            : `${pending} match${pending !== 1 ? "es" : ""} unpicked`}
-        </p>
+        </span>
+        <span className={`font-mono text-[9px] transition-colors ${allPicked ? "text-green-deep/70" : "ink-faint/60"}`}>
+          {allPicked ? "All picked ✓" : `${pending} match${pending !== 1 ? "es" : ""} unpicked`}
+        </span>
       </div>
 
-      {/* Table */}
       <table className="w-full">
         <thead>
-          <tr className="border-b border-[color:var(--line-soft)]">
-            <th className="pl-4 pr-2 py-1.5 text-left font-mono text-[9px] uppercase tracking-[0.14em] ink-faint w-6">#</th>
-            <th className="px-2 py-1.5 text-left font-mono text-[9px] uppercase tracking-[0.14em] ink-faint">Team</th>
-            <th className="px-2 py-1.5 text-center font-mono text-[9px] uppercase tracking-[0.14em] ink-faint w-8">P</th>
-            <th className="px-2 py-1.5 text-center font-mono text-[9px] uppercase tracking-[0.14em] ink-faint w-8">W</th>
-            <th className="px-2 py-1.5 text-center font-mono text-[9px] uppercase tracking-[0.14em] ink-faint w-8">D</th>
-            <th className="px-2 py-1.5 text-center font-mono text-[9px] uppercase tracking-[0.14em] ink-faint w-8">L</th>
-            <th className="pr-4 pl-2 py-1.5 text-right font-mono text-[9px] uppercase tracking-[0.14em] ink-faint w-10">Pts</th>
+          <tr className="border-b border-line/30">
+            {/* rank — no separate col for the bar, we use border-l on this cell */}
+            <th className="w-8 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/50 select-none">#</th>
+            <th className="px-2 py-1 text-left font-mono text-[8px] tracking-widest ink-faint/50">TEAM</th>
+            <th className="w-7 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/40">P</th>
+            <th className="w-7 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/40">W</th>
+            <th className="w-7 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/40">D</th>
+            <th className="w-7 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/40">L</th>
+            {showActual && (
+              <th className="w-14 pr-3 pl-1 py-1 text-right font-mono text-[8px] tracking-widest ink-faint/40">ACT.</th>
+            )}
+            <th className={`${showActual ? "w-16 pr-3" : "w-14 pr-3"} pl-1 py-1 text-right font-mono text-[8px] tracking-widest ink-faint/50`}>
+              {showActual ? "PROJ." : "PTS"}
+            </th>
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, i) => {
+          {projRows.map((row, i) => {
             const advancing = i < 2;
+            const aPts = actualPts.get(row.team) ?? 0;
             return (
               <tr
                 key={row.team}
-                className={`border-t border-[color:var(--line-soft)] relative
-                  ${advancing ? "bg-green-soft/25" : ""}
-                `}
+                className={`border-t border-line/25 ${advancing ? "bg-green-soft/10" : ""}`}
               >
-                {/* Advancing indicator bar */}
-                {advancing && (
-                  <td
-                    className="absolute left-0 top-0 bottom-0 w-[3px] bg-green-deep rounded-none"
-                    aria-hidden="true"
-                  />
-                )}
-                <td className="pl-4 pr-2 py-2">
-                  <span className="font-mono text-[11px] ink-faint tabular">{i + 1}</span>
+                {/* Rank cell — left border via padding trick, no extra td */}
+                <td className={`w-8 py-1.5 text-center ${advancing ? "border-l-[3px] border-green-deep/50" : "border-l-[3px] border-transparent"}`}>
+                  <span className="font-mono text-[10px] ink-faint/60 tabular">{i + 1}</span>
                 </td>
-                <td className="px-2 py-2">
+                <td className="px-2 py-1.5">
                   <div className="flex items-center gap-1.5 min-w-0">
-                    <Flag team={row.team} size={14} className="flex-shrink-0" />
-                    <span className="text-[12px] font-medium ink truncate">{row.team}</span>
+                    <Flag team={row.team} size={13} className="flex-shrink-0" />
+                    <span className={`text-[11px] truncate ${advancing ? "font-semibold ink/90" : "font-medium ink/70"}`}>
+                      {row.team}
+                    </span>
                   </div>
                 </td>
-                <td className="px-2 py-2 text-center font-mono text-[11px] tabular ink-faint">{row.played}</td>
-                <td className="px-2 py-2 text-center font-mono text-[11px] tabular ink-soft">{row.w}</td>
-                <td className="px-2 py-2 text-center font-mono text-[11px] tabular ink-faint">{row.d}</td>
-                <td className="px-2 py-2 text-center font-mono text-[11px] tabular ink-faint">{row.l}</td>
-                <td className="pr-4 pl-2 py-2 text-right">
-                  <span className={`font-mono text-[13px] font-bold tabular
-                    ${advancing ? "text-green-deep" : "ink"}
-                  `}>
+                <td className="w-7 py-1.5 text-center font-mono text-[10px] tabular ink-faint/50">{row.played}</td>
+                <td className="w-7 py-1.5 text-center font-mono text-[10px] tabular ink-faint/60">{row.w}</td>
+                <td className="w-7 py-1.5 text-center font-mono text-[10px] tabular ink-faint/50">{row.d}</td>
+                <td className="w-7 py-1.5 text-center font-mono text-[10px] tabular ink-faint/50">{row.l}</td>
+                {showActual && (
+                  <td className="w-14 pr-3 pl-1 py-1.5 text-right">
+                    <span className={`font-mono text-[10px] tabular ${advancing && aPts > 0 ? "text-green-deep/60" : "ink-faint/50"}`}>
+                      {aPts}
+                    </span>
+                  </td>
+                )}
+                <td className={`${showActual ? "w-16 pr-3" : "w-14 pr-3"} pl-1 py-1.5 text-right`}>
+                  <span className={`font-mono text-[11px] font-semibold tabular ${advancing ? "text-green-deep/80" : "ink/50"}`}>
                     {row.pts}
                   </span>
                 </td>
@@ -621,6 +634,13 @@ function GroupStandings({ matches, picks }: {
           })}
         </tbody>
       </table>
+
+      {/* Separator + legend when both columns are shown */}
+      {showActual && (
+        <div className="px-3 py-1.5 border-t border-line/25 bg-paper-deep/20 flex items-center gap-3">
+          <span className="font-mono text-[8px] ink-faint/40">ACT. = completed matches only · PROJ. = your picks + results</span>
+        </div>
+      )}
     </div>
   );
 }
