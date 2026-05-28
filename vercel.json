@@ -1,4 +1,5 @@
 {
+  "toolbar": { "defaultOpen": false },
   "crons": [
     {
       "path": "/api/cron/sync",
