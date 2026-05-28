@@ -48,7 +48,7 @@ function barcodeBars(seed: string): number[] {
   return bars;
 }
 
-export default function SummaryClient({
+export default function SlipClient({
   matches, userPicks, roundStates, userName, leagueName,
 }: Props) {
   const [copied, setCopied] = useState(false);

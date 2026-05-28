@@ -6,9 +6,9 @@ import { cookies } from "next/headers";
 import { getAllMatches, getPicksForUser } from "@/lib/services/supabase";
 import { getUserLeagues } from "@/lib/services/leagues";
 import { getRoundStates } from "@/lib/services/scoring";
-import SummaryClient from "./SummaryClient";
+import SlipClient from "./SlipClient";
 
-export default async function SummaryPage() {
+export default async function SlipPage() {
   const session = await auth();
   if (!session?.user?.email) redirect("/auth/signin");
 
@@ -30,7 +30,7 @@ export default async function SummaryPage() {
   const roundStates = getRoundStates(matches);
 
   return (
-    <SummaryClient
+    <SlipClient
       matches={matches}
       userPicks={userPicks}
       roundStates={roundStates}

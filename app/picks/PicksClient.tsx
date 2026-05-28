@@ -207,7 +207,7 @@ export default function PicksClient({
             Every selection saves the second you tap it. Change your mind as often as you like — until the deadline.
           </p>
           <a
-            href="/summary"
+            href="/slip"
             className="group mt-5 inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-card border border-line shadow-paper text-[14px] font-semibold ink-soft hover:ink hover:border-ink/25 hover:shadow-lift transition-all"
           >
             <svg className="h-4 w-4 text-accent" viewBox="0 0 16 16" fill="none" aria-hidden="true">
