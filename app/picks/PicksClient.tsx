@@ -3,8 +3,8 @@ import { useState, useCallback, useMemo } from "react";
 import type { Match, Pick, OddsData, RoundState, MatchResult, Round } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
 import { inferGroups } from "@/lib/services/grouping";
-import { flagFor } from "@/lib/services/flags";
 import MatchCard from "@/components/MatchCard";
+import Flag from "@/components/Flag";
 import CountdownTimer from "@/components/CountdownTimer";
 
 type PopularCount = { H: number; A: number; T: number; total: number };
@@ -351,7 +351,7 @@ function GroupHeader({ letter, teams, picked, total }: {
           <p className="font-serif text-[15px] ink leading-tight max-w-md" style={{fontVariationSettings: '"opsz" 24'}}>
             {teams.map(t => (
               <span key={t} className="inline-block mr-1.5">
-                <span className="emoji ink-faint text-[13px]">{flagFor(t)}</span>{" "}
+                <Flag team={t} size={14} className="opacity-70" />{" "}
                 <span>{t}</span>
               </span>
             ))}

@@ -1,6 +1,6 @@
 "use client";
 import type { Match, OddsData, MatchResult } from "@/lib/types";
-import { flagFor } from "@/lib/services/flags";
+import Flag from "./Flag";
 
 /** Convert decimal odds to American format: -118, +320, etc. */
 function toAmerican(decimal: number): string {
@@ -108,7 +108,7 @@ export default function MatchCard({
       </div>
 
       {/* ── PICK BUTTONS ───────────────────────────────────── */}
-      <div className={`px-4 sm:px-5 pb-4 pt-1 grid gap-2 ${isKnockout ? "grid-cols-2" : "grid-cols-3"}`}>
+      <div className={`px-4 sm:px-5 pb-4 pt-1 grid gap-2 overflow-hidden ${isKnockout ? "grid-cols-2" : "grid-cols-3"}`}>
         {options.map(opt => {
           const picked  = currentPick === opt.value;
           const correct = isFinished && result === opt.value;
@@ -122,7 +122,6 @@ export default function MatchCard({
           if (disabled && !picked && !correct && !wrong) cls += " opacity-50 cursor-not-allowed hover:border-line hover:bg-paper";
 
           const label = opt.value === "T" ? "Draw" : opt.label;
-          const flag  = opt.value === "T" ? "🤝" : flagFor(opt.label);
 
           return (
             <button
@@ -130,8 +129,12 @@ export default function MatchCard({
               onClick={() => !disabled && onPick(match.matchId, picked ? null : opt.value)}
               disabled={disabled && !picked}
               className={cls}
+              style={{ touchAction: "manipulation" }}
             >
-              {flag && <span className="emoji text-[14px] leading-none">{flag}</span>}
+              {opt.value === "T"
+                ? <span className={`text-[15px] leading-none ${picked ? "opacity-80" : "opacity-40"}`}>—</span>
+                : <Flag team={opt.label} size={18} className="mb-0.5" />
+              }
 
               <span className={`text-[11px] sm:text-[12px] font-semibold leading-tight line-clamp-1 ${wrong ? "line-through" : ""}`}>
                 {label}
@@ -139,14 +142,14 @@ export default function MatchCard({
 
               {/* Odds probability — SCHEDULED only (bookmaker consensus) */}
               {!isStarted && opt.prob !== null && (
-                <span className={`font-mono text-[9.5px] tabular leading-none ${picked ? "text-paper/70" : "ink-faint"}`}>
+                <span className={`font-mono text-[11px] tabular leading-none ${picked ? "text-paper/70" : "ink-faint"}`}>
                   {opt.prob}%
                 </span>
               )}
 
               {/* American odds — SCHEDULED only */}
               {!isStarted && opt.odds !== null && (
-                <span className={`font-mono text-[8.5px] tabular leading-none ${picked ? "text-paper/50" : "text-[color:var(--ink-faint)]/60"}`}>
+                <span className={`font-mono text-[10px] tabular leading-none ${picked ? "text-paper/50" : "text-[color:var(--ink-faint)]/60"}`}>
                   {toAmerican(opt.odds)}
                 </span>
               )}
@@ -194,7 +197,7 @@ function TeamRow({ team, score, isFinished, reverse }: {
   const isTBD = !team || team === "TBD";
   return (
     <div className={`flex items-center gap-2.5 min-w-0 flex-1 ${reverse ? "flex-row-reverse text-right" : ""}`}>
-      <span className="emoji text-[20px] leading-none flex-shrink-0">{flagFor(team) || "⚪"}</span>
+      <Flag team={team} size={24} />
       <div className="min-w-0 flex-1">
         <p className={`font-serif text-[15px] sm:text-[16px] font-medium leading-tight truncate ${isTBD ? "ink-faint italic" : "ink"}`} style={{fontVariationSettings: '"opsz" 24'}}>
           {team || "TBD"}

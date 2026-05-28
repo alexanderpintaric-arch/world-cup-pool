@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import type { Match, RoundState, Round } from "@/lib/types";
 import { inferGroups } from "@/lib/services/grouping";
-import { flagFor } from "@/lib/services/flags";
+import Flag from "@/components/Flag";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,7 +149,7 @@ export default function CommunityClient({
                   <p className="font-serif text-[15px] ink leading-tight" style={{ fontVariationSettings: '"opsz" 24' }}>
                     {group.teams.map(t => (
                       <span key={t} className="inline-block mr-2.5">
-                        <span className="emoji text-[13px]">{flagFor(t)}</span>{" "}
+                        <Flag team={t} size={14} className="opacity-70" />{" "}
                         <span>{t}</span>
                       </span>
                     ))}
@@ -323,7 +323,7 @@ function MatchPicksCard({
         {/* Teams row */}
         <div className="flex items-center justify-between mb-3 gap-2">
           <div className="flex items-center gap-1.5 min-w-0 flex-1">
-            <span className="emoji text-[18px] leading-none flex-shrink-0">{flagFor(match.homeTeam) || "⚪"}</span>
+            <Flag team={match.homeTeam} size={20} />
             <span
               className={`font-serif text-[14px] sm:text-[15px] font-medium leading-tight truncate ink ${!match.homeTeam || match.homeTeam === "TBD" ? "ink-faint italic" : ""}`}
               style={{ fontVariationSettings: '"opsz" 24' }}
@@ -344,7 +344,7 @@ function MatchPicksCard({
           </div>
 
           <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-row-reverse justify-start">
-            <span className="emoji text-[18px] leading-none flex-shrink-0">{flagFor(match.awayTeam) || "⚪"}</span>
+            <Flag team={match.awayTeam} size={20} />
             <span
               className={`font-serif text-[14px] sm:text-[15px] font-medium leading-tight truncate text-right ink ${!match.awayTeam || match.awayTeam === "TBD" ? "ink-faint italic" : ""}`}
               style={{ fontVariationSettings: '"opsz" 24' }}
