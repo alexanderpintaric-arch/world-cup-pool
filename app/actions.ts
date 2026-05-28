@@ -119,6 +119,24 @@ export async function handleSetLeagueBuyIn(leagueId: string, amount: number): Pr
   revalidatePath("/", "layout");
 }
 
+// ── Display name ──────────────────────────────────────────────────────────
+
+export async function handleUpdateDisplayName(name: string): Promise<{ error?: string }> {
+  const session = await auth();
+  if (!session?.user?.email) return { error: "Not signed in." };
+  const trimmed = name.trim();
+  if (!trimmed)            return { error: "Name can't be empty." };
+  if (trimmed.length > 40) return { error: "Name must be 40 characters or less." };
+  try {
+    const { setUserDisplayName } = await import("@/lib/services/supabase");
+    await setUserDisplayName(session.user.email, trimmed);
+  } catch {
+    return { error: "Something went wrong. Please try again." };
+  }
+  revalidatePath("/", "layout");
+  return {};
+}
+
 // ── League switch ──────────────────────────────────────────────────────────
 
 /** Bound action: handleSwitchLeague.bind(null, leagueId) */

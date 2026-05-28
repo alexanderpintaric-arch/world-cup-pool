@@ -160,12 +160,38 @@ export async function getAllUsers(): Promise<User[]> {
   }));
 }
 
+export async function getUserByEmail(email: string): Promise<User | null> {
+  if (isMock) return MOCK_USERS.find(u => u.email === email) ?? null;
+  const { data, error } = await getClient()
+    .from("users")
+    .select("*")
+    .eq("email", email)
+    .single();
+  if (error || !data) return null;
+  return {
+    email:         data.email as string,
+    name:          data.name as string,
+    createdAt:     data.created_at as string,
+    supportedTeam: (data.supported_team as string | null) ?? null,
+  };
+}
+
 export async function upsertUser(user: User): Promise<void> {
   if (isMock) return;
+  // ignoreDuplicates: true — only inserts new users; never overwrites a custom display name
   const { error } = await getClient()
     .from("users")
     .upsert({ email: user.email, name: user.name, created_at: user.createdAt },
-             { onConflict: "email" });
+             { onConflict: "email", ignoreDuplicates: true });
+  if (error) throw error;
+}
+
+export async function setUserDisplayName(email: string, name: string): Promise<void> {
+  if (isMock) return;
+  const { error } = await getClient()
+    .from("users")
+    .update({ name })
+    .eq("email", email);
   if (error) throw error;
 }
 

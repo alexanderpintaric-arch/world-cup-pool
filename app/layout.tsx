@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { handleSignOut } from "./actions";
 import type { LeagueWithRole } from "@/lib/types";
 import { LeagueSwitcher } from "./LeagueSwitcher";
 import MobileNavBar from "./MobileNavBar";
 import DesktopNavLinks from "./DesktopNavLinks";
+import ProfileButton from "./ProfileButton";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nutmeg.bet"),
@@ -136,22 +136,20 @@ async function AdminNavLink() {
 async function AuthButton() {
   const { auth } = await import("@/lib/auth");
   const session = await auth();
-  if (session?.user) {
-    const initials = (session.user.name ?? session.user.email ?? "?")
-      .split(/\s+/).map(s => s[0]).join("").slice(0, 2).toUpperCase();
+  if (session?.user?.email) {
+    // Prefer the DB name (may have been customised) over the OAuth name
+    const { getUserByEmail } = await import("@/lib/services/supabase");
+    let displayName = session.user.name ?? session.user.email;
+    try {
+      const dbUser = await getUserByEmail(session.user.email);
+      if (dbUser?.name) displayName = dbUser.name;
+    } catch { /* fall back to OAuth name */ }
+
+    const initials = displayName
+      .split(/\s+/).filter(Boolean).map(s => s[0]).join("").slice(0, 2).toUpperCase();
+
     return (
-      <form action={handleSignOut} className="flex items-center gap-2.5">
-        <div className="h-8 w-8 rounded-full bg-ink text-paper flex items-center justify-center text-[10.5px] font-semibold tracking-wide flex-shrink-0 ring-1 ring-transparent hover:ring-accent/40 transition-all">
-          {initials}
-        </div>
-        {/* "Sign out" text hidden on mobile — too cramped */}
-        <button
-          type="submit"
-          className="hidden sm:inline text-[12.5px] font-medium ink-soft hover:text-accent transition-colors editorial-underline"
-        >
-          Sign&nbsp;out
-        </button>
-      </form>
+      <ProfileButton initials={initials} name={displayName} email={session.user.email} />
     );
   }
   return (
