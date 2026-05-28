@@ -22,7 +22,7 @@ export default function DevPreviewPage() {
         odds={[]}
         currentUserEmail="alexanderpintaric@gmail.com"
         currentUserName="Alexander Pintaric"
-        activeLeague={{ name: "The Lads 2026", code: "LADS26", memberCount: 8 }}
+        activeLeague={{ id: "dev-league", name: "The Lads 2026", code: "LADS26", memberCount: 8, buyIn: 25, isOwner: true }}
       />
     </div>
   );
