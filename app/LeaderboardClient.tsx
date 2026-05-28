@@ -205,7 +205,7 @@ export default function LeaderboardClient({
                     <th className="px-3 py-3 text-right text-[10.5px] uppercase tracking-[0.18em] font-medium ink-faint">Score</th>
                     {(Object.keys(ROUND_CONFIG) as (keyof typeof ROUND_CONFIG)[]).map(r => (
                       <th key={r} className="px-2 py-3 text-right text-[10.5px] uppercase tracking-[0.18em] font-medium ink-faint hidden md:table-cell">
-                        {ROUND_CONFIG[r].label.split(" ")[0].slice(0, 4)}
+                        {ROUND_CONFIG[r].shortLabel}
                       </th>
                     ))}
                     <th className="px-3 sm:px-5 py-3 text-right text-[10.5px] uppercase tracking-[0.18em] font-medium ink-faint hidden sm:table-cell">Correct</th>

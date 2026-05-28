@@ -1,12 +1,12 @@
 import type { Round } from "./types";
 
-export const ROUND_CONFIG: Record<Round, { label: string; pointsValue: number; order: number }> = {
-  GROUP:          { label: "Group Stage",    pointsValue: 1, order: 0 },
-  ROUND_OF_32:    { label: "Round of 32",    pointsValue: 2, order: 1 },
-  ROUND_OF_16:    { label: "Round of 16",    pointsValue: 3, order: 2 },
-  QUARTER_FINALS: { label: "Quarterfinals",  pointsValue: 4, order: 3 },
-  SEMI_FINALS:    { label: "Semifinals",     pointsValue: 5, order: 4 },
-  FINAL:          { label: "Final",          pointsValue: 6, order: 5 },
+export const ROUND_CONFIG: Record<Round, { label: string; shortLabel: string; pointsValue: number; order: number }> = {
+  GROUP:          { label: "Group Stage",    shortLabel: "Group",  pointsValue: 1, order: 0 },
+  ROUND_OF_32:    { label: "Round of 32",    shortLabel: "Ro32",   pointsValue: 2, order: 1 },
+  ROUND_OF_16:    { label: "Round of 16",    shortLabel: "Ro16",   pointsValue: 3, order: 2 },
+  QUARTER_FINALS: { label: "Quarterfinals",  shortLabel: "QF",     pointsValue: 4, order: 3 },
+  SEMI_FINALS:    { label: "Semifinals",     shortLabel: "SF",     pointsValue: 5, order: 4 },
+  FINAL:          { label: "Final",          shortLabel: "Final",  pointsValue: 6, order: 5 },
 };
 
 // football-data.org stage name -> our Round
