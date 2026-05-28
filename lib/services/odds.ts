@@ -61,16 +61,38 @@ const CANONICAL: Record<string, string> = {
   "democratic republic of the congo": "congo dr",
   // North Macedonia (some sources drop "North")
   "macedonia":                      "north macedonia",
-  // Cape Verde / Cabo Verde
+  // Cape Verde / Cabo Verde — football-data uses "Cape Verde Islands"
   "cape verde":                     "cabo verde",
+  "cape verde islands":             "cabo verde",
   // Palestine
   "state of palestine":             "palestine",
+  "palestinian territories":        "palestine",
   // Other common mismatches
   "republic of ireland":            "ireland",
   "trinidad & tobago":              "trinidad and tobago",
   "guinea bissau":                  "guinea-bissau",
+  "guinea-bissau":                  "guinea-bissau",
   // New Zealand alias
   "new zealand":                    "new zealand",
+  // Chinese Taipei / Taiwan
+  "chinese taipei":                 "taiwan",
+  "taiwan":                         "taiwan",
+  // Venezuela
+  "venezuela":                      "venezuela",
+  // El Salvador
+  "el salvador":                    "el salvador",
+  // Saudi Arabia
+  "saudi arabia":                   "saudi arabia",
+  "ksa":                            "saudi arabia",
+  // UAE
+  "united arab emirates":           "uae",
+  "uae":                            "uae",
+  // DPR Korea / North Korea
+  "dpr korea":                      "north korea",
+  "korea dpr":                      "north korea",
+  // Curacao
+  "curaçao":                        "curacao",
+  "curacao":                        "curacao",
 };
 
 function normalizeTeam(name: string): string {
