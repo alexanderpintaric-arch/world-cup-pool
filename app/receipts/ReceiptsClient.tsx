@@ -79,7 +79,7 @@ const STAMP_TEXT: Record<ReturnType<typeof roundPhase>, string> = {
   settled: "SETTLED",
 };
 
-export default function SlipClient({
+export default function ReceiptsClient({
   matches, userPicks, roundStates, userName, leagueName,
 }: Props) {
   const [copied, setCopied] = useState(false);

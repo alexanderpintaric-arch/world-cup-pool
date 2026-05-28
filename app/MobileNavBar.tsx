@@ -33,8 +33,8 @@ const TABS = [
     ),
   },
   {
-    href: "/slip",
-    label: "Bet Slip",
+    href: "/receipts",
+    label: "Receipts",
     exact: false,
     icon: (active: boolean) => (
       <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
