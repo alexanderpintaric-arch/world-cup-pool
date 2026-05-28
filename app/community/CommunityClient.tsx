@@ -480,6 +480,92 @@ function MatchPicksCard({
   );
 }
 
+// ── UserStack ─────────────────────────────────────────────────────────────────
+// Scales cleanly from 1 → 100+ users:
+//  • Current user always surfaces as a named chip (you know yourself)
+//  • Everyone else appears as overlapping avatar circles, max MAX_AVATARS shown
+//  • "+N more" bubble handles overflow without layout explosion
+
+const MAX_AVATARS = 14;
+
+function UserStack({
+  users, userEmail, isWinner, isLoser, initials,
+}: {
+  users:     NamedEntry[];
+  userEmail: string;
+  isWinner:  boolean;
+  isLoser:   boolean;
+  initials:  (name: string) => string;
+}) {
+  const meEntry = users.find(u => u.email === userEmail);
+  const others  = users.filter(u => u.email !== userEmail);
+  const shown   = others.slice(0, MAX_AVATARS);
+  const overflow = others.length - shown.length;
+
+  // Avatar colours
+  const avatarBg   = isWinner ? "bg-green-soft"  : "bg-paper-deep";
+  const avatarText = isWinner ? "text-green-deep" : "ink-soft";
+
+  return (
+    <div className="flex items-center gap-2.5 flex-wrap">
+
+      {/* "You" named chip — always full label so you spot yourself instantly */}
+      {meEntry && (
+        <div
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium flex-shrink-0
+            ${isWinner ? "bg-green-soft text-green-deep" : "bg-ink text-paper"}`}
+        >
+          <span
+            className={`h-4 w-4 rounded-full flex items-center justify-center text-[8.5px] font-bold
+              ${isWinner ? "bg-green-deep/20" : "bg-paper/15"}`}
+          >
+            {initials(meEntry.name)}
+          </span>
+          <span className="leading-none">{meEntry.name}</span>
+          <span className="font-mono text-[9px] font-bold leading-none opacity-60">you</span>
+          {isWinner && <span className="text-[10px] leading-none">✓</span>}
+        </div>
+      )}
+
+      {/* Overlapping avatar stack for everyone else */}
+      {shown.length > 0 && (
+        <div className="flex items-center" style={{ gap: 0 }}>
+          {shown.map((user, i) => (
+            <div
+              key={user.email}
+              title={user.name}
+              style={{
+                marginLeft: i > 0 ? "-7px" : 0,
+                zIndex:     shown.length - i,
+              }}
+              className={`h-7 w-7 rounded-full flex items-center justify-center
+                text-[9px] font-semibold ring-[1.5px] ring-paper flex-shrink-0
+                ${avatarBg} ${avatarText}`}
+            >
+              {initials(user.name)}
+            </div>
+          ))}
+          {overflow > 0 && (
+            <div
+              style={{ marginLeft: "-7px", zIndex: 0 }}
+              className="h-7 px-2 min-w-[28px] rounded-full flex items-center justify-center
+                font-mono text-[10px] font-semibold ring-[1.5px] ring-paper
+                bg-line ink-faint flex-shrink-0"
+            >
+              +{overflow}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Edge case: only "you" picked this, no others */}
+      {!meEntry && shown.length === 0 && (
+        <p className="font-mono text-[11px] ink-faint">Nobody picked this.</p>
+      )}
+    </div>
+  );
+}
+
 // ── PickModal ─────────────────────────────────────────────────────────────────
 
 function PickModal({
@@ -645,39 +731,13 @@ function PickModal({
                 ) : sec.users.length === 0 ? (
                   <p className="font-mono text-[11px] ink-faint py-1">Nobody picked this.</p>
                 ) : (
-                  <div className="flex flex-wrap gap-1.5">
-                    {sec.users.map(user => {
-                      const isMe = user.email === userEmail;
-                      return (
-                        <div
-                          key={user.email}
-                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[12px] font-medium
-                            ${isWinner
-                              ? "bg-green-soft text-green-deep"
-                              : isMe
-                                ? "bg-ink text-paper"
-                                : "bg-paper-deep ink"
-                            }`}
-                        >
-                          <span
-                            className={`h-4 w-4 rounded-full flex items-center justify-center text-[8.5px] font-bold flex-shrink-0
-                              ${isWinner ? "bg-green-deep/20" : isMe ? "bg-paper/15" : "bg-line"}`}
-                          >
-                            {initials(user.name)}
-                          </span>
-                          <span className="leading-none truncate max-w-[120px]">{user.name}</span>
-                          {isMe && (
-                            <span className={`font-mono text-[9px] font-bold leading-none opacity-70`}>
-                              you
-                            </span>
-                          )}
-                          {isWinner && (
-                            <span className="font-mono text-[10px] text-green-deep leading-none">✓</span>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <UserStack
+                    users={sec.users}
+                    userEmail={userEmail}
+                    isWinner={isWinner}
+                    isLoser={isLoser}
+                    initials={initials}
+                  />
                 )}
               </div>
             );
