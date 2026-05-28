@@ -83,6 +83,10 @@ interface Props {
   activeLeague: { name: string; code: string; memberCount: number };
 }
 
+function formatName(name: string): string {
+  return name.replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function initials(name: string) {
   return name.split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
 }
@@ -189,7 +193,7 @@ export default function LeaderboardClient({
                     {" "}&mdash;{" "}
                     <span className="ink-soft">
                       {deficit} {deficit === 1 ? "point" : "points"} behind{" "}
-                      <em className="font-serif italic">{personAhead.name}</em>
+                      <em className="font-serif italic">{formatName(personAhead.name)}</em>
                     </span>
                   </>
                 )}
@@ -198,7 +202,7 @@ export default function LeaderboardClient({
                     {" "}&mdash;{" "}
                     <span className="ink-soft">
                       level on points with{" "}
-                      <em className="font-serif italic">{personAhead.name}</em>
+                      <em className="font-serif italic">{formatName(personAhead.name)}</em>
                     </span>
                   </>
                 )}.
@@ -332,7 +336,7 @@ export default function LeaderboardClient({
                             <div className="flex flex-col gap-0.5 min-w-0">
                               <div className="flex items-baseline gap-2">
                                 <span className="font-serif text-[16px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 32'}}>
-                                  {entry.name}
+                                  {formatName(entry.name)}
                                 </span>
                                 {isMe && (
                                   <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-green-deep">
@@ -662,7 +666,7 @@ function HeadToHead({ a, b, matches, onClose }: {
               Head to head
             </p>
             <h2 className="font-serif text-[20px] sm:text-[22px] font-medium ink leading-tight" style={{fontVariationSettings: '"opsz" 48'}}>
-              {a.name} <span className="italic ink-faint">vs</span> {b.name}
+              {formatName(a.name)} <span className="italic ink-faint">vs</span> {formatName(b.name)}
             </h2>
           </div>
           <button
@@ -680,7 +684,7 @@ function HeadToHead({ a, b, matches, onClose }: {
               <div className="font-serif font-medium text-[44px] ink tabular leading-none" style={{fontVariationSettings: '"opsz" 100'}}>
                 {a.totalScore}
               </div>
-              <p className="mt-2 text-[12px] ink-soft font-medium truncate">{a.name}</p>
+              <p className="mt-2 text-[12px] ink-soft font-medium truncate">{formatName(a.name)}</p>
             </div>
             <div className="text-center flex items-center justify-center">
               <span className="font-serif italic text-[18px] ink-faint" style={{fontVariationSettings: '"opsz" 32'}}>
@@ -691,7 +695,7 @@ function HeadToHead({ a, b, matches, onClose }: {
               <div className="font-serif font-medium text-[44px] ink tabular leading-none" style={{fontVariationSettings: '"opsz" 100'}}>
                 {b.totalScore}
               </div>
-              <p className="mt-2 text-[12px] ink-soft font-medium truncate">{b.name}</p>
+              <p className="mt-2 text-[12px] ink-soft font-medium truncate">{formatName(b.name)}</p>
             </div>
           </div>
 

@@ -700,7 +700,7 @@ function UserStack({
           >
             {initials(meEntry.name)}
           </span>
-          <span className="leading-none">{meEntry.name}</span>
+          <span className="leading-none">{meEntry.name.replace(/\b\w/g, c => c.toUpperCase())}</span>
           <span className="font-mono text-[9px] font-bold leading-none opacity-60">you</span>
           {isWinner && <span className="text-[10px] leading-none">✓</span>}
         </div>
@@ -712,7 +712,7 @@ function UserStack({
           {shown.map((user, i) => (
             <div
               key={user.email}
-              title={user.name}
+              title={user.name.replace(/\b\w/g, c => c.toUpperCase())}
               style={{
                 marginLeft: i > 0 ? "-7px" : 0,
                 zIndex:     shown.length - i,

@@ -23,7 +23,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         try {
           await upsertUser({
             email: user.email,
-            name: user.name,
+            name: user.name.replace(/\b\w/g, c => c.toUpperCase()),
             createdAt: new Date().toISOString(),
           });
         } catch (e) {
