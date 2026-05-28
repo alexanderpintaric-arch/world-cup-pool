@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import type { Match, Pick, OddsData, RoundState, MatchResult, Round } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
 import { inferGroups } from "@/lib/services/grouping";
@@ -56,6 +56,11 @@ export default function PicksClient({
     return () => clearInterval(id);
   }, []);
 
+  // Celebration modal — fires once when the user makes the very last pick of a round
+  const [showCelebration, setShowCelebration] = useState(false);
+  const prevPickRef = useRef(-1);
+  const prevRoundRef = useRef<Round | null>(null);
+
   const oddsMap = useMemo(() => new Map(odds.map(o => [o.matchId, o])), [odds]);
   const currentRoundState = roundStates.find(r => r.round === selectedRound);
   const isAvailable = currentRoundState?.isAvailable ?? false;
@@ -83,6 +88,24 @@ export default function PicksClient({
   const pickedCount = roundMatches.filter(m => picks[m.matchId]).length;
   const totalCount = roundMatches.length;
   const pct = totalCount > 0 ? (pickedCount / totalCount) * 100 : 0;
+
+  // Fire the celebration the instant the final pick of a round is made
+  useEffect(() => {
+    const justFinished = (
+      totalCount > 0 &&
+      pickedCount === totalCount &&
+      prevPickRef.current === totalCount - 1 &&
+      prevRoundRef.current === selectedRound
+    );
+    if (justFinished) {
+      const t = setTimeout(() => setShowCelebration(true), 550); // let pick animation land first
+      prevPickRef.current = pickedCount;
+      prevRoundRef.current = selectedRound;
+      return () => clearTimeout(t);
+    }
+    prevPickRef.current = pickedCount;
+    prevRoundRef.current = selectedRound;
+  }, [pickedCount, totalCount, selectedRound]);
 
   const savePick = useCallback(async (matchId: string, pick: MatchResult) => {
     setError(null);
@@ -120,6 +143,17 @@ export default function PicksClient({
 
   return (
     <div className="space-y-10">
+
+      {/* ── CELEBRATION MODAL ────────────────────────────────── */}
+      {showCelebration && currentRoundState && (
+        <CelebrationModal
+          round={selectedRound}
+          roundLabel={currentRoundState.label}
+          pickedCount={pickedCount}
+          lastKickoff={currentRoundState.lastKickoff}
+          onDismiss={() => setShowCelebration(false)}
+        />
+      )}
 
       {/* ── PAGE HEADER ──────────────────────────────────────── */}
       <header className="flex items-start justify-between flex-wrap gap-5 anim-fade-up">
@@ -341,17 +375,6 @@ export default function PicksClient({
         </section>
       )}
 
-      {/* ── FOOTER NOTE ──────────────────────────────────────── */}
-      {totalCount > 0 && pct === 100 && (
-        <div className="anim-fade-up bg-green-soft border border-[color:var(--green)]/20 rounded-md px-6 py-5 text-center">
-          <p className="font-serif italic text-[20px] text-green-deep leading-snug" style={{fontVariationSettings: '"opsz" 32'}}>
-            All set. Every match in this round is picked.
-          </p>
-          <p className="mt-1.5 text-[13px] ink-soft">
-            All picks for this round locked when the first match kicked off. Results will update as games finish.
-          </p>
-        </div>
-      )}
 
     </div>
   );
@@ -467,6 +490,155 @@ function UngroupedRemainder({
         ))}
       </div>
     </section>
+  );
+}
+
+/* ─── Celebration modal ────────────────────────────────────── */
+
+const CELEBRATION_COPY: Record<Round, (n: number) => { headline: string; sub: string }> = {
+  GROUP:          n => ({
+    headline: "That's all of them.",
+    sub: `All ${n} group stage picks are in. Sit back, watch the chaos unfold, and check back when the group stage wraps to see how many you nailed.`,
+  }),
+  ROUND_OF_32:    n => ({
+    headline: "Round of 32: done.",
+    sub: `${n} picks locked in. Sixteen matches will cut the field in half — come back when the last of them has finished.`,
+  }),
+  ROUND_OF_16:    n => ({
+    headline: "Locked and loaded.",
+    sub: `${n} picks set. Eight matches to decide the quarterfinalists. You'll know how you did before you know it.`,
+  }),
+  QUARTER_FINALS: n => ({
+    headline: "Quarters? Sorted.",
+    sub: `${n} picks in. Four matches, eight teams, no draws allowed. Come back when four of them are going home.`,
+  }),
+  SEMI_FINALS:    n => ({
+    headline: "Down to the wire.",
+    sub: `${n} picks submitted. Two matches stand between you and knowing if your finalist call was right.`,
+  }),
+  FINAL:          n => ({
+    headline: "And that's a wrap.",
+    sub: `The final pick is in. The biggest match in football is all that's left. May the best team win — and may your pick be right.`,
+  }),
+};
+
+// Pre-computed confetti pieces to avoid re-computation on every render
+const CONFETTI = Array.from({ length: 28 }, (_, i) => {
+  const angle = (i / 28) * 2 * Math.PI;
+  const r = 55 + (i % 5) * 22;
+  const colors = ['#C9302C','#A07820','#1B5E20','#0B1426','#D4502A','#C8A030','#6090B0','#E8604040'];
+  return {
+    x: Math.round(Math.cos(angle) * r),
+    y: Math.round(Math.sin(angle) * r - 10),
+    rot: Math.round(i * 47 + 20),
+    delay: i * 22,
+    color: colors[i % colors.length],
+    w: [8, 10, 6, 10, 7][i % 5],
+    h: [5, 7,  8,  5, 6][i % 5],
+    br: i % 4 === 0 ? '50%' : i % 3 === 0 ? '2px' : '1px',
+  };
+});
+
+function ConfettiBurst() {
+  return (
+    <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden">
+      {CONFETTI.map((p, i) => (
+        <span
+          key={i}
+          className="absolute"
+          style={{
+            width: p.w,
+            height: p.h,
+            borderRadius: p.br,
+            backgroundColor: p.color,
+            ['--conf-x' as string]: `${p.x}px`,
+            ['--conf-y' as string]: `${p.y}px`,
+            ['--conf-r' as string]: `${p.rot}deg`,
+            animation: `confettiBurst 1.1s cubic-bezier(0.22, 0.61, 0.36, 1) ${p.delay}ms both`,
+          }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function CelebrationModal({ round, roundLabel, pickedCount, lastKickoff, onDismiss }: {
+  round: Round;
+  roundLabel: string;
+  pickedCount: number;
+  lastKickoff: string | null;
+  onDismiss: () => void;
+}) {
+  const { headline, sub } = CELEBRATION_COPY[round](pickedCount);
+
+  const endDate = lastKickoff
+    ? new Date(lastKickoff).toLocaleDateString("en-CA", {
+        weekday: "long", month: "long", day: "numeric",
+      })
+    : null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-5 anim-fade-in"
+      style={{ background: "rgba(11,20,38,0.78)", backdropFilter: "blur(6px)" }}
+      onClick={onDismiss}
+    >
+      <div
+        className="celebration-enter relative bg-card rounded-2xl shadow-lift w-full max-w-sm overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* ── Dark header with confetti burst ─────────────── */}
+        <div className="relative bg-ink h-36 flex flex-col items-center justify-center overflow-hidden">
+          <ConfettiBurst />
+          <div className="relative z-10 text-center">
+            <span
+              className="font-serif font-bold text-paper tabular leading-none"
+              style={{ fontSize: "62px", fontVariationSettings: '"opsz" 120' }}
+            >
+              {pickedCount}
+            </span>
+            <p className="mt-1 font-mono text-[10px] uppercase tracking-[0.22em] text-paper/40">
+              picks made
+            </p>
+          </div>
+        </div>
+
+        {/* ── Content ──────────────────────────────────────── */}
+        <div className="px-7 pt-5 pb-7">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-accent mb-3">
+            {roundLabel} · Complete
+          </p>
+          <h2
+            className="font-serif font-medium leading-[1.05] tracking-[-0.02em] ink"
+            style={{ fontSize: "26px", fontVariationSettings: '"opsz" 72' }}
+          >
+            {headline}
+          </h2>
+          <p className="mt-3 text-[14px] ink-soft leading-relaxed">
+            {sub}
+          </p>
+
+          {endDate && (
+            <div className="mt-4 flex items-center gap-3 px-4 py-3 rounded-lg bg-paper-deep border border-line">
+              <span className="font-mono text-[18px]">📅</span>
+              <div>
+                <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint">
+                  Last match in this round
+                </p>
+                <p className="text-[13px] font-medium ink mt-0.5">{endDate}</p>
+              </div>
+            </div>
+          )}
+
+          <button
+            onClick={onDismiss}
+            className="mt-5 w-full py-3 rounded-lg bg-ink text-paper text-[14px] font-semibold hover:bg-accent transition-colors"
+          >
+            Got it, let&apos;s go →
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
