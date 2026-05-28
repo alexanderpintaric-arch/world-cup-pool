@@ -65,6 +65,15 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Hide scrollbar but keep scrollability (used by the round switcher) */
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Short colour aliases used throughout the app */
   .ink            { color: var(--color-ink); }
   .ink-soft       { color: var(--color-ink-soft); }

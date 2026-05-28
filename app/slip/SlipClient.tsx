@@ -1,6 +1,7 @@
 "use client";
 import { useState, useMemo } from "react";
 import type { Match, Pick, RoundState, MatchResult } from "@/lib/types";
+import { ROUND_CONFIG } from "@/lib/constants";
 
 interface Props {
   matches: Match[];
@@ -22,7 +23,13 @@ function scoreStr(m: Match) {
   return `${m.homeScore}–${m.awayScore}`;
 }
 
-/** Deterministic 6-char slip number from a seed (stable per user+league). */
+/** Decimal → American odds, matching the pick card (e.g. +140, -182). */
+function toAmerican(decimal: number): string {
+  if (decimal >= 2) return `+${Math.round((decimal - 1) * 100)}`;
+  return `${Math.round(-100 / (decimal - 1))}`;
+}
+
+/** Deterministic 6-char slip number from a seed (stable per user+league+round). */
 function slipNo(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (Math.imul(h, 31) + seed.charCodeAt(i)) >>> 0;
@@ -48,6 +55,30 @@ function barcodeBars(seed: string): number[] {
   return bars;
 }
 
+type RoundDatum = RoundState & {
+  matches: Match[];
+  pickedCount: number;
+  totalCount: number;
+  finishedCount: number;
+  correctCount: number;
+  missedCount: number;
+  pts: number;
+};
+
+function roundPhase(rd: RoundDatum): "locked" | "open" | "running" | "settled" {
+  if (!rd.isAvailable) return "locked";
+  if (rd.finishedCount === 0) return "open";
+  if (rd.finishedCount >= rd.totalCount) return "settled";
+  return "running";
+}
+
+const STAMP_TEXT: Record<ReturnType<typeof roundPhase>, string> = {
+  locked: "PENDING",
+  open: "UNSETTLED",
+  running: "PROVISIONAL",
+  settled: "SETTLED",
+};
+
 export default function SlipClient({
   matches, userPicks, roundStates, userName, leagueName,
 }: Props) {
@@ -66,8 +97,8 @@ export default function SlipClient({
     return map;
   }, [userPicks]);
 
-  // Build per-round data
-  const roundData = useMemo(() => {
+  // Per-round data — only rounds that actually have determined matches
+  const roundData = useMemo<RoundDatum[]>(() => {
     return roundStates.map(rs => {
       const roundMatches = matches
         .filter(m => m.round === rs.round && !(m.homeTeam === "TBD" && m.awayTeam === "TBD"))
@@ -94,76 +125,87 @@ export default function SlipClient({
     }).filter(rd => rd.totalCount > 0);
   }, [roundStates, matches, pickMap]);
 
-  // Totals
-  const totalPts      = roundData.reduce((s, r) => s + r.pts, 0);
-  const totalPicked   = roundData.reduce((s, r) => s + r.pickedCount, 0);
-  const totalMatches  = roundData.reduce((s, r) => s + r.totalCount, 0);
-  const totalCorrect  = roundData.reduce((s, r) => s + r.correctCount, 0);
-  const totalFinished = roundData.reduce((s, r) => s + r.finishedCount, 0);
-  const accuracy      = totalFinished > 0 ? Math.round((totalCorrect / totalFinished) * 100) : null;
+  // Active round — default to the open round if any, else the first
+  const initialRound = (roundData.find(r => r.isOpen) ?? roundData[0])?.round ?? "GROUP";
+  const [activeRoundKey, setActiveRoundKey] = useState<string>(initialRound);
+  const active = roundData.find(r => r.round === activeRoundKey) ?? roundData[0];
 
-  const settled   = totalMatches > 0 && totalFinished >= totalMatches;
-  const stampText = totalFinished === 0 ? "UNSETTLED" : settled ? "SETTLED" : "PROVISIONAL";
+  if (!active) {
+    return (
+      <div className="mx-auto max-w-[27rem] text-center py-20">
+        <p className="font-serif italic text-[20px] ink-soft" style={{ fontVariationSettings: '"opsz" 36' }}>
+          No rounds with fixtures yet. Check back once the schedule is set.
+        </p>
+        <a href="/picks" className="mt-6 inline-block font-mono text-[12px] ink-faint hover:ink-soft">&larr; Back to picks</a>
+      </div>
+    );
+  }
 
-  const slip   = slipNo(`${userName}|${leagueName}`);
-  const bars   = useMemo(() => barcodeBars(`${slip}|${leagueName}`), [slip, leagueName]);
+  const activeIdx = roundData.findIndex(r => r.round === active.round);
+  const phase = roundPhase(active);
+  const stampText = STAMP_TEXT[phase];
+  const accuracy  = active.finishedCount > 0 ? Math.round((active.correctCount / active.finishedCount) * 100) : null;
+
+  const slip   = slipNo(`${userName}|${leagueName}|${active.round}`);
+  const bars   = barcodeBars(`${slip}|${active.round}`);
   const issued = new Date();
   const issuedDate = issued.toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" });
   const issuedTime = issued.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
-  function buildCopyText() {
+  const stampColor =
+    phase === "settled" ? "var(--color-green-deep)"
+    : phase === "running" ? "var(--color-gold)"
+    : phase === "locked" ? "var(--color-ink-faint)"
+    : "var(--color-accent)";
+
+  function buildCopyText(rd: RoundDatum) {
     const lines: string[] = [
       `============================`,
       `        N U T M E G`,
       `   WORLD CUP 2026 · POOL`,
-      `   OFFICIAL PICK RECEIPT`,
+      `   ${rd.label.toUpperCase()} RECEIPT`,
       `============================`,
       `PLAYER ..... ${userName}`,
       `LEAGUE ..... ${leagueName}`,
+      `ROUND ...... ${rd.label}`,
       `ISSUED ..... ${issuedDate} ${issuedTime}`,
-      `SLIP NO .... #${slip}`,
-      `STATUS ..... ${stampText}`,
+      `SLIP NO .... #${slipNo(`${userName}|${leagueName}|${rd.round}`)}`,
+      `STATUS ..... ${STAMP_TEXT[roundPhase(rd)]}`,
       `----------------------------`,
     ];
 
-    for (const rd of roundData) {
-      lines.push(rd.label.toUpperCase());
-      for (const m of rd.matches) {
-        const pick = pickMap.get(m.matchId);
-        const label = pick ? pickLabel(pick, m) : "(no pick)";
-        const odds = oddsMap.get(m.matchId);
-        const oddsStr = pick && odds ? ` @ ${odds.toFixed(2)}` : "";
-        const score = scoreStr(m);
-        const isFinished = m.status === "FINISHED";
-        const isCorrect  = isFinished && pick && pick === m.result;
-        const isWrong    = isFinished && pick && pick !== m.result;
-        const flag = isCorrect ? `  WON +${m.pointsValue}` : isWrong ? "  LOST" : "";
-        const matchup = score ? `${m.homeTeam} ${score} ${m.awayTeam}` : `${m.homeTeam} v ${m.awayTeam}`;
-        lines.push(`  ${matchup}`);
-        lines.push(`   > ${label}${oddsStr}${flag}`);
-      }
-      if (rd.finishedCount > 0) {
-        lines.push(`  SUBTOTAL ......... ${rd.pts} pts`);
-      } else {
-        lines.push(`  PICKED ........... ${rd.pickedCount}/${rd.totalCount}`);
-      }
-      lines.push(`----------------------------`);
+    for (const m of rd.matches) {
+      const pick = pickMap.get(m.matchId);
+      const label = pick ? pickLabel(pick, m) : "(no pick)";
+      const odds = oddsMap.get(m.matchId);
+      const oddsStr = pick && odds ? ` (${toAmerican(odds)})` : "";
+      const score = scoreStr(m);
+      const isFinished = m.status === "FINISHED";
+      const isCorrect  = isFinished && pick && pick === m.result;
+      const isWrong    = isFinished && pick && pick !== m.result;
+      const flag = isCorrect ? `  WON +${m.pointsValue}` : isWrong ? "  LOST" : "";
+      const matchup = score ? `${m.homeTeam} ${score} ${m.awayTeam}` : `${m.homeTeam} v ${m.awayTeam}`;
+      lines.push(`  ${matchup}`);
+      lines.push(`   > ${label}${oddsStr}${flag}`);
     }
 
-    lines.push(`TOTAL ............ ${totalPts} PTS`);
-    if (totalFinished > 0) lines.push(`CORRECT .......... ${totalCorrect}/${totalFinished}`);
-    if (accuracy !== null) lines.push(`ACCURACY ......... ${accuracy}%`);
-    lines.push(`PICKED ........... ${totalPicked}/${totalMatches}`);
+    lines.push(`----------------------------`);
+    if (rd.finishedCount > 0) {
+      lines.push(`ROUND TOTAL ...... ${rd.pts} PTS`);
+      lines.push(`CORRECT .......... ${rd.correctCount}/${rd.finishedCount}`);
+      const acc = Math.round((rd.correctCount / rd.finishedCount) * 100);
+      lines.push(`ACCURACY ......... ${acc}%`);
+    }
+    lines.push(`PICKED ........... ${rd.pickedCount}/${rd.totalCount}`);
     lines.push(`============================`);
     lines.push(`   *** THANK YOU ***`);
-    lines.push(`  no refunds. no regrets.`);
-    lines.push(`       #${slip}`);
-
+    lines.push(`  no refunds · no regrets`);
+    lines.push(`       #${slipNo(`${userName}|${leagueName}|${rd.round}`)}`);
     return lines.join("\n");
   }
 
   function handleCopy() {
-    navigator.clipboard.writeText(buildCopyText()).then(() => {
+    navigator.clipboard.writeText(buildCopyText(active)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     });
@@ -173,16 +215,16 @@ export default function SlipClient({
     window.print();
   }
 
-  const stampColor =
-    stampText === "SETTLED" ? "var(--color-green-deep)"
-    : stampText === "PROVISIONAL" ? "var(--color-gold)"
-    : "var(--color-accent)";
+  function go(delta: number) {
+    const next = roundData[activeIdx + delta];
+    if (next) setActiveRoundKey(next.round);
+  }
 
   return (
     <div className="mx-auto max-w-[27rem]">
 
       {/* ── TOOLBAR (not printed) ─────────────────────────── */}
-      <div className="no-print flex items-center justify-between gap-3 mb-6 anim-fade-up">
+      <div className="no-print flex items-center justify-between gap-3 mb-5 anim-fade-up">
         <a href="/picks" className="inline-flex items-center gap-1.5 font-mono text-[12px] ink-faint hover:ink-soft transition-colors">
           <span>&larr;</span> Back to picks
         </a>
@@ -224,8 +266,52 @@ export default function SlipClient({
         </div>
       </div>
 
-      {/* ── THE RECEIPT ───────────────────────────────────── */}
-      <div className="receipt-paper anim-print">
+      {/* ── ROUND SWITCHER (not printed) ──────────────────── */}
+      <div className="no-print flex items-center gap-2 mb-6 anim-fade-up" style={{ animationDelay: "60ms" }}>
+        <button
+          onClick={() => go(-1)}
+          disabled={activeIdx === 0}
+          aria-label="Previous round"
+          className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-lg border border-line bg-card ink-soft hover:ink hover:border-ink/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono"
+        >
+          &lsaquo;
+        </button>
+
+        <div className="flex-1 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+          {roundData.map(rd => {
+            const isActive = rd.round === active.round;
+            const ph = roundPhase(rd);
+            const dot =
+              ph === "settled" ? "bg-green-deep"
+              : ph === "running" ? "bg-gold"
+              : ph === "locked" ? "bg-[color:var(--ink-faint)]/30"
+              : "bg-accent";
+            return (
+              <button
+                key={rd.round}
+                onClick={() => setActiveRoundKey(rd.round)}
+                className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[12.5px] font-medium transition-colors
+                  ${isActive ? "bg-ink text-paper" : "bg-card border border-line ink-soft hover:ink hover:border-ink/20"}`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${isActive ? "bg-paper/70" : dot}`} />
+                {ROUND_CONFIG[rd.round].shortLabel}
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          onClick={() => go(1)}
+          disabled={activeIdx === roundData.length - 1}
+          aria-label="Next round"
+          className="flex-shrink-0 h-8 w-8 flex items-center justify-center rounded-lg border border-line bg-card ink-soft hover:ink hover:border-ink/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all font-mono"
+        >
+          &rsaquo;
+        </button>
+      </div>
+
+      {/* ── THE RECEIPT (re-prints on round change via key) ── */}
+      <div key={active.round} className="receipt-paper anim-print">
         <div className="receipt-edge receipt-edge-top" />
 
         {/* Stamp */}
@@ -260,79 +346,50 @@ export default function SlipClient({
           <div className="space-y-1.5 font-mono text-[12px] ink-soft">
             <MetaLine label="PLAYER"  value={userName} />
             <MetaLine label="LEAGUE"  value={leagueName} />
+            <MetaLine label="ROUND"   value={active.label} />
             <MetaLine label="ISSUED"  value={`${issuedDate} ${issuedTime}`} />
             <MetaLine label="SLIP NO" value={`#${slip}`} />
           </div>
 
           <Divider double />
 
-          {/* ── Rounds ── */}
-          <div className="space-y-5">
-            {roundData.map(rd => (
-              <section key={rd.round}>
-                {/* Round header */}
-                <div className="flex items-baseline justify-between gap-2">
-                  <h2 className="font-mono text-[12px] font-bold ink uppercase tracking-[0.14em]">
-                    {rd.label}
-                  </h2>
-                  <span className="font-mono text-[9.5px] ink-faint uppercase tracking-[0.12em]">
-                    {rd.pointsValue}pt each
-                  </span>
-                </div>
+          {/* ── Round banner ── */}
+          <p className="text-center font-mono text-[11px] uppercase tracking-[0.2em] ink-faint mb-4">
+            &mdash; {active.label} &middot; {active.pointsValue}pt each &mdash;
+          </p>
 
-                <div className="border-b border-dashed border-line my-2.5" />
-
-                {!rd.isAvailable ? (
-                  <p className="font-mono text-[11px] ink-faint italic py-1">
-                    [ LOCKED — opens when the previous round settles ]
-                  </p>
-                ) : (
-                  <div className="space-y-2.5">
-                    {rd.matches.map(m => (
-                      <PickRow
-                        key={m.matchId}
-                        match={m}
-                        pick={pickMap.get(m.matchId) ?? null}
-                        odds={oddsMap.get(m.matchId) ?? null}
-                      />
-                    ))}
-                  </div>
-                )}
-
-                {/* Round subtotal */}
-                <div className="mt-3">
-                  {rd.finishedCount > 0 ? (
-                    <div className="rcpt-line font-mono text-[11.5px] ink-soft">
-                      <span className="uppercase tracking-[0.1em]">Subtotal</span>
-                      <span className="lead" />
-                      <span className="ink font-bold tabular">{rd.pts} pts</span>
-                    </div>
-                  ) : (
-                    <div className="rcpt-line font-mono text-[11.5px] ink-faint">
-                      <span className="uppercase tracking-[0.1em]">Picked</span>
-                      <span className="lead" />
-                      <span className="tabular">{rd.pickedCount}/{rd.totalCount}</span>
-                    </div>
-                  )}
-                </div>
-              </section>
-            ))}
-          </div>
+          {/* ── Picks ── */}
+          {!active.isAvailable ? (
+            <p className="font-mono text-[11px] ink-faint italic py-2 text-center">
+              [ LOCKED — opens when the previous round settles ]
+            </p>
+          ) : (
+            <div className="space-y-2.5">
+              {active.matches.map(m => (
+                <PickRow
+                  key={m.matchId}
+                  match={m}
+                  pick={pickMap.get(m.matchId) ?? null}
+                  odds={oddsMap.get(m.matchId) ?? null}
+                />
+              ))}
+            </div>
+          )}
 
           <Divider double />
 
-          {/* ── Grand total ── */}
+          {/* ── Round total ── */}
           <div className="space-y-1.5">
             <div className="rcpt-line font-mono text-[15px]">
-              <span className="font-bold ink uppercase tracking-[0.12em]">Total</span>
+              <span className="font-bold ink uppercase tracking-[0.1em]">Round Total</span>
               <span className="lead" />
-              <span className="font-bold ink tabular text-[17px]">{totalPts} PTS</span>
+              <span className="font-bold ink tabular text-[17px]">{active.pts} PTS</span>
             </div>
-            {totalFinished > 0 && (
+            {active.finishedCount > 0 && (
               <div className="rcpt-line font-mono text-[11.5px] ink-soft">
                 <span className="uppercase tracking-[0.1em]">Correct</span>
                 <span className="lead" />
-                <span className="tabular">{totalCorrect}/{totalFinished}</span>
+                <span className="tabular">{active.correctCount}/{active.finishedCount}</span>
               </div>
             )}
             {accuracy !== null && (
@@ -345,7 +402,7 @@ export default function SlipClient({
             <div className="rcpt-line font-mono text-[11.5px] ink-soft">
               <span className="uppercase tracking-[0.1em]">Picked</span>
               <span className="lead" />
-              <span className="tabular">{totalPicked}/{totalMatches}</span>
+              <span className="tabular">{active.pickedCount}/{active.totalCount}</span>
             </div>
           </div>
 
@@ -387,7 +444,7 @@ export default function SlipClient({
 
       {/* Caption below the slip (not printed) */}
       <p className="no-print text-center font-mono text-[10.5px] ink-faint/70 mt-5 anim-fade-up" style={{ animationDelay: "200ms" }}>
-        Your full cheat sheet &middot; copy or print to keep
+        One receipt per round &middot; copy or print to keep
       </p>
 
     </div>
@@ -467,7 +524,7 @@ function PickRow({ match, pick, odds }: {
         >
           &rsaquo; {label}
           {!notPicked && odds != null && (
-            <span className="ink-faint/70 font-normal tabular ml-1.5">@ {odds.toFixed(2)}</span>
+            <span className="ink-faint/70 font-normal tabular ml-1.5">{toAmerican(odds)}</span>
           )}
         </span>
         <span className="lead" />
