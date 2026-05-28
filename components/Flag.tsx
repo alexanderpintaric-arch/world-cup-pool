@@ -26,8 +26,8 @@ export default function Flag({ team, size = 20, className = "" }: Props) {
       width={size}
       alt={team}
       draggable={false}
-      className={`inline-block flex-shrink-0 rounded-[1px] object-cover ${className}`}
-      style={{ height: "auto", aspectRatio: "4/3" }}
+      className={`inline-block flex-shrink-0 rounded-[1px] ${className}`}
+      style={{ height: "auto" }}
     />
   );
 }
