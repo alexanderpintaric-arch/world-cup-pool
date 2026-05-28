@@ -34,7 +34,7 @@ function relativeTime(iso: string): string {
 }
 
 export default function LeaderboardClient({
-  leaderboard, matches, roundStates, activeRound, currentUserEmail, currentUserName, activeLeague,
+  leaderboard, matches, roundStates, activeRound, popularPicks, currentUserEmail, currentUserName, activeLeague,
 }: Props) {
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
@@ -291,6 +291,7 @@ export default function LeaderboardClient({
           matches={recentlyFinished}
           emptyText="No matches finished yet."
           showScore
+          popularPicks={popularPicks}
         />
         <MatchSummaryList
           title="Up next"
@@ -402,8 +403,13 @@ function RankBadge({ rank }: { rank: number }) {
   return <span className="font-mono text-[13px] tabular ink-faint">{rank}</span>;
 }
 
-function MatchSummaryList({ title, kicker, matches, emptyText, showScore }: {
-  title: string; kicker: string; matches: Match[]; emptyText: string; showScore?: boolean;
+function MatchSummaryList({ title, kicker, matches, emptyText, showScore, popularPicks }: {
+  title: string;
+  kicker: string;
+  matches: Match[];
+  emptyText: string;
+  showScore?: boolean;
+  popularPicks?: Record<string, { H: number; A: number; T: number; total: number }>;
 }) {
   return (
     <div className="bg-card border border-line rounded-lg p-5 sm:p-6 shadow-paper">
@@ -411,26 +417,60 @@ function MatchSummaryList({ title, kicker, matches, emptyText, showScore }: {
       <h3 className="font-serif text-[22px] font-medium ink leading-tight" style={{fontVariationSettings: '"opsz" 48'}}>
         {title}
       </h3>
-      <ul className="mt-5 space-y-3.5">
+      <ul className="mt-5 divide-y divide-[color:var(--line-soft)]">
         {matches.length === 0 ? (
           <li className="text-[13.5px] ink-faint italic font-serif">{emptyText}</li>
-        ) : matches.map(m => (
-          <li key={m.matchId} className="flex items-center justify-between gap-3 text-[14px] py-1">
-            <span className="ink leading-tight">
-              <Flag team={m.homeTeam} size={13} className="mr-1 opacity-70" />
-              <span className="font-medium">{m.homeTeam}</span>
-              {" "}<span className="ink-faint">vs</span>{" "}
-              <span className="font-medium">{m.awayTeam}</span>
-              <Flag team={m.awayTeam} size={13} className="ml-1 opacity-70" />
-            </span>
-            <span className="font-mono text-[12px] tabular ink-soft flex-shrink-0">
-              {showScore && m.homeScore !== null
-                ? <span className="ink font-semibold">{m.homeScore} – {m.awayScore}</span>
-                : relativeTime(m.kickoffUtc)
-              }
-            </span>
-          </li>
-        ))}
+        ) : matches.map(m => {
+          const pickData = popularPicks?.[m.matchId];
+          const result = m.result === "H" || m.result === "A" || m.result === "T" ? m.result : null;
+          const correctCount = (pickData && result) ? (pickData[result] ?? 0) : 0;
+          const total = pickData?.total ?? 0;
+          const pct = total > 0 ? Math.round((correctCount / total) * 100) : null;
+
+          return (
+            <li key={m.matchId} className="py-3 first:pt-0 last:pb-0">
+              {/* Match row */}
+              <div className="flex items-center justify-between gap-3 text-[14px]">
+                <span className="ink leading-tight min-w-0 truncate">
+                  <Flag team={m.homeTeam} size={13} className="mr-1 opacity-70" />
+                  <span className="font-medium">{m.homeTeam}</span>
+                  {" "}<span className="ink-faint text-[12px]">vs</span>{" "}
+                  <span className="font-medium">{m.awayTeam}</span>
+                  <Flag team={m.awayTeam} size={13} className="ml-1 opacity-70" />
+                </span>
+                <span className="font-mono text-[12px] tabular flex-shrink-0">
+                  {showScore && m.homeScore !== null
+                    ? <span className="ink font-semibold">{m.homeScore} – {m.awayScore}</span>
+                    : <span className="ink-soft">{relativeTime(m.kickoffUtc)}</span>
+                  }
+                </span>
+              </div>
+
+              {/* Pool accuracy — shown only for finished matches with pick data */}
+              {showScore && result && pct !== null && total > 0 && (
+                <div className="mt-1.5 flex items-center gap-2.5">
+                  <div className="flex-1 h-1 rounded-full bg-paper-deep overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{
+                        width: `${pct}%`,
+                        background: pct >= 70 ? "var(--color-green-deep)" : pct >= 40 ? "var(--color-gold)" : "var(--color-accent)",
+                        opacity: 0.55,
+                      }}
+                    />
+                  </div>
+                  <span className={`font-mono text-[10.5px] tabular font-medium flex-shrink-0
+                    ${pct >= 70 ? "text-green-deep/80" : pct >= 40 ? "text-gold/90" : "text-accent/80"}`}>
+                    {pct}%
+                  </span>
+                  <span className="font-mono text-[10px] ink-faint/60 flex-shrink-0">
+                    {correctCount}/{total} got it
+                  </span>
+                </div>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </div>
   );
