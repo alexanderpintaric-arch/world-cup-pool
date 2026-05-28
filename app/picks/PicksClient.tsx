@@ -108,6 +108,17 @@ export default function PicksClient({
     [matches, selectedRound]
   );
 
+  // TBD placeholder matches — shown ghosted when a knockout round isn't open yet
+  const tbdMatches = useMemo(() =>
+    matches
+      .filter(m =>
+        m.round === selectedRound &&
+        m.homeTeam === "TBD" && m.awayTeam === "TBD"
+      )
+      .sort((a, b) => new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime()),
+    [matches, selectedRound]
+  );
+
   // Filtered matches — null means "show everything normally" (no search, no filter)
   const searchedMatches = useMemo(() => {
     const isActive = searchQuery.length > 0 || filter !== "all";
@@ -347,12 +358,9 @@ export default function PicksClient({
 
         {/* Unavailability banner for locked rounds */}
         {currentRoundState && !isAvailable && (
-          <div className="mt-3 flex items-center gap-3 px-4 py-3 rounded-md bg-paper-deep border border-line text-[13px] ink-faint">
-            <span className="text-[16px]">🔒</span>
-            <span>
-              This round opens once the previous round is fully complete.
-              Check back when all matches are decided.
-            </span>
+          <div className="mt-3 flex items-center gap-2.5 px-4 py-2.5 rounded-md bg-paper-deep/60 border border-line/60 text-[12.5px] ink-faint">
+            <span className="opacity-60 text-[13px]">🔒</span>
+            <span>Opens once the previous round is fully complete</span>
           </div>
         )}
       </nav>
@@ -465,7 +473,31 @@ export default function PicksClient({
           </div>
         )
       ) : roundMatches.length === 0 ? (
-        <EmptyState round={selectedRound} />
+        tbdMatches.length > 0 ? (
+          <div className="anim-fade-up">
+            <p className="mb-4 font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint/70 flex items-center gap-2">
+              <span className="opacity-60">—</span>
+              <span>Matchups confirmed once the previous round completes</span>
+            </p>
+            <div className="grid gap-3 sm:grid-cols-2 opacity-35 pointer-events-none select-none">
+              {tbdMatches.map((match, i) => (
+                <PickSlot
+                  key={match.matchId}
+                  match={match}
+                  matchNumber={i + 1}
+                  pick={null}
+                  odds={null}
+                  onPick={() => {}}
+                  disabled={true}
+                  pointsValue={currentRoundState?.pointsValue ?? 1}
+                  popular={null}
+                />
+              ))}
+            </div>
+          </div>
+        ) : (
+          <EmptyState round={selectedRound} />
+        )
       ) : isGroupStage ? (
         <div className="space-y-12">
           {groups.map((group, gi) => {
