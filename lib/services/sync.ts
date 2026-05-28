@@ -10,7 +10,7 @@ import { computeLeaderboard, getRoundStates, getActiveRound } from "./scoring";
 import { sendScoreUpdateEmail, sendRoundOpenEmail, sendDeadlineReminderEmail } from "./email";
 import type { SyncResult, Match } from "../types";
 
-const REMIND_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
+const REMIND_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h
 
 export async function runSync(): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
@@ -116,7 +116,7 @@ export async function runSync(): Promise<SyncResult> {
       }
     }
 
-    // 8. Deadline reminders — ~24h before any available round locks
+    // 8. Deadline reminders — ~3h before any available round locks
     try {
       const now = Date.now();
       const reminded = await getRemindedRounds();
