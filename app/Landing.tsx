@@ -86,7 +86,7 @@ export default function Landing({ matches, participantCount }: Props) {
 
         <div className="mt-9 flex flex-wrap items-center gap-4 anim-fade-up" style={{animationDelay: '200ms'}}>
           <a
-            href="/auth/signin?callbackUrl=%2Fonboarding"
+            href="/auth/signin"
             className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-md bg-ink text-paper text-[15px] font-semibold hover:bg-accent transition-all shadow-paper hover:shadow-lift"
           >
             Sign in with Google
