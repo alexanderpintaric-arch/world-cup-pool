@@ -359,9 +359,10 @@ function MatchPicksCard({
           </div>
         </div>
 
-        {/* Stacked bar — single clickable button; segments are visual divs.
-            Colours: blue (home) / stone (draw) / red (away).
-            Winner turns green after result; losers dim to 20% opacity. */}
+        {/* Stacked bar — single clickable button.
+            Two-layer segments: bg div (dimmed for losers) + text span (always
+            readable). Winner = full green; losers = 30%-opacity tint + dark
+            text so the % label stays legible regardless of segment size. */}
         {total > 0 ? (
           <button
             className="flex h-9 rounded-md overflow-hidden w-full cursor-pointer hover:opacity-90 transition-opacity"
@@ -369,36 +370,63 @@ function MatchPicksCard({
             onClick={onBarClick}
             title="See all picks"
           >
-            {H > 0 && (
-              <div
-                style={{ flex: H, background: result === "H" ? "var(--color-green-deep)" : BAR_HOME }}
-                className={`flex items-center justify-center min-w-0 ${result !== null && result !== "H" ? "opacity-20" : ""} ${myPick === "H" ? "ring-2 ring-inset ring-white/25" : ""}`}
-              >
-                {pctH >= 14 && (
-                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">{pctH}%</span>
-                )}
-              </div>
-            )}
-            {!isKnockout && T > 0 && (
-              <div
-                style={{ flex: T, background: result === "T" ? "var(--color-green-deep)" : BAR_DRAW }}
-                className={`flex items-center justify-center min-w-0 ${result !== null && result !== "T" ? "opacity-20" : ""} ${myPick === "T" ? "ring-2 ring-inset ring-white/25" : ""}`}
-              >
-                {pctT >= 14 && (
-                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">{pctT}%</span>
-                )}
-              </div>
-            )}
-            {A > 0 && (
-              <div
-                style={{ flex: A, background: result === "A" ? "var(--color-green-deep)" : BAR_AWAY }}
-                className={`flex items-center justify-center min-w-0 ${result !== null && result !== "A" ? "opacity-20" : ""} ${myPick === "A" ? "ring-2 ring-inset ring-white/25" : ""}`}
-              >
-                {pctA >= 14 && (
-                  <span className="font-mono text-[10px] text-paper/80 tabular leading-none select-none">{pctA}%</span>
-                )}
-              </div>
-            )}
+            {H > 0 && (() => {
+              const isWinner = result === "H";
+              const isLoser  = result !== null && !isWinner;
+              const bg       = isWinner ? "var(--color-green-deep)" : BAR_HOME;
+              return (
+                <div
+                  style={{ flex: H }}
+                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "H" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                >
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
+                  {pctH >= 14 && (
+                    <span className="relative font-mono text-[10px] tabular leading-none select-none font-semibold"
+                      style={{ color: isLoser ? BAR_HOME : "rgba(255,255,255,0.88)" }}>
+                      {pctH}%
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+            {!isKnockout && T > 0 && (() => {
+              const isWinner = result === "T";
+              const isLoser  = result !== null && !isWinner;
+              const bg       = isWinner ? "var(--color-green-deep)" : BAR_DRAW;
+              return (
+                <div
+                  style={{ flex: T }}
+                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "T" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                >
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
+                  {pctT >= 14 && (
+                    <span className="relative font-mono text-[10px] tabular leading-none select-none font-semibold"
+                      style={{ color: isLoser ? BAR_DRAW : "rgba(255,255,255,0.88)" }}>
+                      {pctT}%
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
+            {A > 0 && (() => {
+              const isWinner = result === "A";
+              const isLoser  = result !== null && !isWinner;
+              const bg       = isWinner ? "var(--color-green-deep)" : BAR_AWAY;
+              return (
+                <div
+                  style={{ flex: A }}
+                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "A" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                >
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
+                  {pctA >= 14 && (
+                    <span className="relative font-mono text-[10px] tabular leading-none select-none font-semibold"
+                      style={{ color: isLoser ? BAR_AWAY : "rgba(255,255,255,0.88)" }}>
+                      {pctA}%
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </button>
         ) : (
           <div className="h-9 rounded-md bg-paper-deep border border-line flex items-center justify-center">
