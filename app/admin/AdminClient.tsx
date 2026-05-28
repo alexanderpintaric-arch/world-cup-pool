@@ -3,9 +3,10 @@ import { useState } from "react";
 
 interface Props {
   lastSync: { syncedAt: string; matchesUpdated: number; error: string } | null;
+  stats: { totalLeagues: number; totalUsers: number };
 }
 
-export default function AdminClient({ lastSync }: Props) {
+export default function AdminClient({ lastSync, stats }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<{
     matchesUpdated: number;
@@ -43,6 +44,32 @@ export default function AdminClient({ lastSync }: Props) {
           Sync match data, monitor cron health, and trigger manual updates.
         </p>
       </header>
+
+      {/* Growth stats */}
+      <section className="anim-fade-up grid grid-cols-2 gap-4" style={{animationDelay: '60ms'}}>
+        <div className="bg-card border border-line rounded-lg px-6 py-5 shadow-paper">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint mb-2">
+            Leagues
+          </p>
+          <p className="font-serif font-medium leading-none ink tabular" style={{fontSize: '3rem', fontVariationSettings: '"opsz" 80'}}>
+            {stats.totalLeagues}
+          </p>
+          <p className="mt-2 text-[12.5px] ink-faint">
+            {stats.totalLeagues === 1 ? "league created" : "leagues created"}
+          </p>
+        </div>
+        <div className="bg-card border border-line rounded-lg px-6 py-5 shadow-paper">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint mb-2">
+            Users
+          </p>
+          <p className="font-serif font-medium leading-none ink tabular" style={{fontSize: '3rem', fontVariationSettings: '"opsz" 80'}}>
+            {stats.totalUsers}
+          </p>
+          <p className="mt-2 text-[12.5px] ink-faint">
+            {stats.totalUsers === 1 ? "unique account" : "unique accounts"}
+          </p>
+        </div>
+      </section>
 
       {/* Sync status */}
       <section className="anim-fade-up bg-card border border-line rounded-lg shadow-paper" style={{animationDelay: '80ms'}}>

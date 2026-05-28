@@ -238,6 +238,23 @@ export async function markRoundReminded(round: string): Promise<void> {
   }
 }
 
+// ── Admin stats ────────────────────────────────────────────────────────────
+
+export async function getAdminStats(): Promise<{ totalLeagues: number; totalUsers: number }> {
+  if (isMock) return { totalLeagues: 1, totalUsers: 3 };
+  const client = getClient();
+
+  const [leaguesRes, usersRes] = await Promise.all([
+    client.from("leagues").select("id", { count: "exact", head: true }),
+    client.from("users").select("email", { count: "exact", head: true }),
+  ]);
+
+  return {
+    totalLeagues: leaguesRes.count ?? 0,
+    totalUsers:   usersRes.count   ?? 0,
+  };
+}
+
 // ── Sync log ───────────────────────────────────────────────────────────────
 
 export async function logSync(entry: {
