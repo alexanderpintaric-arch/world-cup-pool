@@ -97,13 +97,14 @@ export default function Landing({ matches, participantCount }: Props) {
         </div>
 
         {/* Stats strip */}
-        <div className="mt-16 grid grid-cols-2 sm:grid-cols-5 gap-px bg-line border border-line rounded-lg overflow-hidden anim-fade-up" style={{animationDelay: '300ms'}}>
+        <div className="mt-16 grid grid-cols-2 sm:grid-cols-3 gap-px bg-line border border-line rounded-lg overflow-hidden anim-fade-up" style={{animationDelay: '300ms'}}>
           {[
             { v: String(totalMatches), l: "Matches" },
             { v: String(teamCount), l: "Teams" },
             { v: String(groupCount), l: "Groups" },
-            { v: "39", l: "Days" },
+            { v: "39",  l: "Days" },
             { v: "136", l: "Max points" },
+            { v: "1",   l: "Champion" },
           ].map((s) => (
             <div key={s.l} className="bg-card px-5 py-4 sm:py-5">
               <div className="font-serif font-medium text-[28px] sm:text-[34px] leading-none ink tabular" style={{fontVariationSettings: '"opsz" 80'}}>
