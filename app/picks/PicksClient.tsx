@@ -50,6 +50,7 @@ export default function PicksClient({
   });
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "picked" | "unpicked">("all");
   const searchRef = useRef<HTMLInputElement>(null);
 
   // Real-time clock so the round locks client-side the instant the deadline passes
@@ -59,8 +60,8 @@ export default function PicksClient({
     return () => clearInterval(id);
   }, []);
 
-  // Clear search when the user switches rounds
-  useEffect(() => { setSearch(""); }, [selectedRound]);
+  // Clear search + filter when the user switches rounds
+  useEffect(() => { setSearch(""); setFilter("all"); }, [selectedRound]);
 
   // Press "/" anywhere (not in an input) to jump to the search box
   useEffect(() => {
@@ -107,14 +108,18 @@ export default function PicksClient({
     [matches, selectedRound]
   );
 
-  // Filtered matches when search is active — null means search is off
+  // Filtered matches — null means "show everything normally" (no search, no filter)
   const searchedMatches = useMemo(() => {
-    if (!searchQuery) return null;
-    return roundMatches.filter(m =>
-      m.homeTeam.toLowerCase().includes(searchQuery) ||
-      m.awayTeam.toLowerCase().includes(searchQuery)
-    );
-  }, [roundMatches, searchQuery]);
+    const isActive = searchQuery.length > 0 || filter !== "all";
+    if (!isActive) return null;
+    return roundMatches.filter(m => {
+      if (searchQuery && !m.homeTeam.toLowerCase().includes(searchQuery) &&
+                         !m.awayTeam.toLowerCase().includes(searchQuery)) return false;
+      if (filter === "picked"   && !picks[m.matchId]) return false;
+      if (filter === "unpicked" &&  picks[m.matchId]) return false;
+      return true;
+    });
+  }, [roundMatches, searchQuery, filter, picks]);
 
   // For group stage we render by group; for knockouts we render flat.
   const isGroupStage = selectedRound === "GROUP";
@@ -341,13 +346,14 @@ export default function PicksClient({
         )}
       </nav>
 
-      {/* ── SEARCH BAR ───────────────────────────────────────── */}
+      {/* ── SEARCH + FILTER BAR ──────────────────────────────── */}
       {totalCount > 0 && (
-        <div className="anim-fade-up" style={{ animationDelay: "80ms" }}>
-          <div className={`flex items-center gap-2.5 px-3.5 h-10 rounded-lg border transition-all duration-150
+        <div className="flex flex-wrap items-center gap-2 anim-fade-up" style={{ animationDelay: "80ms" }}>
+
+          {/* Search input */}
+          <div className={`flex flex-1 min-w-[180px] items-center gap-2.5 px-3.5 h-10 rounded-lg border transition-all duration-150
             ${search ? "border-ink/30 bg-card shadow-paper" : "border-line bg-card/60 hover:border-line/80"}`}
           >
-            {/* Search icon */}
             <svg className="h-3.5 w-3.5 flex-shrink-0 ink-faint/50" fill="none" viewBox="0 0 16 16" aria-hidden="true">
               <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" strokeWidth="1.5"/>
               <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -363,26 +369,46 @@ export default function PicksClient({
               className="flex-1 bg-transparent text-[13.5px] ink placeholder:ink-faint/40 outline-none min-w-0"
             />
             {search ? (
-              <>
-                <span className="font-mono text-[10px] ink-faint/50 flex-shrink-0 tabular">
-                  {searchedMatches?.length ?? 0} result{searchedMatches?.length !== 1 ? "s" : ""}
-                </span>
-                <button
-                  onClick={() => { setSearch(""); searchRef.current?.focus(); }}
-                  aria-label="Clear search"
-                  className="flex-shrink-0 p-1 rounded ink-faint/40 hover:ink-faint transition-colors"
-                >
-                  <svg className="h-3 w-3" fill="none" viewBox="0 0 12 12" aria-hidden="true">
-                    <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                </button>
-              </>
+              <button
+                onClick={() => { setSearch(""); searchRef.current?.focus(); }}
+                aria-label="Clear search"
+                className="flex-shrink-0 p-1 rounded ink-faint/40 hover:ink-faint transition-colors"
+              >
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 12 12" aria-hidden="true">
+                  <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
             ) : (
-              <kbd className="hidden sm:flex items-center gap-0.5 font-mono text-[9px] ink-faint/30 border border-line/50 rounded px-1.5 py-0.5 flex-shrink-0 select-none">
+              <kbd className="hidden sm:flex items-center font-mono text-[9px] ink-faint/30 border border-line/50 rounded px-1.5 py-0.5 flex-shrink-0 select-none">
                 /
               </kbd>
             )}
           </div>
+
+          {/* Filter pills */}
+          <div className="flex items-center gap-1 flex-shrink-0" role="group" aria-label="Filter matches">
+            {([
+              { value: "all",      label: "All",      count: totalCount },
+              { value: "picked",   label: "Picked",   count: pickedCount },
+              { value: "unpicked", label: "Unpicked", count: totalCount - pickedCount },
+            ] as const).map(({ value, label, count }) => (
+              <button
+                key={value}
+                onClick={() => setFilter(value)}
+                className={`flex items-center gap-1.5 h-10 px-3 rounded-lg text-[12.5px] font-medium border transition-all
+                  ${filter === value
+                    ? "bg-ink text-paper border-ink"
+                    : "bg-card/60 border-line ink-soft hover:ink hover:border-line/80"
+                  }`}
+              >
+                {label}
+                <span className={`font-mono text-[10px] tabular ${filter === value ? "text-paper/50" : "ink-faint/60"}`}>
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+
         </div>
       )}
 
@@ -397,10 +423,17 @@ export default function PicksClient({
               <path d="M10 14h8M14 10v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
             <p className="font-serif italic text-[16px] ink-faint/70" style={{fontVariationSettings: '"opsz" 32'}}>
-              No matches found for &ldquo;{search}&rdquo;
+              {filter === "picked" && !search
+                ? "No picks made yet in this round."
+                : filter === "unpicked" && !search
+                  ? "All matches picked — nice work! 🎉"
+                  : <>No matches found for &ldquo;{search}&rdquo;</>}
             </p>
-            <button onClick={() => setSearch("")} className="font-mono text-[11px] text-accent/80 hover:text-accent underline underline-offset-2 transition-colors">
-              Clear search
+            <button
+              onClick={() => { setSearch(""); setFilter("all"); }}
+              className="font-mono text-[11px] text-accent/80 hover:text-accent underline underline-offset-2 transition-colors"
+            >
+              Clear filters
             </button>
           </div>
         ) : (
