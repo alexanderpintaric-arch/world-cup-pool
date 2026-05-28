@@ -647,30 +647,34 @@ function HeadToHead({ a, b, matches, onClose }: {
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/40 backdrop-blur-sm p-4 anim-fade-in"
+      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
       onClick={onClose}
     >
       <div
-        className="bg-card border border-line rounded-lg shadow-lift max-w-lg w-full max-h-[85vh] overflow-y-auto anim-scale-in"
+        className="bg-card border border-line rounded-2xl sm:rounded-lg shadow-lift max-w-lg w-full flex flex-col anim-scale-in"
+        style={{ maxHeight: 'min(88vh, 88dvh, 600px)' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="px-6 py-5 border-b border-line flex items-center justify-between">
+        {/* ── Fixed header ── */}
+        <div className="px-6 py-5 border-b border-line flex items-center justify-between flex-shrink-0">
           <div>
             <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-accent mb-1">
               Head to head
             </p>
-            <h2 className="font-serif text-[22px] font-medium ink" style={{fontVariationSettings: '"opsz" 48'}}>
+            <h2 className="font-serif text-[20px] sm:text-[22px] font-medium ink leading-tight" style={{fontVariationSettings: '"opsz" 48'}}>
               {a.name} <span className="italic ink-faint">vs</span> {b.name}
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="h-8 w-8 flex items-center justify-center rounded-md ink-faint hover:ink hover:bg-paper-deep text-lg font-mono transition-colors"
+            className="h-8 w-8 flex-shrink-0 flex items-center justify-center rounded-md ink-faint hover:ink hover:bg-paper-deep text-lg font-mono transition-colors"
           >
             ×
           </button>
         </div>
 
-        <div className="p-6">
+        {/* ── Scrollable body ── */}
+        <div className="overflow-y-auto flex-1 p-6">
           <div className="grid grid-cols-3 gap-3 mb-7">
             <div className="text-center">
               <div className="font-serif font-medium text-[44px] ink tabular leading-none" style={{fontVariationSettings: '"opsz" 100'}}>
