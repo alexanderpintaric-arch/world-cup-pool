@@ -409,45 +409,72 @@ export default function LeaderboardClient({
       {roundsWithMatches.length > 0 && (
         <section className="anim-fade-up" style={{animationDelay: '200ms'}}>
           <SectionHeader kicker="Schedule" title="Where we are" />
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {roundsWithMatches.map((rs, i) => (
-              <div
-                key={rs.round}
-                className={`relative bg-card border rounded-lg p-4 shadow-paper anim-fade-up transition-colors
-                  ${rs.isComplete ? "border-green-deep/30" : rs.isOpen ? "border-accent/40" : "border-line"}
-                `}
-                style={{ animationDelay: `${220 + i * 50}ms` }}
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  {rs.isComplete && <span className="h-1.5 w-1.5 rounded-full bg-green-deep" />}
-                  {rs.isOpen && <span className="h-1.5 w-1.5 rounded-full bg-accent anim-ring-pulse" />}
-                  {!rs.isComplete && !rs.isOpen && <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--ink-faint)]/30" />}
-                  <span className="font-mono text-[10px] uppercase tracking-[0.16em] ink-faint">
-                    {rs.isComplete ? "Done" : rs.isOpen ? "Open" : "Soon"}
-                  </span>
+          <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            {roundsWithMatches.map((rs, i) => {
+              const status = rs.isComplete ? "Done" : rs.isOpen ? "Open" : "Soon";
+              const statusColor = rs.isComplete ? "text-green-deep" : rs.isOpen ? "text-accent" : "ink-faint";
+              const dotColor = rs.isComplete ? "bg-green-deep" : rs.isOpen ? "bg-accent" : "bg-[color:var(--ink-faint)]/30";
+              return (
+                <div
+                  key={rs.round}
+                  className={`relative bg-card border rounded-xl p-5 anim-fade-up transition-colors
+                    ${rs.isOpen
+                      ? "border-accent/50 sched-glow"
+                      : rs.isComplete
+                      ? "border-green-deep/30 shadow-paper"
+                      : "border-line shadow-paper"}
+                  `}
+                  style={{ animationDelay: `${220 + i * 50}ms` }}
+                >
+                  {/* Status */}
+                  <div className="flex items-center gap-1.5 mb-3">
+                    <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${dotColor} ${rs.isOpen ? "anim-ring-pulse" : ""}`} />
+                    <span className={`font-mono text-[10px] uppercase tracking-[0.18em] font-medium ${statusColor}`}>
+                      {status}
+                    </span>
+                  </div>
+
+                  {/* Round name */}
+                  <h3 className="font-serif text-[18px] ink font-medium leading-tight" style={{ fontVariationSettings: '"opsz" 36' }}>
+                    {rs.label}
+                  </h3>
+
+                  {/* Matches + points */}
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <span className="font-mono text-[11px] tabular ink-soft">
+                      {rs.matchCount} {rs.matchCount === 1 ? "match" : "matches"}
+                    </span>
+                    <span className="font-mono text-[10px] tabular font-semibold ink px-1.5 py-0.5 rounded bg-paper-deep">
+                      {rs.pointsValue}pt
+                    </span>
+                  </div>
+
+                  {/* Dates */}
+                  {(rs.deadline || (rs.lastKickoff && rs.lastKickoff !== rs.deadline)) && (
+                    <div className="mt-4 pt-3.5 border-t border-[color:var(--line-soft)] space-y-2.5">
+                      {rs.deadline && (
+                        <div>
+                          <div className="font-mono text-[9px] uppercase tracking-[0.16em] ink-faint mb-1">Picks close</div>
+                          <div className="font-mono text-[12px] tabular ink-soft leading-none">
+                            {new Date(rs.deadline).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                            <span className="ink-faint"> · </span>
+                            {new Date(rs.deadline).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}
+                          </div>
+                        </div>
+                      )}
+                      {rs.lastKickoff && rs.lastKickoff !== rs.deadline && (
+                        <div>
+                          <div className="font-mono text-[9px] uppercase tracking-[0.16em] ink-faint mb-1">Last match</div>
+                          <div className="font-mono text-[12px] tabular ink-soft leading-none">
+                            {new Date(rs.lastKickoff).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
-                <p className="font-serif text-[16px] ink font-medium leading-tight" style={{fontVariationSettings: '"opsz" 32'}}>
-                  {rs.label}
-                </p>
-                <p className="mt-2 font-mono text-[11px] ink-faint tabular">
-                  {rs.matchCount} {rs.matchCount === 1 ? "match" : "matches"} &middot; {rs.pointsValue}pt
-                </p>
-                {rs.deadline && (
-                  <p className="mt-1.5 font-mono text-[10px] ink-faint leading-snug">
-                    <span className="uppercase tracking-[0.12em]">Picks close</span><br />
-                    {new Date(rs.deadline).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-                    {" · "}
-                    {new Date(rs.deadline).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}
-                  </p>
-                )}
-                {rs.lastKickoff && rs.lastKickoff !== rs.deadline && (
-                  <p className="mt-0.5 font-mono text-[10px] ink-faint leading-snug">
-                    <span className="uppercase tracking-[0.12em]">Last match</span><br />
-                    {new Date(rs.lastKickoff).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-                  </p>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
