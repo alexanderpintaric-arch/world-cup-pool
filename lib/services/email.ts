@@ -4,6 +4,23 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? "placeholder");
 }
 const FROM = () => process.env.RESEND_FROM_EMAIL ?? "Nutmeg <pool@nutmeg.bet>";
+
+/**
+ * Send via Resend and SURFACE failures. The Resend SDK resolves with
+ * { data, error } instead of throwing on API errors (bad key, unverified
+ * domain, from-address mismatch, etc.), so we must inspect `error` ourselves
+ * and throw — otherwise sends fail silently with no log.
+ */
+async function deliver(payload: Parameters<ReturnType<typeof getResend>["emails"]["send"]>[0]) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error("RESEND_API_KEY is not set");
+  }
+  const { data, error } = await getResend().emails.send(payload);
+  if (error) {
+    throw new Error(`Resend error [${(error as { name?: string }).name ?? "unknown"}]: ${error.message ?? JSON.stringify(error)}`);
+  }
+  return data;
+}
 const APP_NAME = () => process.env.NEXT_PUBLIC_APP_NAME ?? "Nutmeg";
 const APP_URL = () =>
   process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXTAUTH_URL ?? "https://nutmeg.bet";
@@ -137,7 +154,7 @@ export async function sendLeagueWelcomeEmail(
     ${p(`See you on the leaderboard.`, `text-align:center;margin-top:18px;font-style:italic;font-family:${SERIF};color:${C.inkFaint};`)}
   `;
 
-  await getResend().emails.send({
+  await deliver({
     from: FROM(),
     to,
     subject: isCreator
@@ -186,7 +203,7 @@ export async function sendDeadlineReminderEmail(
     </div>
   `;
 
-  await getResend().emails.send({
+  await deliver({
     from: FROM(),
     to,
     subject: `⏰ ${roundLabel} picks lock in ~24 hours`,
@@ -229,7 +246,7 @@ export async function sendRoundOpenEmail(
     </div>
   `;
 
-  await getResend().emails.send({
+  await deliver({
     from: FROM(),
     to,
     subject: `Picks open: ${roundLabel} — ${APP_NAME()}`,
@@ -290,7 +307,7 @@ export async function sendScoreUpdateEmail(
     </div>
   `;
 
-  await getResend().emails.send({
+  await deliver({
     from: FROM(),
     to,
     subject: `${correct ? "✓" : "✗"} ${matchName} — ${APP_NAME()}`,
