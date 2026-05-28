@@ -401,7 +401,7 @@ export default function PicksClient({
             {([
               { value: "all",      label: "All",      count: totalCount },
               { value: "picked",   label: "Picked",   count: pickedCount },
-              { value: "unpicked", label: "Unpicked", count: totalCount - pickedCount },
+              { value: "unpicked", label: "Remaining", count: totalCount - pickedCount },
             ] as const).map(({ value, label, count }) => (
               <button
                 key={value}
