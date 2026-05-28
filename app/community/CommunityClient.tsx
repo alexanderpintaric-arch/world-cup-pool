@@ -792,6 +792,7 @@ function PickModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ paddingBottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}
       onClick={onClose}
     >
       {/* Backdrop */}
@@ -833,7 +834,7 @@ function PickModal({
         </div>
 
         {/* Sections */}
-        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(100dvh - 240px)" }}>
+        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(100dvh - 4.5rem - env(safe-area-inset-bottom) - 160px)" }}>
           {sections.map((sec, idx) => {
             const isWinner  = modal.result === sec.opt;
             const isLoser   = modal.result !== null && modal.result !== sec.opt;
