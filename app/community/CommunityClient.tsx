@@ -586,22 +586,22 @@ function MatchPicksCard({
         )}
 
         {/* Legend */}
-        <div className={`mt-2.5 flex items-start ${isKnockout ? "justify-between" : "justify-between"} gap-1`}>
+        <div className="mt-4 flex items-start justify-between gap-4">
           {/* Home */}
           <button
-            className={`flex flex-col items-start gap-px cursor-pointer transition-colors hover:ink group min-w-0
+            className={`flex flex-col items-start gap-1.5 cursor-pointer transition-colors hover:ink group min-w-0
               ${myPick === "H" ? "ink" : "ink-faint"}`}
             onClick={onBarClick}
           >
-            <div className="flex items-center gap-1.5">
-              <span className="h-2 w-2 rounded-sm flex-shrink-0" style={{ background: result === "H" ? "var(--color-green-deep)" : BAR_HOME }} />
-              <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctH}%</span>
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: result === "H" ? "var(--color-green-deep)" : BAR_HOME }} />
+              <span className="font-mono text-[15px] font-semibold tabular leading-none">{pctH}%</span>
             </div>
-            <span className="font-mono text-[10px] leading-none pl-3.5">
+            <span className="font-mono text-[12px] leading-none pl-[18px]">
               {H} {H === 1 ? "pick" : "picks"}
             </span>
             {myPick === "H" && (
-              <span className={`font-mono text-[9px] font-semibold mt-0.5 pl-3.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
+              <span className={`font-mono text-[11px] font-semibold mt-0.5 pl-[18px] ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
                 {myPickCorrect ? "✓ you" : myPickWrong ? "✗ you" : "← you"}
               </span>
             )}
@@ -610,17 +610,17 @@ function MatchPicksCard({
           {/* Draw — group stage only */}
           {!isKnockout && (
             <button
-              className={`flex flex-col items-center gap-px cursor-pointer transition-colors hover:ink
+              className={`flex flex-col items-center gap-1.5 cursor-pointer transition-colors hover:ink
                 ${myPick === "T" ? "ink" : "ink-faint"}`}
               onClick={onBarClick}
             >
-              <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-sm flex-shrink-0" style={{ background: result === "T" ? "var(--color-green-deep)" : BAR_DRAW }} />
-                <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctT}%</span>
+              <div className="flex items-center gap-2">
+                <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: result === "T" ? "var(--color-green-deep)" : BAR_DRAW }} />
+                <span className="font-mono text-[15px] font-semibold tabular leading-none">{pctT}%</span>
               </div>
-              <span className="font-mono text-[10px] leading-none pl-3.5">Draw</span>
+              <span className="font-mono text-[12px] leading-none">Draw</span>
               {myPick === "T" && (
-                <span className={`font-mono text-[9px] font-semibold mt-0.5 pl-3.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
+                <span className={`font-mono text-[11px] font-semibold mt-0.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
                   {myPickCorrect ? "✓ you" : myPickWrong ? "✗ you" : "you"}
                 </span>
               )}
@@ -629,19 +629,19 @@ function MatchPicksCard({
 
           {/* Away */}
           <button
-            className={`flex flex-col items-end gap-px cursor-pointer transition-colors hover:ink text-right
+            className={`flex flex-col items-end gap-1.5 cursor-pointer transition-colors hover:ink text-right
               ${myPick === "A" ? "ink" : "ink-faint"}`}
             onClick={onBarClick}
           >
-            <div className="flex items-center gap-1.5">
-              <span className="font-mono text-[12px] font-semibold tabular leading-none">{pctA}%</span>
-              <span className="h-2 w-2 rounded-sm flex-shrink-0" style={{ background: result === "A" ? "var(--color-green-deep)" : BAR_AWAY }} />
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[15px] font-semibold tabular leading-none">{pctA}%</span>
+              <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: result === "A" ? "var(--color-green-deep)" : BAR_AWAY }} />
             </div>
-            <span className="font-mono text-[10px] leading-none pr-3.5">
+            <span className="font-mono text-[12px] leading-none pr-[18px]">
               {A} {A === 1 ? "pick" : "picks"}
             </span>
             {myPick === "A" && (
-              <span className={`font-mono text-[9px] font-semibold mt-0.5 pr-3.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
+              <span className={`font-mono text-[11px] font-semibold mt-0.5 pr-[18px] ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
                 {myPickCorrect ? "you ✓" : myPickWrong ? "you ✗" : "you →"}
               </span>
             )}
@@ -650,7 +650,7 @@ function MatchPicksCard({
 
         {/* "Click to reveal" hint — only show when there are picks */}
         {total > 0 && (
-          <p className="mt-2 font-mono text-[9.5px] ink-faint/60 text-center leading-none">
+          <p className="mt-4 pt-3 border-t border-[color:var(--line-soft)] font-mono text-[11px] ink-faint/70 text-center leading-none">
             tap to see all picks
           </p>
         )}
