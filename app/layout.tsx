@@ -7,8 +7,21 @@ import MobileNavBar from "./MobileNavBar";
 import DesktopNavLinks from "./DesktopNavLinks";
 
 export const metadata: Metadata = {
-  title: "Nutmeg — 2026 World Cup Pick'em Pool",
+  metadataBase: new URL("https://nutmeg.bet"),
+  title: "Nutmeg — World Cup 2026 Pick'em Pool",
   description: "Pick every match of the 2026 World Cup. Climb your league. Settle every argument.",
+  openGraph: {
+    title: "Nutmeg — World Cup 2026 Pick'em Pool",
+    description: "Pick every match of the 2026 World Cup. Climb your league. Settle every argument.",
+    url: "https://nutmeg.bet",
+    siteName: "Nutmeg",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Nutmeg — World Cup 2026 Pick'em Pool",
+    description: "Pick every match of the 2026 World Cup. Climb your league. Settle every argument.",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
