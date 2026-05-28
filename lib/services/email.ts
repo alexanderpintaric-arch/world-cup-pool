@@ -144,7 +144,7 @@ export async function sendLeagueWelcomeEmail(
     <div style="font-family:${MONO};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:${C.accent};margin:24px 0 10px;">What to expect</div>
     ${p(`&bull;&nbsp; <strong style="color:${C.ink};">Group stage</strong> kicks off <strong style="color:${C.ink};">June 11, 2026</strong> &mdash; get your group picks in before then.<br>
         &bull;&nbsp; <strong style="color:${C.ink};">Knockout rounds</strong> unlock as the bracket fills in. We&rsquo;ll email you the moment each one opens.<br>
-        &bull;&nbsp; We&rsquo;ll give you a friendly <strong style="color:${C.ink};">nudge 24 hours</strong> before every deadline, so you never get caught out.`)}
+        &bull;&nbsp; We&rsquo;ll give you a friendly <strong style="color:${C.ink};">nudge 3 hours</strong> before every deadline, so you never get caught out.`)}
 
     ${codeBox}
 
@@ -187,7 +187,7 @@ export async function sendDeadlineReminderEmail(
 
   const body = `
     ${p(`Heads up, ${firstName(name)} &mdash;`)}
-    ${p(`Picks for the <strong style="color:${C.ink};">${roundLabel}</strong> lock in about <strong style="color:${C.accent};">24 hours</strong>, when the first whistle blows.`)}
+    ${p(`Picks for the <strong style="color:${C.ink};">${roundLabel}</strong> lock in about <strong style="color:${C.accent};">3 hours</strong>, when the first whistle blows.`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 22px;">
       <tr><td style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:16px 20px;text-align:center;">
@@ -206,7 +206,7 @@ export async function sendDeadlineReminderEmail(
   await deliver({
     from: FROM(),
     to,
-    subject: `⏰ ${roundLabel} picks lock in ~24 hours`,
+    subject: `⏰ ${roundLabel} picks lock in ~3 hours`,
     html: shell({
       preview: `Last call — lock in your ${roundLabel} picks before the first whistle.`,
       kicker: "Deadline approaching",
