@@ -393,6 +393,24 @@ export default function CommunityClient({
   );
 }
 
+// ── Ranked colour helper ──────────────────────────────────────────────────────
+// Assigns green → blue → sienna to segments in descending pick-count order so
+// the most-popular outcome is always visually dominant (green), second is blue,
+// minority is sienna. Winner override (full green) still applies post-match.
+
+function getRankedColors(H: number, A: number, T: number, isKnockout: boolean): Record<Option, string> {
+  const entries: { key: Option; count: number }[] = [
+    { key: "H", count: H },
+    { key: "A", count: A },
+    ...(isKnockout ? [] : [{ key: "T" as Option, count: T }]),
+  ].filter(e => e.count > 0);
+  const sorted = [...entries].sort((a, b) => b.count - a.count);
+  const RANK = [BAR_HOME, BAR_AWAY, BAR_DRAW]; // 1st=green, 2nd=blue, 3rd=sienna
+  const map: Record<Option, string> = { H: BAR_DRAW, A: BAR_DRAW, T: BAR_DRAW };
+  sorted.forEach((e, i) => { map[e.key] = RANK[i] ?? BAR_DRAW; });
+  return map;
+}
+
 // ── MatchPicksCard ────────────────────────────────────────────────────────────
 
 function MatchPicksCard({
@@ -424,6 +442,7 @@ function MatchPicksCard({
 
   const myPickCorrect = isFinished && myPick !== null && myPick === result;
   const myPickWrong   = isFinished && myPick !== null && myPick !== result;
+  const colorMap      = getRankedColors(H, A, T, isKnockout);
 
   return (
     <article
@@ -522,18 +541,18 @@ function MatchPicksCard({
             {H > 0 && (() => {
               const isWinner = result === "H";
               const isLoser  = result !== null && !isWinner;
-              const bg       = isWinner ? "var(--color-green-deep)" : BAR_HOME;
+              const bg       = isWinner ? "var(--color-green-deep)" : colorMap["H"];
               return (
                 <div
                   style={{ flex: H }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "H" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
-                  {pctH >= 14 && (
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.5 : 1 }} />
+                  {pctH >= 7 && (
                     <div className="relative flex items-center gap-1 px-1 min-w-0">
-                      {pctH >= 28 && <Flag team={match.homeTeam} size={13} className="flex-shrink-0" />}
+                      {pctH >= 15 && <Flag team={match.homeTeam} size={13} className="flex-shrink-0" />}
                       <span className="font-mono text-[10px] tabular leading-none select-none font-semibold"
-                        style={{ color: isLoser ? BAR_HOME : "rgba(255,255,255,0.9)" }}>
+                        style={{ color: isLoser ? colorMap["H"] : "rgba(255,255,255,0.9)" }}>
                         {pctH}%
                       </span>
                     </div>
@@ -546,20 +565,20 @@ function MatchPicksCard({
             {!isKnockout && T > 0 && (() => {
               const isWinner = result === "T";
               const isLoser  = result !== null && !isWinner;
-              const bg       = isWinner ? "var(--color-green-deep)" : BAR_DRAW;
+              const bg       = isWinner ? "var(--color-green-deep)" : colorMap["T"];
               return (
                 <div
                   style={{ flex: T }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "T" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
-                  {pctT >= 14 && (
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.5 : 1 }} />
+                  {pctT >= 7 && (
                     <div className="relative flex items-center gap-1 px-0.5">
-                      {pctT >= 28 && (
-                        <span className="text-[11px] leading-none flex-shrink-0" style={{ opacity: isLoser ? 0.5 : 0.85 }}>🤝</span>
+                      {pctT >= 15 && (
+                        <span className="text-[11px] leading-none flex-shrink-0" style={{ opacity: isLoser ? 0.6 : 0.85 }}>🤝</span>
                       )}
                       <span className="font-mono text-[10px] tabular leading-none select-none font-semibold"
-                        style={{ color: isLoser ? BAR_DRAW : "rgba(255,255,255,0.9)" }}>
+                        style={{ color: isLoser ? colorMap["T"] : "rgba(255,255,255,0.9)" }}>
                         {pctT}%
                       </span>
                     </div>
@@ -572,18 +591,18 @@ function MatchPicksCard({
             {A > 0 && (() => {
               const isWinner = result === "A";
               const isLoser  = result !== null && !isWinner;
-              const bg       = isWinner ? "var(--color-green-deep)" : BAR_AWAY;
+              const bg       = isWinner ? "var(--color-green-deep)" : colorMap["A"];
               return (
                 <div
                   style={{ flex: A }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "A" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
-                  {pctA >= 14 && (
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.5 : 1 }} />
+                  {pctA >= 7 && (
                     <div className="relative flex items-center gap-1 px-1 min-w-0">
-                      {pctA >= 28 && <Flag team={match.awayTeam} size={13} className="flex-shrink-0" />}
+                      {pctA >= 15 && <Flag team={match.awayTeam} size={13} className="flex-shrink-0" />}
                       <span className="font-mono text-[10px] tabular leading-none select-none font-semibold"
-                        style={{ color: isLoser ? BAR_AWAY : "rgba(255,255,255,0.9)" }}>
+                        style={{ color: isLoser ? colorMap["A"] : "rgba(255,255,255,0.9)" }}>
                         {pctA}%
                       </span>
                     </div>
@@ -741,11 +760,12 @@ function PickModal({
     pct:    number;
     users:  NamedEntry[];
   };
+  const modalColorMap = getRankedColors(H, A, T, modal.isKnockout);
   const sections: Section[] = [
     {
       opt:   "H",
       label: modal.homeTeam,
-      color: modal.result === "H" ? "var(--color-green-deep)" : BAR_HOME,
+      color: modal.result === "H" ? "var(--color-green-deep)" : modalColorMap["H"],
       count: H,
       pct:   pctH,
       users: namedPicks?.H ?? [],
@@ -753,7 +773,7 @@ function PickModal({
     ...(!modal.isKnockout ? [{
       opt:   "T" as Option,
       label: "Draw",
-      color: modal.result === "T" ? "var(--color-green-deep)" : BAR_DRAW,
+      color: modal.result === "T" ? "var(--color-green-deep)" : modalColorMap["T"],
       count: T,
       pct:   pctT,
       users: namedPicks?.T ?? [],
@@ -761,7 +781,7 @@ function PickModal({
     {
       opt:   "A",
       label: modal.awayTeam,
-      color: modal.result === "A" ? "var(--color-green-deep)" : BAR_AWAY,
+      color: modal.result === "A" ? "var(--color-green-deep)" : modalColorMap["A"],
       count: A,
       pct:   pctA,
       users: namedPicks?.A ?? [],
