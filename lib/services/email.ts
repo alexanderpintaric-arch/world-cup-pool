@@ -4,7 +4,7 @@ function getResend() {
   return new Resend(process.env.RESEND_API_KEY ?? "placeholder");
 }
 const FROM = () => process.env.RESEND_FROM_EMAIL ?? "pool@worldcuppool.app";
-const APP_NAME = () => process.env.NEXT_PUBLIC_APP_NAME ?? "World Cup Pool";
+const APP_NAME = () => process.env.NEXT_PUBLIC_APP_NAME ?? "Nutmeg";
 const APP_URL = () => process.env.NEXTAUTH_URL ?? "http://localhost:3000";
 
 export async function sendScoreUpdateEmail(

@@ -7,8 +7,8 @@ import MobileNavBar from "./MobileNavBar";
 import DesktopNavLinks from "./DesktopNavLinks";
 
 export const metadata: Metadata = {
-  title: "WC Pool '26 — Friendly predictions for the 2026 World Cup",
-  description: "A 2026 World Cup prediction pool. Pick every match. Climb the leaderboard.",
+  title: "Nutmeg — 2026 World Cup Pick'em Pool",
+  description: "Pick every match of the 2026 World Cup. Climb your league. Settle every argument.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -20,12 +20,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <div className="mx-auto max-w-6xl flex items-center justify-between px-5 sm:px-8 h-14">
 
             {/* Brand */}
-            <a href="/" className="flex items-baseline gap-2.5 group select-none">
-              <span className="font-serif italic text-[19px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 60'}}>
-                WC&nbsp;Pool
+            <a href="/" className="flex items-baseline gap-2 group select-none">
+              <span className="font-serif italic text-[20px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 60'}}>
+                Nutmeg
               </span>
-              <span className="font-mono text-[11px] font-medium tabular ink-faint group-hover:text-accent transition-colors">
-                &rsquo;26
+              <span className="font-mono text-[10px] font-medium tabular ink-faint group-hover:text-accent transition-colors">
+                WC&rsquo;26
               </span>
             </a>
 
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <footer className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 py-10 mt-12 mb-16 sm:mb-0">
           <div className="border-t border-line pt-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-[12px] ink-faint">
             <p>
-              <span className="font-serif italic">WC Pool &rsquo;26</span> &middot; A friend&rsquo;s pool. Built for friends.
+              <span className="font-serif italic">Nutmeg</span> &middot; 2026 World Cup &middot; A friend&rsquo;s pool. Built for friends.
             </p>
             <p className="font-mono tabular">
               Jun 11 &mdash; Jul 19, 2026 &middot; <span className="emoji">🇨🇦 🇲🇽 🇺🇸</span>

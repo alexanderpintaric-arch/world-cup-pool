@@ -19,17 +19,17 @@ export default async function SignInPage({
         <div className="text-center mb-8">
           <a href="/" className="inline-flex items-baseline gap-2 group">
             <span
-              className="font-serif italic text-[28px] font-medium ink leading-none"
+              className="font-serif italic text-[30px] font-medium ink leading-none"
               style={{ fontVariationSettings: '"opsz" 60' }}
             >
-              WC&nbsp;Pool
+              Nutmeg
             </span>
-            <span className="font-mono text-[13px] font-medium tabular ink-faint group-hover:text-accent transition-colors">
-              &rsquo;26
+            <span className="font-mono text-[12px] font-medium tabular ink-faint group-hover:text-accent transition-colors">
+              WC&rsquo;26
             </span>
           </a>
           <p className="mt-3 text-[13.5px] ink-soft leading-relaxed">
-            The 2026 World Cup. Your picks. Your league.
+            2026 World Cup picks. Your league. Your bragging rights.
           </p>
         </div>
 

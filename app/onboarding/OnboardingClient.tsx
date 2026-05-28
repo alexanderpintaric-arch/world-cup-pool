@@ -17,7 +17,7 @@ export default function OnboardingClient({ defaultMode }: { defaultMode: Mode })
         {/* Header */}
         <div className="mb-8 anim-fade-up">
           <p className="font-mono text-[11px] uppercase tracking-[0.22em] ink-faint mb-3">
-            WC Pool &rsquo;26
+            Nutmeg &middot; WC &rsquo;26
           </p>
           <h1
             className="font-serif font-medium leading-tight tracking-[-0.02em] ink"
