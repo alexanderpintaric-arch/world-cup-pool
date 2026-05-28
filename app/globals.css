@@ -258,7 +258,7 @@
 }
 .ticker-track {
   display: flex;
-  animation: marquee 24s linear infinite;
+  animation: marquee 15s linear infinite;
   will-change: transform;
 }
 .ticker-track:hover {
