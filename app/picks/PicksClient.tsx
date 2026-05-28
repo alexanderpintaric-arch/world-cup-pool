@@ -29,7 +29,7 @@ function getRoundTabStatus(rs: RoundState): "active" | "complete" | "unavailable
 }
 
 const ROUND_TAGLINE: Record<Round, string> = {
-  GROUP:          "12 groups. 72 matches. Pick a winner — or call a draw — for every one.",
+  GROUP:          "12 groups. 72 matches. Pick a winner — or call a draw — for every match.",
   ROUND_OF_32:    "The first cut. 32 nations left, half advance. No draws here.",
   ROUND_OF_16:    "Down to sixteen. Pick the side you think reaches the quarters.",
   QUARTER_FINALS: "Eight standing. Every match worth four points.",
