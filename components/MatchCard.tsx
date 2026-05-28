@@ -7,6 +7,8 @@ interface Props {
   currentPick: MatchResult | null;
   odds: OddsData | null;
   popular?: { H: number; A: number; T: number; total: number } | null;
+  /** Named picks revealed after kickoff. H/A/T = array of first names. */
+  breakdown?: { H: string[]; A: string[]; T: string[] } | null;
   groupLetter?: string | null;
   matchNumber?: number;
   onPick: (matchId: string, pick: MatchResult) => void;
@@ -16,25 +18,35 @@ interface Props {
 }
 
 export default function MatchCard({
-  match, currentPick, odds, popular, groupLetter, matchNumber,
+  match, currentPick, odds, popular, breakdown, groupLetter, matchNumber,
   onPick, disabled, result, pointsValue,
 }: Props) {
   const isKnockout = match.round !== "GROUP";
-  const isLive = match.status === "IN_PLAY" || match.status === "PAUSED" || match.status === "LIVE";
+  const isLive     = match.status === "IN_PLAY" || match.status === "PAUSED" || match.status === "LIVE";
   const isFinished = match.status === "FINISHED";
+  const isStarted  = isLive || isFinished; // deadline passed — reveal picks
 
-  const options: { value: NonNullable<MatchResult>; label: string; prob: number | null; popPct: number | null }[] = [
-    { value: "H", label: match.homeTeam, prob: odds?.homeProb ?? null, popPct: pickPercentage(popular, "H") },
-    ...(!isKnockout ? [{ value: "T" as const, label: "Draw", prob: odds?.drawProb ?? null, popPct: pickPercentage(popular, "T") }] : []),
-    { value: "A", label: match.awayTeam, prob: odds?.awayProb ?? null, popPct: pickPercentage(popular, "A") },
+  const options: {
+    value: NonNullable<MatchResult>;
+    label: string;
+    prob: number | null;
+    odds: number | null;
+    names: string[];
+  }[] = [
+    { value: "H", label: match.homeTeam, prob: odds?.homeProb ?? null, odds: odds?.homeOdds ?? null, names: breakdown?.H ?? [] },
+    ...(!isKnockout ? [{ value: "T" as const, label: "Draw",          prob: odds?.drawProb ?? null, odds: odds?.drawOdds ?? null, names: breakdown?.T ?? [] }] : []),
+    { value: "A", label: match.awayTeam, prob: odds?.awayProb ?? null, odds: odds?.awayOdds ?? null, names: breakdown?.A ?? [] },
   ];
 
-  const kickoff = new Date(match.kickoffUtc);
+  const kickoff   = new Date(match.kickoffUtc);
   const dateLabel = kickoff.toLocaleDateString("en-CA", { month: "short", day: "numeric" });
   const timeLabel = kickoff.toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" });
 
   const earnedPoints = isFinished && currentPick && currentPick === result ? pointsValue : null;
   const lostPoints   = isFinished && currentPick && currentPick !== result;
+
+  // Pool split: total votes for footer (only meaningful pre-kickoff)
+  const totalVotes = popular?.total ?? 0;
 
   return (
     <article
@@ -97,15 +109,15 @@ export default function MatchCard({
           const correct = isFinished && result === opt.value;
           const wrong   = isFinished && picked && result !== opt.value;
 
-          let cls = "relative flex flex-col items-center justify-center gap-1 rounded-md px-2 py-2.5 text-center transition-all select-none cursor-pointer ";
+          let cls = "relative flex flex-col items-center justify-center gap-0.5 rounded-md px-2 py-2.5 text-center transition-all select-none cursor-pointer ";
           if (correct)        cls += "bg-green-soft border-2 border-green-deep ink";
-          else if (wrong)     cls += "bg-paper-deep border-2 border-line ink-faint line-through";
+          else if (wrong)     cls += "bg-paper-deep border-2 border-line ink-faint";
           else if (picked)    cls += "bg-ink border-2 border-ink text-paper pick-selected";
           else                cls += "bg-paper border-2 border-line hover:border-ink/40 hover:bg-card ink";
           if (disabled && !picked && !correct && !wrong) cls += " opacity-50 cursor-not-allowed hover:border-line hover:bg-paper";
 
           const label = opt.value === "T" ? "Draw" : opt.label;
-          const flag = opt.value === "T" ? "🤝" : flagFor(opt.label);
+          const flag  = opt.value === "T" ? "🤝" : flagFor(opt.label);
 
           return (
             <button
@@ -115,12 +127,51 @@ export default function MatchCard({
               className={cls}
             >
               {flag && <span className="emoji text-[14px] leading-none">{flag}</span>}
-              <span className="text-[11px] sm:text-[12px] font-semibold leading-tight line-clamp-1">
+
+              <span className={`text-[11px] sm:text-[12px] font-semibold leading-tight line-clamp-1 ${wrong ? "line-through" : ""}`}>
                 {label}
               </span>
-              {(opt.prob !== null || opt.popPct !== null) && !isFinished && (
+
+              {/* Odds probability — SCHEDULED only (bookmaker consensus) */}
+              {!isStarted && opt.prob !== null && (
                 <span className={`font-mono text-[9.5px] tabular leading-none ${picked ? "text-paper/70" : "ink-faint"}`}>
-                  {opt.prob !== null ? `${opt.prob}%` : `${opt.popPct}% picked`}
+                  {opt.prob}%
+                </span>
+              )}
+
+              {/* Odds decimal — SCHEDULED only, subtle */}
+              {!isStarted && opt.odds !== null && (
+                <span className={`font-mono text-[8.5px] tabular leading-none ${picked ? "text-paper/50" : "text-[color:var(--ink-faint)]/60"}`}>
+                  {opt.odds.toFixed(2)}
+                </span>
+              )}
+
+              {/* Named pick chips — revealed after kickoff */}
+              {isStarted && opt.names.length > 0 && (
+                <div className="flex flex-wrap gap-0.5 justify-center mt-1 max-w-full">
+                  {opt.names.map(name => (
+                    <span
+                      key={name}
+                      className={`text-[8px] font-mono px-1.5 py-px rounded-sm leading-none whitespace-nowrap ${
+                        isFinished
+                          ? correct
+                            ? "bg-green-soft text-green-deep font-semibold"
+                            : "text-[color:var(--ink-faint)]/50 line-through"
+                          : picked
+                            ? "bg-white/10 text-paper/70"
+                            : "bg-paper-deep ink-faint"
+                      }`}
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* No picks yet message */}
+              {isStarted && opt.names.length === 0 && (
+                <span className={`text-[8px] font-mono leading-none italic ${picked ? "text-paper/40" : "text-[color:var(--ink-faint)]/40"}`}>
+                  no picks
                 </span>
               )}
             </button>
@@ -139,14 +190,20 @@ export default function MatchCard({
            : lostPoints           ? "No points"
            : `${pointsValue}pt available`}
         </span>
-        {!isFinished && popular && popular.total > 0 && (
+        {/* Vote count — SCHEDULED only (keeps splits private) */}
+        {!isStarted && totalVotes > 0 && (
           <span className="normal-case tracking-normal font-sans text-[11px]">
-            {popular.total} {popular.total === 1 ? "vote" : "votes"} in
+            {totalVotes} {totalVotes === 1 ? "pick" : "picks"} in
           </span>
         )}
         {isFinished && currentPick && (
           <span className="normal-case tracking-normal font-sans text-[11px]">
             {earnedPoints !== null ? "Nailed it" : "Better luck next round"}
+          </span>
+        )}
+        {isLive && (
+          <span className="normal-case tracking-normal font-sans text-[11px] text-accent">
+            In progress
           </span>
         )}
       </div>
@@ -174,9 +231,4 @@ function TeamRow({ team, score, isFinished, reverse }: {
       </div>
     </div>
   );
-}
-
-function pickPercentage(p: { H: number; A: number; T: number; total: number } | null | undefined, key: "H" | "A" | "T"): number | null {
-  if (!p || p.total === 0) return null;
-  return Math.round((p[key] / p.total) * 100);
 }

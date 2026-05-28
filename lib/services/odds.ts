@@ -1,4 +1,4 @@
-import type { OddsData } from "../types";
+import type { OddsData, Match } from "../types";
 
 const BASE = "https://api.the-odds-api.com/v4";
 
@@ -22,7 +22,7 @@ function decimalToProb(decimal: number): number {
   return Math.round((1 / decimal) * 100 * 10) / 10;
 }
 
-// Normalize probabilities so they sum to 100 (remove the bookmaker margin)
+// Remove bookmaker margin so probabilities sum to 100%
 function normalizeProbs(h: number, d: number | null, a: number): [number, number | null, number] {
   const total = h + (d ?? 0) + a;
   if (total === 0) return [h, d, a];
@@ -30,9 +30,73 @@ function normalizeProbs(h: number, d: number | null, a: number): [number, number
   return [norm(h), d !== null ? norm(d) : null, norm(a)];
 }
 
-export async function fetchWCOdds(): Promise<OddsData[]> {
+// ── Team name normalisation ────────────────────────────────────────────────
+// The Odds API and football-data.org use different team names for the same
+// country. We strip punctuation and apply a canonical alias table so both
+// sides can be compared on equal footing.
+
+const CANONICAL: Record<string, string> = {
+  // United States
+  "united states":                 "usa",
+  "united states of america":      "usa",
+  // Korea
+  "south korea":                   "korea republic",
+  "korea":                         "korea republic",
+  // Iran
+  "iran":                          "ir iran",
+  // Czech Republic
+  "czech republic":                "czechia",
+  // Ivory Coast
+  "ivory coast":                   "cote divoire",
+  "côte divoire":                  "cote divoire",
+  "cote d ivoire":                 "cote divoire",
+  // DR Congo
+  "dr congo":                      "congo dr",
+  "democratic republic of congo":  "congo dr",
+  // Other common mismatches
+  "republic of ireland":           "ireland",
+  "northern ireland":              "northern ireland",
+  "trinidad & tobago":             "trinidad and tobago",
+  "guinea bissau":                 "guinea-bissau",
+};
+
+function normalizeTeam(name: string): string {
+  const lower = name
+    .toLowerCase()
+    .replace(/['’.]/g, "")   // strip apostrophes / periods
+    .replace(/[-]/g, " ")         // hyphens → spaces
+    .replace(/\s+/g, " ")
+    .trim();
+  return CANONICAL[lower] ?? lower;
+}
+
+// ── Main export ────────────────────────────────────────────────────────────
+
+/**
+ * Fetch odds for all upcoming WC matches, keyed by *our* match IDs.
+ * Matching is done by normalised team names rather than by the Odds API's
+ * own opaque IDs (which have no relation to football-data.org IDs).
+ *
+ * knownMatches: the full list of matches from our DB — used to build the
+ *   home+away lookup table.
+ */
+export async function fetchWCOdds(knownMatches: Match[]): Promise<OddsData[]> {
+  const key = process.env.ODDS_API_KEY;
+  if (!key) {
+    console.warn("ODDS_API_KEY not set — skipping odds fetch");
+    return [];
+  }
+
+  // Build lookup: "normHome|normAway" → matchId
+  const matchLookup = new Map<string, string>();
+  for (const m of knownMatches) {
+    if (m.homeTeam === "TBD" || m.awayTeam === "TBD") continue;
+    const key = `${normalizeTeam(m.homeTeam)}|${normalizeTeam(m.awayTeam)}`;
+    matchLookup.set(key, m.matchId);
+  }
+
   const params = new URLSearchParams({
-    apiKey: process.env.ODDS_API_KEY!,
+    apiKey: key,
     regions: "eu",
     markets: "h2h",
     oddsFormat: "decimal",
@@ -43,36 +107,36 @@ export async function fetchWCOdds(): Promise<OddsData[]> {
   });
 
   if (!res.ok) {
-    // Non-fatal — odds are supplementary
     console.error(`Odds API error ${res.status}`);
     return [];
   }
 
   const games: OddsApiGame[] = await res.json();
   const now = new Date().toISOString();
+  const results: OddsData[] = [];
 
-  return games.map((g): OddsData => {
-    // Average across bookmakers
+  for (const g of games) {
+    const lookupKey = `${normalizeTeam(g.home_team)}|${normalizeTeam(g.away_team)}`;
+    const matchId = matchLookup.get(lookupKey);
+    if (!matchId) {
+      // Try reversed (some APIs swap home/away in pre-match period)
+      const reversed = `${normalizeTeam(g.away_team)}|${normalizeTeam(g.home_team)}`;
+      if (!matchLookup.get(reversed)) continue; // genuinely unknown match
+    }
+    const resolvedId = matchId ?? matchLookup.get(`${normalizeTeam(g.away_team)}|${normalizeTeam(g.home_team)}`)!;
+
+    // Average decimal odds across bookmakers
     let homeSum = 0, drawSum = 0, awaySum = 0, count = 0;
-
     for (const bm of g.bookmakers) {
       const h2h = bm.markets.find(m => m.key === "h2h");
       if (!h2h) continue;
       const home = h2h.outcomes.find(o => o.name === g.home_team)?.price ?? 0;
       const away = h2h.outcomes.find(o => o.name === g.away_team)?.price ?? 0;
       const draw = h2h.outcomes.find(o => o.name === "Draw")?.price ?? 0;
-      if (home && away) {
-        homeSum += home;
-        drawSum += draw;
-        awaySum += away;
-        count++;
-      }
+      if (home && away) { homeSum += home; drawSum += draw; awaySum += away; count++; }
     }
 
-    if (count === 0) {
-      return { matchId: g.id, homeOdds: null, drawOdds: null, awayOdds: null,
-               homeProb: null, drawProb: null, awayProb: null, updatedAt: now };
-    }
+    if (count === 0) continue;
 
     const homeOdds = Math.round((homeSum / count) * 100) / 100;
     const drawOdds = drawSum > 0 ? Math.round((drawSum / count) * 100) / 100 : null;
@@ -81,9 +145,15 @@ export async function fetchWCOdds(): Promise<OddsData[]> {
     const rawHome = decimalToProb(homeOdds);
     const rawDraw = drawOdds ? decimalToProb(drawOdds) : null;
     const rawAway = decimalToProb(awayOdds);
-
     const [homeProb, drawProb, awayProb] = normalizeProbs(rawHome, rawDraw, rawAway);
 
-    return { matchId: g.id, homeOdds, drawOdds, awayOdds, homeProb, drawProb, awayProb, updatedAt: now };
-  });
+    results.push({
+      matchId: resolvedId,
+      homeOdds, drawOdds, awayOdds,
+      homeProb, drawProb, awayProb,
+      updatedAt: now,
+    });
+  }
+
+  return results;
 }

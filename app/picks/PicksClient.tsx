@@ -7,6 +7,9 @@ import { flagFor } from "@/lib/services/flags";
 import MatchCard from "@/components/MatchCard";
 import CountdownTimer from "@/components/CountdownTimer";
 
+type PickBreakdown = { H: string[]; A: string[]; T: string[] };
+type PopularCount  = { H: number;  A: number;  T: number; total: number };
+
 interface Props {
   matches: Match[];
   userPicks: Pick[];
@@ -15,6 +18,8 @@ interface Props {
   activeRound: RoundState | null;
   userEmail: string;
   userName: string;
+  breakdowns: Record<string, PickBreakdown>;
+  popularCounts: Record<string, PopularCount>;
 }
 
 function getRoundTabStatus(rs: RoundState): "active" | "complete" | "unavailable" | "locked" | "upcoming" {
@@ -36,6 +41,7 @@ const ROUND_TAGLINE: Record<Round, string> = {
 
 export default function PicksClient({
   matches, userPicks, odds, roundStates, activeRound, userName,
+  breakdowns, popularCounts,
 }: Props) {
   const [selectedRound, setSelectedRound] = useState<Round>(
     activeRound?.round ?? "GROUP"
@@ -262,6 +268,8 @@ export default function PicksClient({
                       saving={saving[match.matchId]}
                       saved={saved[match.matchId]}
                       pointsValue={currentRoundState?.pointsValue ?? 1}
+                      breakdown={breakdowns[match.matchId] ?? null}
+                      popular={popularCounts[match.matchId] ?? null}
                     />
                   ))}
                 </div>
@@ -279,6 +287,8 @@ export default function PicksClient({
             saving={saving}
             saved={saved}
             pointsValue={currentRoundState?.pointsValue ?? 1}
+            breakdowns={breakdowns}
+            popularCounts={popularCounts}
           />
         </div>
       ) : (
@@ -295,6 +305,8 @@ export default function PicksClient({
               saving={saving[match.matchId]}
               saved={saved[match.matchId]}
               pointsValue={currentRoundState?.pointsValue ?? 1}
+              breakdown={breakdowns[match.matchId] ?? null}
+              popular={popularCounts[match.matchId] ?? null}
             />
           ))}
         </section>
@@ -355,6 +367,7 @@ function GroupHeader({ letter, teams, picked, total }: {
 
 function PickSlot({
   match, groupLetter, matchNumber, pick, odds, onPick, disabled, saving, saved, pointsValue,
+  breakdown, popular,
 }: {
   match: Match;
   groupLetter?: string | null;
@@ -366,6 +379,8 @@ function PickSlot({
   saving?: boolean;
   saved?: boolean;
   pointsValue: number;
+  breakdown?: PickBreakdown | null;
+  popular?: PopularCount | null;
 }) {
   return (
     <div className="relative">
@@ -379,6 +394,8 @@ function PickSlot({
         disabled={disabled}
         result={match.result}
         pointsValue={pointsValue}
+        breakdown={breakdown}
+        popular={popular}
       />
       {(saving || saved) && (
         <div className={`absolute top-3 right-3 text-[10px] font-mono uppercase tracking-[0.16em] px-1.5 py-0.5 rounded transition-opacity
@@ -391,7 +408,10 @@ function PickSlot({
   );
 }
 
-function UngroupedRemainder({ allRoundMatches, groupMatchIds, picks, oddsMap, onPick, isAvailable, saving, saved, pointsValue }: {
+function UngroupedRemainder({
+  allRoundMatches, groupMatchIds, picks, oddsMap, onPick, isAvailable,
+  saving, saved, pointsValue, breakdowns, popularCounts,
+}: {
   allRoundMatches: Match[];
   groupMatchIds: Set<string>;
   picks: Record<string, MatchResult>;
@@ -401,6 +421,8 @@ function UngroupedRemainder({ allRoundMatches, groupMatchIds, picks, oddsMap, on
   saving: Record<string, boolean>;
   saved: Record<string, boolean>;
   pointsValue: number;
+  breakdowns: Record<string, PickBreakdown>;
+  popularCounts: Record<string, PopularCount>;
 }) {
   const remainder = allRoundMatches.filter(m => !groupMatchIds.has(m.matchId));
   if (remainder.length === 0) return null;
@@ -426,6 +448,8 @@ function UngroupedRemainder({ allRoundMatches, groupMatchIds, picks, oddsMap, on
             saving={saving[m.matchId]}
             saved={saved[m.matchId]}
             pointsValue={pointsValue}
+            breakdown={breakdowns[m.matchId] ?? null}
+            popular={popularCounts[m.matchId] ?? null}
           />
         ))}
       </div>

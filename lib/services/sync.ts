@@ -34,9 +34,9 @@ export async function runSync(): Promise<SyncResult> {
       m => m.status === "FINISHED" && !prevFinished.has(m.matchId)
     );
 
-    // 5. Fetch odds (non-fatal)
+    // 5. Fetch odds (non-fatal) — pass fresh matches so IDs can be resolved by team name
     try {
-      const odds = await fetchWCOdds();
+      const odds = await fetchWCOdds(freshMatches);
       if (odds.length > 0) await upsertOdds(odds);
     } catch (e) {
       console.error("Odds sync failed (non-fatal):", e);
