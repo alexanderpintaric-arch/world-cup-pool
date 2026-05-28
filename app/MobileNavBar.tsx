@@ -51,7 +51,7 @@ const TABS = [
   },
 ];
 
-export default function MobileNavBar() {
+export default function MobileNavBar({ isAdmin = false }: { isAdmin?: boolean }) {
   const pathname = usePathname();
 
   function isActive(tab: typeof TABS[number]) {
@@ -80,6 +80,30 @@ export default function MobileNavBar() {
             </a>
           );
         })}
+
+        {isAdmin && (
+          <a
+            href="/admin"
+            className="flex-1 flex flex-col items-center justify-center gap-1 transition-colors"
+            style={{ color: pathname.startsWith("/admin") ? "var(--color-accent)" : "var(--color-ink-faint)" }}
+          >
+            {/* Gear icon */}
+            <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
+              <circle cx="10" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+              <path
+                d="M10 2v2M10 16v2M2 10h2M16 10h2M4.22 4.22l1.42 1.42M14.36 14.36l1.42 1.42M4.22 15.78l1.42-1.42M14.36 5.64l1.42-1.42"
+                stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
+                opacity={pathname.startsWith("/admin") ? 1 : 0.6}
+              />
+            </svg>
+            <span
+              className="text-[10px] tracking-wide"
+              style={{ fontWeight: pathname.startsWith("/admin") ? 600 : 500 }}
+            >
+              Admin
+            </span>
+          </a>
+        )}
       </div>
     </nav>
   );

@@ -34,6 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* Nav links: hidden on mobile, shown on sm+ */}
               <div className="hidden sm:flex items-center gap-1">
                 <NavLinksWrapper />
+                <AdminNavLink />
               </div>
               <div className="ml-0 sm:ml-2">
                 <LeagueNav />
@@ -74,10 +75,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 // Server wrapper: auth-gates the client tab bar so it never renders for guests.
 
 async function MobileNav() {
-  const { auth } = await import("@/lib/auth");
+  const { auth, isAdmin } = await import("@/lib/auth");
   const session = await auth();
   if (!session?.user) return null;
-  return <MobileNavBar />;
+  return <MobileNavBar isAdmin={isAdmin(session.user.email)} />;
 }
 
 // ── Shared nav components ──────────────────────────────────────────────────
@@ -106,6 +107,21 @@ async function NavLinksWrapper() {
   const session = await auth();
   if (!session?.user) return null;
   return <DesktopNavLinks />;
+}
+
+async function AdminNavLink() {
+  const { auth, isAdmin } = await import("@/lib/auth");
+  const session = await auth();
+  if (!session?.user?.email || !isAdmin(session.user.email)) return null;
+  return (
+    <a
+      href="/admin"
+      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13.5px] font-medium ink-soft hover:ink hover:bg-paper-deep transition-colors"
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-accent flex-shrink-0" />
+      Admin
+    </a>
+  );
 }
 
 async function AuthButton() {

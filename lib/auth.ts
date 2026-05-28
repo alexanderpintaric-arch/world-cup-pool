@@ -34,6 +34,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
 });
 
+const ADMIN_EMAILS = new Set(
+  [
+    "alexanderpintaric@gmail.com",          // hardcoded owner
+    ...(process.env.ADMIN_EMAIL ?? "").split(",").map(e => e.trim()).filter(Boolean),
+  ]
+);
+
 export function isAdmin(email: string | null | undefined): boolean {
-  return email === process.env.ADMIN_EMAIL;
+  return !!email && ADMIN_EMAILS.has(email);
 }
