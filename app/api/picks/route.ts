@@ -3,8 +3,37 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { auth } from "@/lib/auth";
 import { getPicksForUser, upsertPicksBatch, deletePick, getAllMatches, getAllOdds } from "@/lib/services/supabase";
+import { getUserLeagues } from "@/lib/services/leagues";
 import { getRoundStates } from "@/lib/services/scoring";
 import type { Pick } from "@/lib/types";
+
+const LEAGUE_COOKIE = "wcp_league";
+const COOKIE_OPTS = {
+  path: "/",
+  maxAge: 60 * 60 * 24 * 365,
+  httpOnly: true,
+  sameSite: "lax" as const,
+};
+
+/**
+ * Resolve the active league for the current user.
+ * Uses the wcp_league cookie when it points to a league the user belongs to;
+ * otherwise falls back to their first league and re-persists the cookie so it
+ * matches what the page renders. Returns null only if the user has no leagues.
+ */
+async function resolveActiveLeagueId(email: string): Promise<string | null> {
+  const cookieStore = await cookies();
+  const fromCookie = cookieStore.get(LEAGUE_COOKIE)?.value;
+
+  const leagues = await getUserLeagues(email);
+  if (leagues.length === 0) return null;
+
+  if (fromCookie && leagues.some(l => l.id === fromCookie)) return fromCookie;
+
+  const fallback = leagues[0].id;
+  cookieStore.set(LEAGUE_COOKIE, fallback, COOKIE_OPTS);
+  return fallback;
+}
 
 export async function GET() {
   const session = await auth();
@@ -12,8 +41,7 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cookieStore = await cookies();
-  const leagueId = cookieStore.get("wcp_league")?.value;
+  const leagueId = await resolveActiveLeagueId(session.user.email);
   if (!leagueId) {
     return NextResponse.json({ error: "No active league" }, { status: 400 });
   }
@@ -28,8 +56,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const cookieStore = await cookies();
-  const leagueId = cookieStore.get("wcp_league")?.value;
+  const leagueId = await resolveActiveLeagueId(session.user.email);
   if (!leagueId) {
     return NextResponse.json({ error: "No active league — please join or create a league first" }, { status: 400 });
   }
