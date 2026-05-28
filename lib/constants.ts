@@ -27,11 +27,15 @@ export const SHEET_NAMES = {
   SYNC_LOG: "sync_log",
 };
 
-// Max points a user can earn if they get everything right from here
+// Max points a user can earn if they get everything right from here.
+// Group stage: 12 groups × 6 matches = 72 matches × 1 pt = 72
+// R32: 16 × 2 = 32 | R16: 8 × 3 = 24 | QF: 4 × 4 = 16
+// SF: 2 × 5 = 10   | Final + 3rd place: 2 × 6 = 12
+// Total: 72+32+24+16+10+12 = 166
 export const MAX_TOTAL_POINTS =
-  48 * 1 +  // group stage
+  72 * 1 +  // group stage  (12 groups × 6 matches)
   16 * 2 +  // R32
    8 * 3 +  // R16
    4 * 4 +  // QF
    2 * 5 +  // SF
-   1 * 6;   // Final  = 48+32+24+16+10+6 = 136
+   2 * 6;   // Final + 3rd-place playoff

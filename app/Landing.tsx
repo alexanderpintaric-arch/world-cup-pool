@@ -1,4 +1,5 @@
 import type { Match, RoundState } from "@/lib/types";
+import { MAX_TOTAL_POINTS } from "@/lib/constants";
 
 interface Props {
   matches: Match[];
@@ -103,7 +104,7 @@ export default function Landing({ matches, participantCount }: Props) {
             { v: String(teamCount), l: "Teams" },
             { v: String(groupCount), l: "Groups" },
             { v: "39",  l: "Days" },
-            { v: "136", l: "Max points" },
+            { v: String(MAX_TOTAL_POINTS), l: "Max points" },
             { v: "1",   l: "Champion" },
           ].map((s) => (
             <div key={s.l} className="bg-card px-5 py-4 sm:py-5">
