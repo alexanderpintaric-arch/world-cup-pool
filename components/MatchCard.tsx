@@ -2,6 +2,14 @@
 import type { Match, OddsData, MatchResult } from "@/lib/types";
 import { flagFor } from "@/lib/services/flags";
 
+/** Convert decimal odds to American format: -118, +320, etc. */
+function toAmerican(decimal: number): string {
+  if (decimal >= 2) {
+    return `+${Math.round((decimal - 1) * 100)}`;
+  }
+  return `${Math.round(-100 / (decimal - 1))}`;
+}
+
 interface Props {
   match: Match;
   currentPick: MatchResult | null;
@@ -139,10 +147,10 @@ export default function MatchCard({
                 </span>
               )}
 
-              {/* Odds decimal — SCHEDULED only, subtle */}
+              {/* American odds — SCHEDULED only */}
               {!isStarted && opt.odds !== null && (
                 <span className={`font-mono text-[8.5px] tabular leading-none ${picked ? "text-paper/50" : "text-[color:var(--ink-faint)]/60"}`}>
-                  {opt.odds.toFixed(2)}
+                  {toAmerican(opt.odds)}
                 </span>
               )}
 
