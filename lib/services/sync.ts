@@ -3,10 +3,14 @@ import { fetchWCOdds } from "./odds";
 import {
   getAllMatches, upsertMatches, getAllPicks, getAllUsers,
   upsertOdds, logSync, getLastSync,
+  getRemindedRounds, markRoundReminded,
 } from "./supabase";
+import { getAllMemberEmails } from "./leagues";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "./scoring";
-import { sendScoreUpdateEmail, sendRoundOpenEmail } from "./email";
+import { sendScoreUpdateEmail, sendRoundOpenEmail, sendDeadlineReminderEmail } from "./email";
 import type { SyncResult, Match } from "../types";
+
+const REMIND_WINDOW_MS = 24 * 60 * 60 * 1000; // 24h
 
 export async function runSync(): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
@@ -110,6 +114,47 @@ export async function runSync(): Promise<SyncResult> {
           }
         }
       }
+    }
+
+    // 8. Deadline reminders — ~24h before any available round locks
+    try {
+      const now = Date.now();
+      const reminded = await getRemindedRounds();
+      const dueRounds = newRoundStates.filter(rs =>
+        rs.isAvailable &&
+        rs.matchCount > 0 &&
+        rs.deadline != null &&
+        !reminded.has(rs.round) &&
+        (() => {
+          const ms = new Date(rs.deadline!).getTime() - now;
+          return ms > 0 && ms <= REMIND_WINDOW_MS;
+        })()
+      );
+
+      if (dueRounds.length > 0) {
+        const [allUsers, memberEmails] = await Promise.all([
+          getAllUsers(),
+          getAllMemberEmails(),
+        ]);
+        const recipients = allUsers.filter(u => memberEmails.has(u.email));
+
+        for (const rs of dueRounds) {
+          let sentForRound = 0;
+          for (const user of recipients) {
+            try {
+              await sendDeadlineReminderEmail(user.email, user.name, rs.label, rs.deadline!);
+              emailsSent++;
+              sentForRound++;
+            } catch (e) {
+              console.error(`Deadline reminder failed for ${user.email}:`, e);
+            }
+          }
+          // Mark sent so a second run today won't re-send
+          if (sentForRound > 0) await markRoundReminded(rs.round);
+        }
+      }
+    } catch (e) {
+      console.error("Deadline reminders failed (non-fatal):", e);
     }
   } catch (e) {
     error = e instanceof Error ? e.message : ((e as any)?.message ?? JSON.stringify(e));

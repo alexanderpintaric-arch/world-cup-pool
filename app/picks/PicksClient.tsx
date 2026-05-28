@@ -208,14 +208,14 @@ export default function PicksClient({
           </p>
           <a
             href="/receipts"
-            className="group mt-5 inline-flex items-center gap-2.5 px-5 py-3 rounded-xl bg-card border border-line shadow-paper text-[14px] font-semibold ink-soft hover:ink hover:border-ink/25 hover:shadow-lift transition-all"
+            className="group mt-4 inline-flex items-center gap-1.5 text-[12.5px] font-medium ink-faint hover:ink transition-colors"
           >
-            <svg className="h-4 w-4 text-accent" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <svg className="h-3.5 w-3.5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
               <path d="M4 1.5h8a1 1 0 011 1v11.2a.3.3 0 01-.47.25L11 14l-1.5 1-1.5-1-1.5 1L5 14l-1.53.95A.3.3 0 013 14.7V2.5a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
               <path d="M5.5 5h5M5.5 7.5h5M5.5 10h3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
             </svg>
             View pick receipt
-            <span className="font-mono text-[13px] ink-faint group-hover:text-accent group-hover:translate-x-0.5 transition-all">&rarr;</span>
+            <span className="font-mono text-[11px] transition-transform group-hover:translate-x-0.5">&rarr;</span>
           </a>
         </div>
         {activeRound?.deadline && (

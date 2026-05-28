@@ -214,6 +214,30 @@ export async function upsertOdds(odds: OddsData[]): Promise<void> {
   if (error) throw error;
 }
 
+// ── Deadline-reminder dedup ──────────────────────────────────────────────────
+// Tracks which rounds we've already sent a 24h reminder for, so a second sync
+// run on the same day doesn't double-email. Defensive: if the round_reminders
+// table hasn't been migrated yet, these degrade to no-ops (the once-daily cron
+// provides natural dedup on its own).
+
+export async function getRemindedRounds(): Promise<Set<string>> {
+  if (isMock) return new Set();
+  const { data, error } = await getClient().from("round_reminders").select("round");
+  if (error) return new Set(); // table missing or unreadable — fall back to no dedup
+  return new Set((data ?? []).map(r => r.round as string));
+}
+
+export async function markRoundReminded(round: string): Promise<void> {
+  if (isMock) return;
+  try {
+    await getClient()
+      .from("round_reminders")
+      .upsert({ round, sent_at: new Date().toISOString() }, { onConflict: "round" });
+  } catch {
+    // table missing — ignore; relying on daily cron for dedup
+  }
+}
+
 // ── Sync log ───────────────────────────────────────────────────────────────
 
 export async function logSync(entry: {

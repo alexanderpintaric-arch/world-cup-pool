@@ -2,6 +2,7 @@
 import { signIn, signOut, auth } from "@/lib/auth";
 import { createLeague as dbCreateLeague, joinLeagueByCode } from "@/lib/services/leagues";
 import { setUserSupportedTeam } from "@/lib/services/supabase";
+import { sendLeagueWelcomeEmail } from "@/lib/services/email";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -46,6 +47,17 @@ export async function handleCreateLeague(
     return { error: "Something went wrong. Please try again." };
   }
 
+  // Welcome email (non-fatal — never block league creation on email)
+  try {
+    await sendLeagueWelcomeEmail(
+      session.user.email,
+      session.user.name ?? session.user.email,
+      { leagueName: league.name, code: league.code, isCreator: true }
+    );
+  } catch (e) {
+    console.error("Welcome email failed (create):", e);
+  }
+
   (await cookies()).set(LEAGUE_COOKIE, league.id, COOKIE_OPTS);
   redirect("/");
 }
@@ -69,6 +81,19 @@ export async function handleJoinLeague(
 
   if (!result.success || !result.league) {
     return { error: result.error ?? "Could not join that league." };
+  }
+
+  // Welcome email — only for a genuinely new membership (non-fatal)
+  if (!result.alreadyMember) {
+    try {
+      await sendLeagueWelcomeEmail(
+        session.user.email,
+        session.user.name ?? session.user.email,
+        { leagueName: result.league.name, code: result.league.code, isCreator: false }
+      );
+    } catch (e) {
+      console.error("Welcome email failed (join):", e);
+    }
   }
 
   (await cookies()).set(LEAGUE_COOKIE, result.league.id, COOKIE_OPTS);

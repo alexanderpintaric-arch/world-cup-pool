@@ -53,3 +53,9 @@ create table sync_log (
   emails_sent      int default 0,
   error            text default ''
 );
+
+-- Dedup for 24h deadline-reminder emails (one row per round once reminded)
+create table round_reminders (
+  round   text primary key,
+  sent_at timestamptz default now()
+);

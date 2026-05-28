@@ -50,7 +50,7 @@ export async function createLeague(name: string, creatorEmail: string): Promise<
 export async function joinLeagueByCode(
   code: string,
   email: string
-): Promise<{ success: boolean; league?: League; error?: string }> {
+): Promise<{ success: boolean; league?: League; error?: string; alreadyMember?: boolean }> {
   const client = getClient();
 
   const { data: league, error } = await client
@@ -70,14 +70,23 @@ export async function joinLeagueByCode(
     .eq("email", email)
     .maybeSingle();
 
-  if (existing) return { success: true, league: rowToLeague(league) };
+  if (existing) return { success: true, league: rowToLeague(league), alreadyMember: true };
 
   const { error: jErr } = await client
     .from("league_members")
     .insert({ league_id: league.id, email, role: "member" });
   if (jErr) throw jErr;
 
-  return { success: true, league: rowToLeague(league) };
+  return { success: true, league: rowToLeague(league), alreadyMember: false };
+}
+
+/** Distinct emails of everyone who belongs to at least one league. */
+export async function getAllMemberEmails(): Promise<Set<string>> {
+  const { data, error } = await getClient()
+    .from("league_members")
+    .select("email");
+  if (error) throw error;
+  return new Set((data ?? []).map(r => r.email as string));
 }
 
 // ── Queries ────────────────────────────────────────────────────────────────
