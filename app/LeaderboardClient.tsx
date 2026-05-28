@@ -175,7 +175,7 @@ export default function LeaderboardClient({
             !anyoneScored ? (
               <>
                 Everyone&rsquo;s level on{" "}
-                <span className="font-mono tabular font-semibold ink">0</span> points &mdash;
+                <span className="font-mono tabular font-semibold ink">0</span>{" "}points &mdash;
                 you&rsquo;re provisionally{" "}
                 <strong className="ink">{ordinal(myRank)}</strong>. The race kicks off June 11.
               </>
