@@ -399,11 +399,12 @@ export default function CommunityClient({
 // minority is sienna. Winner override (full green) still applies post-match.
 
 function getRankedColors(H: number, A: number, T: number, isKnockout: boolean): Record<Option, string> {
-  const entries: { key: Option; count: number }[] = [
+  const all: Array<{ key: Option; count: number }> = [
     { key: "H", count: H },
     { key: "A", count: A },
-    ...(isKnockout ? [] : [{ key: "T" as Option, count: T }]),
-  ].filter(e => e.count > 0);
+    { key: "T", count: T },
+  ];
+  const entries = all.filter(e => e.count > 0 && (!isKnockout || e.key !== "T"));
   const sorted = [...entries].sort((a, b) => b.count - a.count);
   const RANK = [BAR_HOME, BAR_AWAY, BAR_DRAW]; // 1st=green, 2nd=blue, 3rd=sienna
   const map: Record<Option, string> = { H: BAR_DRAW, A: BAR_DRAW, T: BAR_DRAW };
