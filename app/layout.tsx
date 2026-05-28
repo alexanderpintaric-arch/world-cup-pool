@@ -4,6 +4,7 @@ import { handleSignOut } from "./actions";
 import type { LeagueWithRole } from "@/lib/types";
 import { LeagueSwitcher } from "./LeagueSwitcher";
 import MobileNavBar from "./MobileNavBar";
+import DesktopNavLinks from "./DesktopNavLinks";
 
 export const metadata: Metadata = {
   title: "WC Pool '26 — Friendly predictions for the 2026 World Cup",
@@ -32,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <nav className="flex items-center gap-1 sm:gap-2">
               {/* Nav links: hidden on mobile, shown on sm+ */}
               <div className="hidden sm:flex items-center gap-1">
-                <NavLinks />
+                <NavLinksWrapper />
               </div>
               <div className="ml-0 sm:ml-2">
                 <LeagueNav />
@@ -100,28 +101,11 @@ async function LeagueNav() {
   return <LeagueSwitcher active={active} all={leagues} />;
 }
 
-async function NavLinks() {
+async function NavLinksWrapper() {
   const { auth } = await import("@/lib/auth");
   const session = await auth();
   if (!session?.user) return null;
-  return (
-    <>
-      <NavLink href="/">Standings</NavLink>
-      <NavLink href="/picks">My Picks</NavLink>
-      <NavLink href="/community">The Pool</NavLink>
-    </>
-  );
-}
-
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <a
-      href={href}
-      className="px-3 py-1.5 rounded-md text-[13.5px] font-medium ink-soft hover:ink hover:bg-paper-deep transition-colors"
-    >
-      {children}
-    </a>
-  );
+  return <DesktopNavLinks />;
 }
 
 async function AuthButton() {
