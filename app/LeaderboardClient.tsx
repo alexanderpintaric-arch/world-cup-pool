@@ -3,7 +3,7 @@ import { useState, useMemo, useTransition } from "react";
 import type { LeaderboardEntry, Match, RoundState, OddsData } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
 import Flag from "@/components/Flag";
-import { handleSetSupportedTeam } from "@/app/actions";
+import { handleSetSupportedTeam, handleSetLeagueBuyIn } from "@/app/actions";
 
 // ── WC 2026 participants ────────────────────────────────────────────────────
 // 48 teams across 6 confederations
@@ -80,7 +80,7 @@ interface Props {
   odds: OddsData[];
   currentUserEmail: string | null;
   currentUserName?: string | null;
-  activeLeague: { name: string; code: string; memberCount: number };
+  activeLeague: { id: string; name: string; code: string; memberCount: number; buyIn: number; isOwner: boolean };
 }
 
 function formatName(name: string): string {
@@ -218,6 +218,16 @@ export default function LeaderboardClient({
 
       {/* ── LEAGUE INVITE CARD ───────────────────────────────── */}
       <InviteCard league={activeLeague} />
+
+      {/* ── BUY-IN / POT ─────────────────────────────────────── */}
+      {(activeLeague.isOwner || activeLeague.buyIn > 0) && (
+        <PotWidget
+          leagueId={activeLeague.id}
+          buyIn={activeLeague.buyIn}
+          memberCount={activeLeague.memberCount}
+          isOwner={activeLeague.isOwner}
+        />
+      )}
 
       {/* ── LIVE BANNER ──────────────────────────────────────── */}
       {liveMatches.length > 0 && (
@@ -724,6 +734,116 @@ function HeadToHead({ a, b, matches, onClose }: {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function PotWidget({
+  leagueId, buyIn, memberCount, isOwner,
+}: {
+  leagueId: string; buyIn: number; memberCount: number; isOwner: boolean;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [inputVal, setInputVal] = useState(String(buyIn));
+  const [isPending, startTransition] = useTransition();
+
+  const potSize = buyIn * memberCount;
+
+  function openEdit() {
+    setInputVal(String(buyIn));
+    setEditing(true);
+  }
+
+  function save() {
+    const amount = Math.max(0, parseInt(inputVal, 10) || 0);
+    setInputVal(String(amount));
+    startTransition(async () => {
+      await handleSetLeagueBuyIn(leagueId, amount);
+      setEditing(false);
+    });
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter") save();
+    if (e.key === "Escape") setEditing(false);
+  }
+
+  return (
+    <div className="anim-fade-up bg-card border border-line rounded-lg shadow-paper overflow-hidden">
+      <div className="px-5 py-4 flex items-center justify-between gap-4 flex-wrap">
+
+        {/* Left: buy-in per player */}
+        <div>
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint mb-1.5">
+            Buy-in per player
+          </p>
+          {editing ? (
+            <div className="flex items-center gap-2">
+              <span className="font-mono text-[18px] font-bold ink">$</span>
+              <input
+                type="number"
+                min="0"
+                value={inputVal}
+                onChange={e => setInputVal(e.target.value)}
+                onBlur={save}
+                onKeyDown={handleKey}
+                autoFocus
+                className="w-24 font-mono text-[22px] font-bold ink bg-paper-deep border border-accent/40 rounded-md px-2 py-0.5 outline-none focus:border-accent tabular"
+              />
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5">
+              <p className="font-mono text-[22px] font-bold ink tracking-tight leading-none">
+                ${buyIn === 0 ? <span className="ink-faint font-normal text-[16px]">not set</span> : buyIn}
+              </p>
+              {isOwner && (
+                <button
+                  onClick={openEdit}
+                  disabled={isPending}
+                  className="font-mono text-[11px] ink-faint hover:ink-soft transition-colors px-1.5 py-0.5 rounded hover:bg-paper-deep"
+                  title="Edit buy-in"
+                >
+                  {isPending ? "…" : "Edit"}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="h-10 w-px bg-line hidden sm:block" />
+
+        {/* Right: total pot */}
+        <div className="text-right sm:text-left">
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint mb-1.5">
+            Total pot
+          </p>
+          <p className="font-mono text-[22px] font-bold leading-none tracking-tight">
+            {buyIn > 0 ? (
+              <span className="ink">${potSize}</span>
+            ) : (
+              <span className="ink-faint font-normal text-[16px]">—</span>
+            )}
+          </p>
+          {buyIn > 0 && (
+            <p className="font-mono text-[10.5px] ink-faint mt-1">
+              {memberCount} {memberCount === 1 ? "player" : "players"} × ${buyIn}
+            </p>
+          )}
+        </div>
+
+      </div>
+      {isOwner && buyIn === 0 && !editing && (
+        <div className="px-5 py-2.5 border-t border-[color:var(--line-soft)] bg-paper-deep/50">
+          <p className="text-[12px] ink-faint">
+            You haven&rsquo;t set a buy-in yet.{" "}
+            <button onClick={openEdit} className="text-accent hover:underline font-medium">
+              Set one now
+            </button>{" "}
+            to show everyone the pot size.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 "use server";
 import { signIn, signOut, auth } from "@/lib/auth";
-import { createLeague as dbCreateLeague, joinLeagueByCode } from "@/lib/services/leagues";
+import { createLeague as dbCreateLeague, joinLeagueByCode, setLeagueBuyIn } from "@/lib/services/leagues";
 import { setUserSupportedTeam } from "@/lib/services/supabase";
 import { sendLeagueWelcomeEmail } from "@/lib/services/email";
 import { cookies } from "next/headers";
@@ -107,6 +107,15 @@ export async function handleSetSupportedTeam(team: string | null): Promise<void>
   const session = await auth();
   if (!session?.user?.email) return;
   await setUserSupportedTeam(session.user.email, team);
+  revalidatePath("/", "layout");
+}
+
+// ── Buy-in ─────────────────────────────────────────────────────────────────
+
+export async function handleSetLeagueBuyIn(leagueId: string, amount: number): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.email) return;
+  await setLeagueBuyIn(leagueId, session.user.email, amount);
   revalidatePath("/", "layout");
 }
 

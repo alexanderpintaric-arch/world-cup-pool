@@ -155,5 +155,35 @@ function rowToLeague(r: Record<string, unknown>): League {
     code:      r.code       as string,
     createdBy: r.created_by as string,
     createdAt: r.created_at as string,
+    buyIn:     (r.buy_in as number) ?? 0,
   };
+}
+
+// ── Buy-in ─────────────────────────────────────────────────────────────────
+
+export async function setLeagueBuyIn(
+  leagueId: string,
+  callerEmail: string,
+  amount: number
+): Promise<void> {
+  const client = getClient();
+
+  // Ownership check — only the owner may change the buy-in
+  const { data: membership } = await client
+    .from("league_members")
+    .select("role")
+    .eq("league_id", leagueId)
+    .eq("email", callerEmail)
+    .maybeSingle();
+
+  if (membership?.role !== "owner") {
+    throw new Error("Only the league owner can set the buy-in.");
+  }
+
+  const { error } = await client
+    .from("leagues")
+    .update({ buy_in: Math.max(0, Math.floor(amount)) })
+    .eq("id", leagueId);
+
+  if (error) throw error;
 }

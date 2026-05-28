@@ -84,9 +84,12 @@ export default async function HomePage() {
       currentUserEmail={email}
       currentUserName={session.user.name ?? null}
       activeLeague={{
+        id:          activeLeague.id,
         name:        activeLeague.name,
         code:        activeLeague.code,
         memberCount: activeLeague.memberCount,
+        buyIn:       activeLeague.buyIn ?? 0,
+        isOwner:     activeLeague.role === "owner",
       }}
     />
   );

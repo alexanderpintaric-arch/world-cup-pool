@@ -86,6 +86,7 @@ export interface League {
   code: string;
   createdBy: string;
   createdAt: string;
+  buyIn: number; // $ per player, 0 = free
 }
 
 export type LeagueRole = "owner" | "member";
