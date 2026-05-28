@@ -119,18 +119,30 @@ export async function deletePick(email: string, matchId: string, leagueId: strin
 
 export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
   if (isMock || picks.length === 0) return;
-  const rows = picks.map(p => ({
+  const now = new Date().toISOString();
+  const baseRows = picks.map(p => ({
     email:        p.email,
     match_id:     p.matchId,
     round:        p.round,
     pick:         p.pick,
     league_id:    p.leagueId,
-    odds:         p.odds ?? null,
-    submitted_at: new Date().toISOString(),
+    submitted_at: now,
   }));
-  const { error } = await getClient()
+  const rowsWithOdds = baseRows.map((r, i) => ({ ...r, odds: picks[i].odds ?? null }));
+
+  let { error } = await getClient()
     .from("picks")
-    .upsert(rows, { onConflict: "email,match_id,league_id" });
+    .upsert(rowsWithOdds, { onConflict: "email,match_id,league_id" });
+
+  // Graceful fallback: if the `odds` column hasn't been migrated yet, the
+  // upsert is rejected with a schema-cache error. Retry without odds so picks
+  // still save. (Run migration 003 to enable odds capture.)
+  if (error && /odds/i.test(error.message) && /(column|schema cache)/i.test(error.message)) {
+    ({ error } = await getClient()
+      .from("picks")
+      .upsert(baseRows, { onConflict: "email,match_id,league_id" }));
+  }
+
   if (error) throw error;
 }
 
