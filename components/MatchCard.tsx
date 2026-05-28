@@ -117,7 +117,7 @@ export default function MatchCard({
           let cls = "relative flex flex-col items-center justify-center gap-0.5 rounded-md px-2 py-3 text-center transition-all select-none cursor-pointer min-h-[72px] ";
           if (correct)        cls += "bg-green-soft border-2 border-green-deep ink";
           else if (wrong)     cls += "bg-paper-deep border-2 border-line ink-faint";
-          else if (picked)    cls += "bg-green-deep border-2 border-green-deep text-paper pick-selected";
+          else if (picked)    cls += "bg-green-deep/10 border-2 border-green-deep text-green-deep pick-selected";
           else                cls += "bg-paper border-2 border-line hover:border-ink/40 hover:bg-card ink";
           if (disabled && !picked && !correct && !wrong) cls += " opacity-50 cursor-not-allowed hover:border-line hover:bg-paper";
 
@@ -142,14 +142,14 @@ export default function MatchCard({
 
               {/* Odds probability — SCHEDULED only (bookmaker consensus) */}
               {!isStarted && opt.prob !== null && (
-                <span className={`font-mono text-[11px] tabular leading-none ${picked ? "text-paper/70" : "ink-faint"}`}>
+                <span className={`font-mono text-[11px] tabular leading-none ${picked ? "text-green-deep/70" : "ink-faint"}`}>
                   {opt.prob}%
                 </span>
               )}
 
               {/* American odds — SCHEDULED only */}
               {!isStarted && opt.odds !== null && (
-                <span className={`font-mono text-[10px] tabular leading-none ${picked ? "text-paper/50" : "text-[color:var(--ink-faint)]/60"}`}>
+                <span className={`font-mono text-[10px] tabular leading-none ${picked ? "text-green-deep/50" : "text-[color:var(--ink-faint)]/60"}`}>
                   {toAmerican(opt.odds)}
                 </span>
               )}
