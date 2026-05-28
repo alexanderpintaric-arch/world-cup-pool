@@ -261,6 +261,11 @@
   animation: marquee 15s linear infinite;
   will-change: transform;
 }
+/* Narrower screens show fewer chips at once, so the same px/s reads as
+   sluggish — shorten the loop to keep it lively on phones. */
+@media (max-width: 640px) {
+  .ticker-track { animation-duration: 9s; }
+}
 .ticker-track:hover {
   animation-play-state: paused;
 }
