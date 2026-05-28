@@ -148,6 +148,13 @@ export default function LeaderboardClient({
   const greeting = greetingForHour(new Date().getHours());
   const firstName = (currentUserName ?? "").split(/\s+/)[0] || "";
 
+  // Standings copy helpers. Before any match finishes everyone is on 0, so
+  // a raw "0 points behind X" reads badly — treat pre-tournament and genuine
+  // ties on points as their own cases.
+  const anyoneScored = leaderboard.some(e => e.totalScore > 0);
+  const personAhead = myRank && myRank > 1 ? leaderboard[myRank - 2] : null;
+  const deficit = personAhead && myEntry ? personAhead.totalScore - myEntry.totalScore : 0;
+
   return (
     <div className="space-y-12">
 
@@ -161,25 +168,42 @@ export default function LeaderboardClient({
         </h1>
         <p className="mt-3 text-[16px] ink-soft max-w-2xl">
           {myRank && myEntry ? (
-            <>
-              You&rsquo;re sitting in{" "}
-              <strong className="ink">
-                {ordinal(myRank)} place
-              </strong>{" "}
-              with{" "}
-              <span className="font-mono tabular font-semibold ink">{myEntry.totalScore}</span>{" "}
-              {myEntry.totalScore === 1 ? "point" : "points"}
-              {leaderboard.length > 1 && myRank > 1 && (
-                <>
-                  {" "}&mdash;{" "}
-                  <span className="ink-soft">
-                    {leaderboard[myRank - 2].totalScore - myEntry.totalScore}{" "}
-                    {leaderboard[myRank - 2].totalScore - myEntry.totalScore === 1 ? "point" : "points"} behind{" "}
-                    <em className="font-serif italic">{leaderboard[myRank - 2].name}</em>
-                  </span>
-                </>
-              )}.
-            </>
+            !anyoneScored ? (
+              <>
+                Everyone&rsquo;s level on{" "}
+                <span className="font-mono tabular font-semibold ink">0</span> points &mdash;
+                you&rsquo;re provisionally{" "}
+                <strong className="ink">{ordinal(myRank)}</strong>. The race kicks off June 11.
+              </>
+            ) : (
+              <>
+                You&rsquo;re sitting in{" "}
+                <strong className="ink">
+                  {ordinal(myRank)} place
+                </strong>{" "}
+                with{" "}
+                <span className="font-mono tabular font-semibold ink">{myEntry.totalScore}</span>{" "}
+                {myEntry.totalScore === 1 ? "point" : "points"}
+                {personAhead && deficit > 0 && (
+                  <>
+                    {" "}&mdash;{" "}
+                    <span className="ink-soft">
+                      {deficit} {deficit === 1 ? "point" : "points"} behind{" "}
+                      <em className="font-serif italic">{personAhead.name}</em>
+                    </span>
+                  </>
+                )}
+                {personAhead && deficit === 0 && (
+                  <>
+                    {" "}&mdash;{" "}
+                    <span className="ink-soft">
+                      level on points with{" "}
+                      <em className="font-serif italic">{personAhead.name}</em>
+                    </span>
+                  </>
+                )}.
+              </>
+            )
           ) : leaderboard.length === 0 ? (
             <>No one has any points yet. The tournament begins June 11.</>
           ) : (
