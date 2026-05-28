@@ -11,10 +11,10 @@ type NamedEntry = { name: string; email: string };
 type NamedPicks = { H: NamedEntry[]; A: NamedEntry[]; T: NamedEntry[] };
 type Option     = "H" | "A" | "T";
 
-// Bar colours — green (home) / sienna (draw) / blue (away), dark enough for white text
-const BAR_HOME = "#1B7A3D";
-const BAR_DRAW = "#9B6040";
-const BAR_AWAY = "#1E40AF";
+// Bar colours — single ink family: darkest for top pick, lighter for minority
+const INK_RANK_1 = "#1E1C18"; // darkest — majority pick
+const INK_RANK_2 = "#3D3A33"; // medium  — second pick
+const INK_RANK_3 = "#5E5B52"; // lightest — minority pick
 
 interface ModalState {
   matchId:      string;
@@ -394,9 +394,9 @@ export default function CommunityClient({
 }
 
 // ── Ranked colour helper ──────────────────────────────────────────────────────
-// Assigns green → blue → sienna to segments in descending pick-count order so
-// the most-popular outcome is always visually dominant (green), second is blue,
-// minority is sienna. Winner override (full green) still applies post-match.
+// Assigns dark → medium → light ink shades in descending pick-count order so
+// the most-popular outcome is always the darkest/most visually dominant.
+// Winner override (green) still applies post-match.
 
 function getRankedColors(H: number, A: number, T: number, isKnockout: boolean): Record<Option, string> {
   const all: Array<{ key: Option; count: number }> = [
@@ -407,9 +407,9 @@ function getRankedColors(H: number, A: number, T: number, isKnockout: boolean): 
   // Keep all options (even 0-count) so colours are always distinct — only exclude Draw in knockouts
   const entries = all.filter(e => !isKnockout || e.key !== "T");
   const sorted = [...entries].sort((a, b) => b.count - a.count); // stable: ties preserve H→A→T order
-  const RANK = [BAR_HOME, BAR_AWAY, BAR_DRAW]; // 1st=green, 2nd=blue, 3rd=sienna
-  const map: Record<Option, string> = { H: BAR_HOME, A: BAR_AWAY, T: BAR_DRAW }; // distinct defaults
-  sorted.forEach((e, i) => { map[e.key] = RANK[i] ?? BAR_DRAW; });
+  const RANK = [INK_RANK_1, INK_RANK_2, INK_RANK_3]; // 1st=darkest, 2nd=medium, 3rd=lightest
+  const map: Record<Option, string> = { H: INK_RANK_1, A: INK_RANK_2, T: INK_RANK_3 }; // distinct defaults
+  sorted.forEach((e, i) => { map[e.key] = RANK[i] ?? INK_RANK_3; });
   return map;
 }
 
@@ -549,7 +549,7 @@ function MatchPicksCard({
                   style={{ flex: H }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "H" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.4 : 0.78 }} />
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.25 : 1 }} />
                   {pctH >= 7 && (
                     <div className="relative flex items-center gap-1 px-1 min-w-0">
                       {pctH >= 15 && <Flag team={match.homeTeam} size={13} className="flex-shrink-0" />}
@@ -573,7 +573,7 @@ function MatchPicksCard({
                   style={{ flex: T }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "T" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.4 : 0.78 }} />
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.25 : 1 }} />
                   {pctT >= 7 && (
                     <div className="relative flex items-center gap-1 px-0.5">
                       {pctT >= 15 && (
@@ -599,7 +599,7 @@ function MatchPicksCard({
                   style={{ flex: A }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "A" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.4 : 0.78 }} />
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.25 : 1 }} />
                   {pctA >= 7 && (
                     <div className="relative flex items-center gap-1 px-1 min-w-0">
                       {pctA >= 15 && <Flag team={match.awayTeam} size={13} className="flex-shrink-0" />}
@@ -883,7 +883,7 @@ function PickModal({
                 <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: "var(--color-line)" }}>
                   <div
                     className="h-full rounded-full transition-all"
-                    style={{ width: `${sec.pct}%`, background: sec.color, opacity: 0.72 }}
+                    style={{ width: `${sec.pct}%`, background: sec.color, opacity: 1 }}
                   />
                 </div>
 
