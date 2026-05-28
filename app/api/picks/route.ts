@@ -43,9 +43,11 @@ export async function POST(req: Request) {
 
   const allMatches = await getAllMatches();
   const roundStates = getRoundStates(allMatches);
+  const roundStateMap = new Map(roundStates.map(r => [r.round, r]));
   const availableRounds = new Set(roundStates.filter(r => r.isAvailable).map(r => r.round));
   const matchMap = new Map(allMatches.map(m => [m.matchId, m]));
 
+  const nowMs = Date.now();
   const now = new Date().toISOString();
   const validPicks: Pick[] = [];
   const deleteMatchIds: string[] = [];
@@ -54,6 +56,9 @@ export async function POST(req: Request) {
     const match = matchMap.get(p.matchId);
     if (!match) continue;
     if (!availableRounds.has(match.round)) continue;
+    // Reject if the round deadline (first kickoff) has passed — whole round locks at once
+    const rs = roundStateMap.get(match.round);
+    if (rs?.deadline && nowMs >= new Date(rs.deadline).getTime()) continue;
     if (match.status !== "SCHEDULED") continue;
 
     // null pick = undo / remove

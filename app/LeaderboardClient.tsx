@@ -162,7 +162,7 @@ export default function LeaderboardClient({
               </h2>
               {activeRound.deadline && (
                 <p className="mt-1.5 text-[13.5px] ink-soft">
-                  Closes{" "}
+                  Picks close{" "}
                   <span className="font-mono ink tabular">
                     {new Date(activeRound.deadline).toLocaleString("en-CA", {
                       weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
@@ -327,6 +327,20 @@ export default function LeaderboardClient({
                 <p className="mt-2 font-mono text-[11px] ink-faint tabular">
                   {rs.matchCount} {rs.matchCount === 1 ? "match" : "matches"} &middot; {rs.pointsValue}pt
                 </p>
+                {rs.deadline && (
+                  <p className="mt-1.5 font-mono text-[10px] ink-faint leading-snug">
+                    <span className="uppercase tracking-[0.12em]">Picks close</span><br />
+                    {new Date(rs.deadline).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                    {" · "}
+                    {new Date(rs.deadline).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}
+                  </p>
+                )}
+                {rs.lastKickoff && rs.lastKickoff !== rs.deadline && (
+                  <p className="mt-0.5 font-mono text-[10px] ink-faint leading-snug">
+                    <span className="uppercase tracking-[0.12em]">Last match</span><br />
+                    {new Date(rs.lastKickoff).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
+                  </p>
+                )}
               </div>
             ))}
           </div>

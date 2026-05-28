@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import type { Match, Pick, OddsData, RoundState, MatchResult, Round } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
 import { inferGroups } from "@/lib/services/grouping";
@@ -49,11 +49,23 @@ export default function PicksClient({
     return init;
   });
   const [error, setError] = useState<string | null>(null);
+  // Real-time clock so the round locks client-side the instant the deadline passes
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, []);
 
   const oddsMap = useMemo(() => new Map(odds.map(o => [o.matchId, o])), [odds]);
   const currentRoundState = roundStates.find(r => r.round === selectedRound);
-  const isOpen = currentRoundState?.isOpen ?? false;
   const isAvailable = currentRoundState?.isAvailable ?? false;
+  // A round is locked once its first match has kicked off (even if later matches haven't)
+  const roundDeadlineMs = currentRoundState?.deadline
+    ? new Date(currentRoundState.deadline).getTime()
+    : null;
+  const roundDeadlinePassed = roundDeadlineMs !== null && now >= roundDeadlineMs;
+  const isRoundPickable = isAvailable && !roundDeadlinePassed;
+  const isOpen = currentRoundState?.isOpen ?? false;
 
   const groups = useMemo(() => inferGroups(matches), [matches]);
 
@@ -125,7 +137,7 @@ export default function PicksClient({
         {activeRound?.deadline && (
           <CountdownTimer
             deadline={activeRound.deadline}
-            label="Next picks lock in"
+            label="Picks lock in"
           />
         )}
       </header>
@@ -204,20 +216,48 @@ export default function PicksClient({
                 style={{ width: `${pct}%` }}
               />
             </div>
-            <div className="mt-3 flex items-center justify-between text-[11.5px] ink-faint">
+            <div className="mt-3 flex items-center justify-between text-[11.5px] ink-faint flex-wrap gap-y-1">
               <span>
                 {!isAvailable
                   ? "Locked — complete the previous round first"
-                  : isOpen
-                    ? "Open · picks lock match by match at kickoff"
-                    : currentRoundState.isComplete
-                      ? "Round complete"
-                      : "In progress"}
+                  : roundDeadlinePassed
+                    ? "Picks locked — round in progress"
+                    : isOpen
+                      ? "Open — all picks lock when the first match kicks off"
+                      : currentRoundState.isComplete
+                        ? "Round complete"
+                        : "In progress"}
               </span>
               <span className="font-mono">
                 {currentRoundState.pointsValue}pt per correct pick
               </span>
             </div>
+            {/* Open/close date strip */}
+            {(currentRoundState.deadline || currentRoundState.lastKickoff) && (
+              <div className="mt-2.5 pt-2.5 border-t border-[color:var(--line-soft)] flex flex-wrap gap-x-5 gap-y-1 text-[11px] font-mono ink-faint">
+                {currentRoundState.deadline && (
+                  <span>
+                    <span className="uppercase tracking-[0.14em] mr-1.5">Picks lock</span>
+                    <span className={roundDeadlinePassed ? "line-through" : "ink"}>
+                      {new Date(currentRoundState.deadline).toLocaleString("en-CA", {
+                        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                      })}
+                    </span>
+                    {roundDeadlinePassed && <span className="ml-1.5 text-accent">Locked</span>}
+                  </span>
+                )}
+                {currentRoundState.lastKickoff && (
+                  <span>
+                    <span className="uppercase tracking-[0.14em] mr-1.5">Last match</span>
+                    <span className="ink">
+                      {new Date(currentRoundState.lastKickoff).toLocaleString("en-CA", {
+                        month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
+                      })}
+                    </span>
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         )}
 
@@ -262,7 +302,7 @@ export default function PicksClient({
                       pick={picks[match.matchId] ?? null}
                       odds={oddsMap.get(match.matchId) ?? null}
                       onPick={handlePick}
-                      disabled={!isAvailable || match.status !== "SCHEDULED"}
+                      disabled={!isRoundPickable || match.status !== "SCHEDULED"}
                       pointsValue={currentRoundState?.pointsValue ?? 1}
                       popular={popularCounts[match.matchId] ?? null}
                     />
@@ -278,7 +318,7 @@ export default function PicksClient({
             picks={picks}
             oddsMap={oddsMap}
             onPick={handlePick}
-            isAvailable={isAvailable}
+            isPickable={isRoundPickable}
             pointsValue={currentRoundState?.pointsValue ?? 1}
             popularCounts={popularCounts}
           />
@@ -293,7 +333,7 @@ export default function PicksClient({
               pick={picks[match.matchId] ?? null}
               odds={oddsMap.get(match.matchId) ?? null}
               onPick={handlePick}
-              disabled={!isAvailable || match.status !== "SCHEDULED"}
+              disabled={!isRoundPickable || match.status !== "SCHEDULED"}
               pointsValue={currentRoundState?.pointsValue ?? 1}
               popular={popularCounts[match.matchId] ?? null}
             />
@@ -308,7 +348,7 @@ export default function PicksClient({
             All set. Every match in this round is picked.
           </p>
           <p className="mt-1.5 text-[13px] ink-soft">
-            Picks for individual matches lock at kickoff. You can still update any pick before the match starts.
+            All picks for this round locked when the first match kicked off. Results will update as games finish.
           </p>
         </div>
       )}
@@ -384,7 +424,7 @@ function PickSlot({
 }
 
 function UngroupedRemainder({
-  allRoundMatches, groupMatchIds, picks, oddsMap, onPick, isAvailable,
+  allRoundMatches, groupMatchIds, picks, oddsMap, onPick, isPickable,
   pointsValue, popularCounts,
 }: {
   allRoundMatches: Match[];
@@ -392,7 +432,7 @@ function UngroupedRemainder({
   picks: Record<string, MatchResult>;
   oddsMap: Map<string, OddsData>;
   onPick: (id: string, p: MatchResult) => void;
-  isAvailable: boolean;
+  isPickable: boolean;
   pointsValue: number;
   popularCounts: Record<string, PopularCount>;
 }) {
@@ -416,7 +456,7 @@ function UngroupedRemainder({
             pick={picks[m.matchId] ?? null}
             odds={oddsMap.get(m.matchId) ?? null}
             onPick={onPick}
-            disabled={!isAvailable || m.status !== "SCHEDULED"}
+            disabled={!isPickable || m.status !== "SCHEDULED"}
             pointsValue={pointsValue}
             popular={popularCounts[m.matchId] ?? null}
           />

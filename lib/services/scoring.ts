@@ -71,17 +71,19 @@ export function getRoundStates(matches: Match[]): RoundState[] {
     (a, b) => ROUND_CONFIG[a].order - ROUND_CONFIG[b].order
   );
 
+  const now = Date.now();
+
   // First pass: gather basic facts per round
   const basics = rounds.map(round => {
     const roundMatches = matches.filter(m => m.round === round);
     const allFinished = roundMatches.length > 0 && roundMatches.every(m => m.status === "FINISHED");
-    const anyScheduled = roundMatches.some(m => m.status === "SCHEDULED");
-    // deadline = next upcoming kickoff (so the countdown stays relevant mid-round)
-    const nextKickoff = roundMatches
-      .filter(m => m.status === "SCHEDULED")
-      .map(m => new Date(m.kickoffUtc))
-      .sort((a, b) => a.getTime() - b.getTime())[0];
-    return { round, roundMatches, allFinished, anyScheduled, deadline: nextKickoff?.toISOString() ?? null };
+    // Sort kickoffs lexicographically (ISO strings are chronologically sortable)
+    const sortedKickoffs = roundMatches.map(m => m.kickoffUtc).sort();
+    const firstKickoff = sortedKickoffs[0] ?? null;
+    const lastKickoff  = sortedKickoffs[sortedKickoffs.length - 1] ?? null;
+    // The round is locked for picks once the first match kicks off
+    const deadlinePassed = firstKickoff ? now >= new Date(firstKickoff).getTime() : false;
+    return { round, roundMatches, allFinished, firstKickoff, lastKickoff, deadlinePassed };
   });
 
   // Second pass: availability = nearest preceding round with matches must be complete
@@ -94,8 +96,8 @@ export function getRoundStates(matches: Match[]): RoundState[] {
       }
     }
 
-    // Open = available AND at least one match hasn't started yet
-    const isOpen = isAvailable && b.anyScheduled;
+    // Open = available AND the round deadline (first kickoff) hasn't passed
+    const isOpen = isAvailable && !b.deadlinePassed && b.roundMatches.length > 0;
 
     return {
       round: b.round,
@@ -104,7 +106,8 @@ export function getRoundStates(matches: Match[]): RoundState[] {
       isOpen,
       isAvailable,
       isComplete: b.allFinished,
-      deadline: b.deadline,
+      deadline: b.firstKickoff,    // picks lock at first kickoff of round
+      lastKickoff: b.lastKickoff,  // last match in round
       matchCount: b.roundMatches.length,
     };
   });

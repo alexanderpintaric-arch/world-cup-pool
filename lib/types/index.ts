@@ -57,10 +57,11 @@ export interface RoundState {
   round: Round;
   label: string;
   pointsValue: number;
-  isOpen: boolean;       // any match in round still pickable
+  isOpen: boolean;       // round deadline hasn't passed AND round is available
   isAvailable: boolean;  // previous round is complete (or this is the first round)
   isComplete: boolean;   // all matches finished
-  deadline: string | null; // ISO string — next upcoming kickoff in round
+  deadline: string | null; // ISO string — FIRST kickoff in round; all picks lock at this time
+  lastKickoff: string | null; // ISO string — last match kickoff in round
   matchCount: number;
 }
 
