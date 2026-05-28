@@ -1,5 +1,6 @@
 import type { Match, RoundState } from "@/lib/types";
 import { MAX_TOTAL_POINTS } from "@/lib/constants";
+import LandingShowcase from "./LandingShowcase";
 
 interface Props {
   matches: Match[];
@@ -125,6 +126,9 @@ export default function Landing({ matches, participantCount }: Props) {
           </p>
         )}
       </section>
+
+      {/* ── PRODUCT SHOWCASE ─────────────────────────────────── */}
+      <LandingShowcase />
 
       {/* ── LEAGUES ──────────────────────────────────────────── */}
       <section>
