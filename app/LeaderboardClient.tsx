@@ -44,20 +44,23 @@ export default function LeaderboardClient({
     m.status === "IN_PLAY" || m.status === "PAUSED" || m.status === "LIVE"
   );
 
+  const recentlyFinished = useMemo(() =>
+    matches
+      .filter(m => m.status === "FINISHED")
+      .sort((a, b) => new Date(b.kickoffUtc).getTime() - new Date(a.kickoffUtc).getTime())
+      .slice(0, 3),
+    [matches]
+  );
+
+  // Show more upcoming when there are no results yet (fills the card nicely pre-tournament)
   const upcomingMatches = useMemo(() => {
     const now = Date.now();
+    const limit = recentlyFinished.length === 0 ? 5 : 3;
     return matches
       .filter(m => m.status === "SCHEDULED" && new Date(m.kickoffUtc).getTime() > now)
       .sort((a, b) => new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime())
-      .slice(0, 3);
-  }, [matches]);
-
-  const recentlyFinished = useMemo(() => {
-    return matches
-      .filter(m => m.status === "FINISHED")
-      .sort((a, b) => new Date(b.kickoffUtc).getTime() - new Date(a.kickoffUtc).getTime())
-      .slice(0, 3);
-  }, [matches]);
+      .slice(0, limit);
+  }, [matches, recentlyFinished.length]);
 
   const me = leaderboard.find(e => e.email === currentUserEmail);
   const myRank = me ? leaderboard.indexOf(me) + 1 : null;
@@ -284,15 +287,20 @@ export default function LeaderboardClient({
       )}
 
       {/* ── RECENT / UPCOMING ────────────────────────────────── */}
-      <section className="grid sm:grid-cols-2 gap-6 anim-fade-up" style={{animationDelay: '160ms'}}>
-        <MatchSummaryList
-          title="Just played"
-          kicker="Results"
-          matches={recentlyFinished}
-          emptyText="No matches finished yet."
-          showScore
-          popularPicks={popularPicks}
-        />
+      <section
+        className={`grid gap-6 anim-fade-up ${recentlyFinished.length > 0 ? "sm:grid-cols-2" : ""}`}
+        style={{animationDelay: '160ms'}}
+      >
+        {recentlyFinished.length > 0 && (
+          <MatchSummaryList
+            title="Just played"
+            kicker="Results"
+            matches={recentlyFinished}
+            emptyText="No matches finished yet."
+            showScore
+            popularPicks={popularPicks}
+          />
+        )}
         <MatchSummaryList
           title="Up next"
           kicker="Coming up"
