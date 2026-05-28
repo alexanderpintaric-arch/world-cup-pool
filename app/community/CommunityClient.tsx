@@ -404,10 +404,11 @@ function getRankedColors(H: number, A: number, T: number, isKnockout: boolean): 
     { key: "A", count: A },
     { key: "T", count: T },
   ];
-  const entries = all.filter(e => e.count > 0 && (!isKnockout || e.key !== "T"));
-  const sorted = [...entries].sort((a, b) => b.count - a.count);
+  // Keep all options (even 0-count) so colours are always distinct — only exclude Draw in knockouts
+  const entries = all.filter(e => !isKnockout || e.key !== "T");
+  const sorted = [...entries].sort((a, b) => b.count - a.count); // stable: ties preserve H→A→T order
   const RANK = [BAR_HOME, BAR_AWAY, BAR_DRAW]; // 1st=green, 2nd=blue, 3rd=sienna
-  const map: Record<Option, string> = { H: BAR_DRAW, A: BAR_DRAW, T: BAR_DRAW };
+  const map: Record<Option, string> = { H: BAR_HOME, A: BAR_AWAY, T: BAR_DRAW }; // distinct defaults
   sorted.forEach((e, i) => { map[e.key] = RANK[i] ?? BAR_DRAW; });
   return map;
 }
@@ -882,7 +883,7 @@ function PickModal({
                 <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: "var(--color-line)" }}>
                   <div
                     className="h-full rounded-full transition-all"
-                    style={{ width: `${sec.pct}%`, background: sec.color }}
+                    style={{ width: `${sec.pct}%`, background: sec.color, opacity: 0.72 }}
                   />
                 </div>
 
