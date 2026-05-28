@@ -623,7 +623,7 @@ function MatchPicksCard({
         <div className="mt-3 flex items-center justify-between gap-2 min-h-[18px]">
           {myPick ? (
             <span className={`font-mono text-[10.5px] flex items-center gap-1
-              ${myPickCorrect ? "text-green-deep" : myPickWrong ? "ink-faint" : "text-accent"}`}
+              ${myPickCorrect ? "text-green-deep" : myPickWrong ? "ink-faint" : "ink-soft"}`}
             >
               <span>{myPickCorrect ? "✓" : myPickWrong ? "✗" : "›"}</span>
               <span className={myPickWrong ? "line-through" : ""}>
