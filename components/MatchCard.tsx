@@ -169,12 +169,7 @@ export default function MatchCard({
            : lostPoints           ? "No points"
            : `${pointsValue}pt available`}
         </span>
-        {/* Vote count — SCHEDULED only (keeps splits private) */}
-        {!isStarted && totalVotes > 0 && (
-          <span className="normal-case tracking-normal font-sans text-[11px]">
-            {totalVotes} {totalVotes === 1 ? "pick" : "picks"} in
-          </span>
-        )}
+
         {isFinished && currentPick && (
           <span className="normal-case tracking-normal font-sans text-[11px]">
             {earnedPoints !== null ? "Nailed it" : "Better luck next round"}
