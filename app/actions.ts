@@ -3,6 +3,7 @@ import { signIn, signOut, auth } from "@/lib/auth";
 import { createLeague as dbCreateLeague, joinLeagueByCode } from "@/lib/services/leagues";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import type { League } from "@/lib/types";
 
 export async function handleSignIn(formData: FormData) {
@@ -76,5 +77,7 @@ export async function handleJoinLeague(
 /** Bound action: handleSwitchLeague.bind(null, leagueId) */
 export async function handleSwitchLeague(leagueId: string): Promise<void> {
   (await cookies()).set(LEAGUE_COOKIE, leagueId, COOKIE_OPTS);
+  // Invalidate the full layout so every page re-fetches with the new league cookie
+  revalidatePath("/", "layout");
   redirect("/");
 }
