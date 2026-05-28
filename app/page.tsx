@@ -1,6 +1,9 @@
 import { getAllMatches, getAllPicks, getAllUsers, getAllOdds } from "@/lib/services/supabase";
+import { getUserLeagues, getLeagueMembers } from "@/lib/services/leagues";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "@/lib/services/scoring";
 import { auth } from "@/lib/auth";
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import LeaderboardClient from "./LeaderboardClient";
 import Landing from "./Landing";
 
@@ -26,16 +29,32 @@ export default async function HomePage() {
     );
   }
 
-  const leaderboard = computeLeaderboard(users, picks, matches);
   const roundStates = getRoundStates(matches);
   const activeRound = getActiveRound(roundStates);
 
-  // Signed-out users see the landing page.
+  // Signed-out → landing
   if (!session?.user?.email) {
     return <Landing matches={matches} roundStates={roundStates} participantCount={users.length} />;
   }
 
-  // Compute popular picks for closed rounds only.
+  const email = session.user.email;
+
+  // League gate — redirect to onboarding if user hasn't joined/created one yet
+  const leagues = await getUserLeagues(email);
+  if (leagues.length === 0) redirect("/onboarding");
+
+  // Determine active league from cookie (fall back to first league)
+  const cookieStore = await cookies();
+  const activeLeagueId = cookieStore.get("wcp_league")?.value;
+  const activeLeague = leagues.find(l => l.id === activeLeagueId) ?? leagues[0];
+
+  // Filter leaderboard to league members only
+  const members = await getLeagueMembers(activeLeague.id);
+  const memberEmails = new Set(members.map(m => m.email));
+  const leagueUsers = users.filter(u => memberEmails.has(u.email));
+  const leaderboard = computeLeaderboard(leagueUsers, picks, matches);
+
+  // Popular picks for closed rounds (anonymous vote counts for match cards)
   const now = new Date();
   const popularPicks: Record<string, { H: number; A: number; T: number; total: number }> = {};
   for (const rs of roundStates) {
@@ -58,8 +77,13 @@ export default async function HomePage() {
       activeRound={activeRound}
       popularPicks={popularPicks}
       odds={odds}
-      currentUserEmail={session.user.email}
+      currentUserEmail={email}
       currentUserName={session.user.name ?? null}
+      activeLeague={{
+        name:        activeLeague.name,
+        code:        activeLeague.code,
+        memberCount: activeLeague.memberCount,
+      }}
     />
   );
 }

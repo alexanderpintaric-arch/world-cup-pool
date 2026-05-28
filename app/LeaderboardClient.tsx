@@ -13,6 +13,7 @@ interface Props {
   odds: OddsData[];
   currentUserEmail: string | null;
   currentUserName?: string | null;
+  activeLeague: { name: string; code: string; memberCount: number };
 }
 
 function initials(name: string) {
@@ -33,7 +34,7 @@ function relativeTime(iso: string): string {
 }
 
 export default function LeaderboardClient({
-  leaderboard, matches, roundStates, activeRound, currentUserEmail, currentUserName,
+  leaderboard, matches, roundStates, activeRound, currentUserEmail, currentUserName, activeLeague,
 }: Props) {
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
@@ -82,7 +83,7 @@ export default function LeaderboardClient({
       {/* ── PAGE HEADER ──────────────────────────────────────── */}
       <header className="anim-fade-up">
         <p className="font-mono text-[11px] uppercase tracking-[0.22em] ink-faint mb-3">
-          The Standings &middot; {new Date().toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
+          {activeLeague.name} &middot; {new Date().toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
         </p>
         <h1 className="font-serif font-medium leading-[1.02] tracking-[-0.025em] ink" style={{fontSize: 'clamp(2.25rem, 5.5vw, 3.75rem)', fontVariationSettings: '"opsz" 120'}}>
           {greeting}{firstName ? `, ${firstName}` : ""}.
@@ -115,6 +116,9 @@ export default function LeaderboardClient({
           )}
         </p>
       </header>
+
+      {/* ── LEAGUE INVITE CARD ───────────────────────────────── */}
+      <InviteCard league={activeLeague} />
 
       {/* ── LIVE BANNER ──────────────────────────────────────── */}
       {liveMatches.length > 0 && (
@@ -495,6 +499,54 @@ function HeadToHead({ a, b, matches, onClose }: {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+function InviteCard({ league }: { league: { name: string; code: string; memberCount: number } }) {
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try { await navigator.clipboard.writeText(league.code); } catch {}
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  }
+
+  return (
+    <div className="anim-fade-up bg-card border border-line rounded-lg px-5 py-4 flex items-center justify-between gap-4 flex-wrap shadow-paper">
+      <div className="flex items-center gap-4">
+        <div>
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint mb-1">
+            League invite code
+          </p>
+          <p
+            className="font-mono text-[22px] font-bold ink tracking-[0.14em] leading-none"
+          >
+            {league.code}
+          </p>
+        </div>
+        <div className="h-8 w-px bg-line hidden sm:block" />
+        <div className="hidden sm:block">
+          <p className="text-[13px] ink-soft leading-snug">
+            Share this code so friends can join{" "}
+            <span className="font-medium ink">{league.name}</span>.
+          </p>
+          <p className="text-[12px] ink-faint">
+            {league.memberCount} {league.memberCount === 1 ? "member" : "members"} so far
+          </p>
+        </div>
+      </div>
+      <button
+        onClick={copy}
+        className={`flex items-center gap-2 px-4 py-2 rounded-md text-[13px] font-semibold transition-all
+          ${copied
+            ? "bg-green-soft text-green-deep"
+            : "bg-paper-deep hover:bg-line ink border border-line"
+          }`}
+      >
+        <span className="font-mono text-[11px]">{copied ? "✓" : "⎘"}</span>
+        {copied ? "Copied!" : "Copy code"}
+      </button>
     </div>
   );
 }

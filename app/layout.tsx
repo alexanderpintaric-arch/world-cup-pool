@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { handleSignOut } from "./actions";
+import type { LeagueWithRole } from "@/lib/types";
+import { LeagueSwitcher } from "./LeagueSwitcher";
 
 export const metadata: Metadata = {
   title: "WC Pool '26 — Friendly predictions for the 2026 World Cup",
@@ -28,6 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {/* Nav */}
             <nav className="flex items-center gap-1 sm:gap-2">
               <NavLinks />
+              <div className="ml-1 sm:ml-2">
+                <LeagueNav />
+              </div>
               <div className="ml-1 sm:ml-3">
                 <AuthButton />
               </div>
@@ -54,6 +59,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </body>
     </html>
   );
+}
+
+async function LeagueNav() {
+  const { auth } = await import("@/lib/auth");
+  const session = await auth();
+  if (!session?.user?.email) return null;
+
+  const { getUserLeagues } = await import("@/lib/services/leagues");
+  const { cookies } = await import("next/headers");
+
+  let leagues: LeagueWithRole[] = [];
+  try { leagues = await getUserLeagues(session.user.email); } catch { return null; }
+  if (leagues.length === 0) return null;
+
+  const cookieStore = await cookies();
+  const activeId = cookieStore.get("wcp_league")?.value;
+  const active = leagues.find(l => l.id === activeId) ?? leagues[0];
+
+  return <LeagueSwitcher active={active} all={leagues} />;
 }
 
 async function NavLinks() {

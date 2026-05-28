@@ -74,6 +74,21 @@ export interface OddsData {
   updatedAt: string;
 }
 
+export interface League {
+  id: string;
+  name: string;
+  code: string;
+  createdBy: string;
+  createdAt: string;
+}
+
+export type LeagueRole = "owner" | "member";
+
+export interface LeagueWithRole extends League {
+  role: LeagueRole;
+  memberCount: number;
+}
+
 export interface SyncResult {
   matchesUpdated: number;
   roundsOpened: string[];

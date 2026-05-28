@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import {
   getAllMatches, getPicksForUser, getAllOdds, getAllPicks,
 } from "@/lib/services/supabase";
+import { getUserLeagues } from "@/lib/services/leagues";
 import { getRoundStates, getActiveRound } from "@/lib/services/scoring";
 import PicksClient from "./PicksClient";
 
@@ -11,6 +12,12 @@ const isMock = !process.env.NEXT_PUBLIC_SUPABASE_URL;
 export default async function PicksPage() {
   const session = await auth();
   if (!isMock && !session?.user?.email) redirect("/api/auth/signin");
+
+  // League gate
+  if (!isMock && session?.user?.email) {
+    const leagues = await getUserLeagues(session.user.email);
+    if (leagues.length === 0) redirect("/onboarding");
+  }
 
   const mockEmail = "alex@example.com";
   const email = session?.user?.email ?? mockEmail;
