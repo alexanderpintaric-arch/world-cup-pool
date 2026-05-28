@@ -549,7 +549,7 @@ function MatchPicksCard({
                   style={{ flex: H }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "H" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.5 : 1 }} />
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.4 : 0.78 }} />
                   {pctH >= 7 && (
                     <div className="relative flex items-center gap-1 px-1 min-w-0">
                       {pctH >= 15 && <Flag team={match.homeTeam} size={13} className="flex-shrink-0" />}
@@ -573,7 +573,7 @@ function MatchPicksCard({
                   style={{ flex: T }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "T" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.5 : 1 }} />
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.4 : 0.78 }} />
                   {pctT >= 7 && (
                     <div className="relative flex items-center gap-1 px-0.5">
                       {pctT >= 15 && (
@@ -599,7 +599,7 @@ function MatchPicksCard({
                   style={{ flex: A }}
                   className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "A" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
-                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.5 : 1 }} />
+                  <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.4 : 0.78 }} />
                   {pctA >= 7 && (
                     <div className="relative flex items-center gap-1 px-1 min-w-0">
                       {pctA >= 15 && <Flag team={match.awayTeam} size={13} className="flex-shrink-0" />}
