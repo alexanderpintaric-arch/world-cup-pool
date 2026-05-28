@@ -74,10 +74,14 @@ export default function PicksClient({
 
   const groups = useMemo(() => inferGroups(matches), [matches]);
 
-  // Matches for the selected round (knockout case)
+  // Matches for the selected round — exclude TBD vs TBD placeholders so they
+  // don't inflate totalCount and prevent the completion celebration from firing
   const roundMatches = useMemo(() =>
     matches
-      .filter(m => m.round === selectedRound)
+      .filter(m =>
+        m.round === selectedRound &&
+        !(m.homeTeam === "TBD" && m.awayTeam === "TBD")
+      )
       .sort((a, b) => new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime()),
     [matches, selectedRound]
   );

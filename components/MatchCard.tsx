@@ -114,7 +114,7 @@ export default function MatchCard({
           const correct = isFinished && result === opt.value;
           const wrong   = isFinished && picked && result !== opt.value;
 
-          let cls = "relative flex flex-col items-center justify-center gap-0.5 rounded-md px-2 py-2.5 text-center transition-all select-none cursor-pointer ";
+          let cls = "relative flex flex-col items-center justify-center gap-0.5 rounded-md px-2 py-3 text-center transition-all select-none cursor-pointer min-h-[72px] ";
           if (correct)        cls += "bg-green-soft border-2 border-green-deep ink";
           else if (wrong)     cls += "bg-paper-deep border-2 border-line ink-faint";
           else if (picked)    cls += "bg-ink border-2 border-ink text-paper pick-selected";
@@ -136,7 +136,7 @@ export default function MatchCard({
                 : <Flag team={opt.label} size={18} className="mb-0.5" />
               }
 
-              <span className={`text-[11px] sm:text-[12px] font-semibold leading-tight line-clamp-1 ${wrong ? "line-through" : ""}`}>
+              <span className={`text-[11px] sm:text-[12px] font-semibold leading-snug truncate w-full text-center ${wrong ? "line-through" : ""}`}>
                 {label}
               </span>
 
