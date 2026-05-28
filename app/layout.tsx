@@ -33,7 +33,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 Nutmeg
               </span>
               <span className="font-mono text-[10px] font-medium tabular ink-faint group-hover:text-accent transition-colors hidden sm:inline">
-                WC&rsquo;26
+                World Cup 2026
               </span>
             </a>
 
