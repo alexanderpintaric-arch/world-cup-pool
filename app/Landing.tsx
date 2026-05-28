@@ -167,12 +167,12 @@ export default function Landing({ matches, participantCount }: Props) {
             </thead>
             <tbody className="divide-y divide-[color:var(--line-soft)]">
               {[
-                ["Group stage", 72, 1, 72],
-                ["Round of 32", 16, 2, 32],
-                ["Round of 16", 8, 3, 24],
-                ["Quarterfinals", 4, 4, 16],
-                ["Semifinals", 2, 5, 10],
-                ["Final", 1, 6, 6],
+                ["Group stage",     72, 1, 72],
+                ["Round of 32",     16, 2, 32],
+                ["Round of 16",      8, 3, 24],
+                ["Quarterfinals",    4, 4, 16],
+                ["Semifinals",       2, 5, 10],
+                ["Final + 3rd place", 2, 6, 12],
               ].map(([round, count, per, total]) => (
                 <tr key={String(round)} className="hover:bg-paper-deep/40 transition-colors">
                   <td className="px-5 sm:px-7 py-3.5 ink font-medium">{round}</td>
@@ -185,7 +185,7 @@ export default function Landing({ matches, participantCount }: Props) {
                 <td className="px-5 sm:px-7 py-3.5 ink font-serif italic">Maximum possible</td>
                 <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink-soft">104</td>
                 <td className="px-5 sm:px-7 py-3.5 text-right ink-faint">&mdash;</td>
-                <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink font-bold">160</td>
+                <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink font-bold">{MAX_TOTAL_POINTS}</td>
               </tr>
             </tbody>
           </table>
