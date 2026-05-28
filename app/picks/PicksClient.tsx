@@ -727,7 +727,6 @@ function GroupStandings({ matches, picks }: {
             {/* rank — no separate col for the bar, we use border-l on this cell */}
             <th className="w-8 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/50 select-none">#</th>
             <th className="px-2 py-1 text-left font-mono text-[8px] tracking-widest ink-faint/50">TEAM</th>
-            <th className="w-7 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/40">P</th>
             <th className="w-7 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/40">W</th>
             <th className="w-7 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/40">D</th>
             <th className="w-7 py-1 text-center font-mono text-[8px] tracking-widest ink-faint/40">L</th>
@@ -760,7 +759,6 @@ function GroupStandings({ matches, picks }: {
                     </span>
                   </div>
                 </td>
-                <td className="w-7 py-1.5 text-center font-mono text-[10px] tabular ink-faint/50">{row.played}</td>
                 <td className="w-7 py-1.5 text-center font-mono text-[10px] tabular ink-faint/60">{row.w}</td>
                 <td className="w-7 py-1.5 text-center font-mono text-[10px] tabular ink-faint/50">{row.d}</td>
                 <td className="w-7 py-1.5 text-center font-mono text-[10px] tabular ink-faint/50">{row.l}</td>
