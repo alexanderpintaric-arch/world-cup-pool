@@ -16,9 +16,10 @@ create table matches (
 );
 
 create table users (
-  email      text primary key,
-  name       text not null,
-  created_at timestamptz default now()
+  email          text primary key,
+  name           text not null,
+  supported_team text,           -- nullable; user-chosen WC team (cosmetic only)
+  created_at     timestamptz default now()
 );
 
 create table picks (
@@ -26,9 +27,10 @@ create table picks (
   match_id     text not null references matches(match_id),
   round        text not null,
   pick         text not null,  -- 'H' | 'A' | 'T'
+  league_id    text not null,  -- scopes picks per league
   submitted_at timestamptz default now(),
   updated_at   timestamptz default now(),
-  primary key (email, match_id)
+  primary key (email, match_id, league_id)  -- one pick per match per league per user
 );
 
 create table odds (

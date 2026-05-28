@@ -86,7 +86,7 @@ export default function Landing({ matches, participantCount }: Props) {
 
         <div className="mt-9 flex flex-wrap items-center gap-4 anim-fade-up" style={{animationDelay: '200ms'}}>
           <a
-            href="/auth/signin?callbackUrl=/picks"
+            href="/auth/signin?callbackUrl=%2Fonboarding"
             className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-md bg-ink text-paper text-[15px] font-semibold hover:bg-accent transition-all shadow-paper hover:shadow-lift"
           >
             Sign in with Google
@@ -124,6 +124,90 @@ export default function Landing({ matches, participantCount }: Props) {
             {participantCount === 1 ? "friend has" : "friends have"} already joined.
           </p>
         )}
+      </section>
+
+      {/* ── LEAGUES ──────────────────────────────────────────── */}
+      <section>
+        <SectionHeader kicker="Your league" title="Play with your people." />
+
+        <p className="mt-4 max-w-xl text-[16px] ink-soft leading-relaxed">
+          Every pool runs inside a private league. Create one for your group or
+          join one a friend already started — either way you get your own
+          leaderboard, your own bragging rights.
+        </p>
+
+        <div className="mt-10 grid sm:grid-cols-2 gap-5 sm:gap-7">
+
+          {/* Create */}
+          <div className="bg-card border border-line rounded-xl p-7 shadow-paper flex flex-col gap-5">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-accent/10 text-accent rounded-md px-3 py-1.5 mb-4">
+                <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true">
+                  <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M8 5v6M5 8h6" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round"/>
+                </svg>
+                <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] font-medium">Create a league</span>
+              </div>
+              <h3 className="font-serif text-[22px] font-medium ink leading-snug mb-2" style={{fontVariationSettings: '"opsz" 48'}}>
+                Start your own pool.
+              </h3>
+              <p className="text-[14.5px] ink-soft leading-[1.6]">
+                Give it a name, grab the invite code, and share it with your group chat.
+                Anyone who joins lands on the same leaderboard as you.
+              </p>
+            </div>
+            <ul className="space-y-2 text-[13.5px] ink-soft">
+              {["You pick the name", "Invite as many friends as you like", "Only members see each other's picks"].map(item => (
+                <li key={item} className="flex items-center gap-2.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-accent flex-shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <a
+              href="/auth/signin?callbackUrl=%2Fonboarding"
+              className="mt-auto group inline-flex items-center gap-2.5 px-5 py-3 rounded-lg bg-ink text-paper text-[14px] font-semibold hover:bg-accent transition-colors self-start"
+            >
+              Create a league
+              <span className="font-mono transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </a>
+          </div>
+
+          {/* Join */}
+          <div className="bg-card border border-line rounded-xl p-7 shadow-paper flex flex-col gap-5">
+            <div>
+              <div className="inline-flex items-center gap-2 bg-paper-deep text-ink-faint rounded-md px-3 py-1.5 mb-4">
+                <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5 flex-shrink-0" aria-hidden="true">
+                  <path d="M2 8h10M8 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <span className="font-mono text-[10.5px] uppercase tracking-[0.18em] font-medium">Join a league</span>
+              </div>
+              <h3 className="font-serif text-[22px] font-medium ink leading-snug mb-2" style={{fontVariationSettings: '"opsz" 48'}}>
+                Already got a code?
+              </h3>
+              <p className="text-[14.5px] ink-soft leading-[1.6]">
+                A friend created a league and sent you the code? Sign in, enter the
+                code, and you&rsquo;re on the board. Takes about ten seconds.
+              </p>
+            </div>
+            <ul className="space-y-2 text-[13.5px] ink-soft">
+              {["Sign in with Google", "Enter the invite code", "Start picking immediately"].map(item => (
+                <li key={item} className="flex items-center gap-2.5">
+                  <span className="h-1.5 w-1.5 rounded-full bg-line-hard flex-shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
+            <a
+              href="/auth/signin?callbackUrl=%2Fonboarding%3Fmode%3Djoin"
+              className="mt-auto group inline-flex items-center gap-2.5 px-5 py-3 rounded-lg border border-line text-ink text-[14px] font-semibold hover:bg-paper-deep transition-colors self-start"
+            >
+              Join a league
+              <span className="font-mono transition-transform group-hover:translate-x-0.5">&rarr;</span>
+            </a>
+          </div>
+
+        </div>
       </section>
 
       {/* ── HOW IT WORKS ─────────────────────────────────────── */}
@@ -241,13 +325,22 @@ export default function Landing({ matches, participantCount }: Props) {
             <p className="mt-5 text-[16px] text-paper/75 max-w-xl leading-relaxed">
               Make your picks before the group stage starts. After that, you&rsquo;ll have until each new round opens to commit.
             </p>
-            <a
-              href="/auth/signin?callbackUrl=/picks"
-              className="mt-8 group inline-flex items-center gap-3 px-6 py-3.5 rounded-md bg-paper text-ink text-[15px] font-semibold hover:bg-gold hover:text-ink transition-colors"
-            >
-              Sign in and start picking
-              <span className="font-mono text-[15px] transition-transform group-hover:translate-x-0.5">&rarr;</span>
-            </a>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <a
+                href="/auth/signin?callbackUrl=%2Fonboarding"
+                className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-md bg-paper text-ink text-[15px] font-semibold hover:bg-gold hover:text-ink transition-colors"
+              >
+                Create a league
+                <span className="font-mono text-[15px] transition-transform group-hover:translate-x-0.5">&rarr;</span>
+              </a>
+              <a
+                href="/auth/signin?callbackUrl=%2Fonboarding%3Fmode%3Djoin"
+                className="group inline-flex items-center gap-3 px-6 py-3.5 rounded-md bg-paper/20 text-paper text-[15px] font-semibold hover:bg-paper/30 transition-colors border border-paper/30"
+              >
+                Join with a code
+                <span className="font-mono text-[15px] transition-transform group-hover:translate-x-0.5">&rarr;</span>
+              </a>
+            </div>
           </div>
         </div>
       </section>

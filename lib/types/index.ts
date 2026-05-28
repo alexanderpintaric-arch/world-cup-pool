@@ -36,6 +36,7 @@ export interface User {
   email: string;
   name: string;
   createdAt: string;
+  supportedTeam?: string | null;
 }
 
 export interface LeaderboardEntry {
@@ -46,6 +47,7 @@ export interface LeaderboardEntry {
   scoreByRound: Record<Round, number>;
   correctPicks: number;
   totalPicks: number;
+  supportedTeam?: string | null;
   tiebreaker?: {
     finalHomeScore: number | null;
     finalAwayScore: number | null;

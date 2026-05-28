@@ -139,9 +139,10 @@ export async function getAllUsers(): Promise<User[]> {
   const { data, error } = await getClient().from("users").select("*");
   if (error) throw error;
   return (data ?? []).map(r => ({
-    email:     r.email as string,
-    name:      r.name as string,
-    createdAt: r.created_at as string,
+    email:         r.email as string,
+    name:          r.name as string,
+    createdAt:     r.created_at as string,
+    supportedTeam: (r.supported_team as string | null) ?? null,
   }));
 }
 
@@ -151,6 +152,15 @@ export async function upsertUser(user: User): Promise<void> {
     .from("users")
     .upsert({ email: user.email, name: user.name, created_at: user.createdAt },
              { onConflict: "email" });
+  if (error) throw error;
+}
+
+export async function setUserSupportedTeam(email: string, team: string | null): Promise<void> {
+  if (isMock) return;
+  const { error } = await getClient()
+    .from("users")
+    .update({ supported_team: team })
+    .eq("email", email);
   if (error) throw error;
 }
 

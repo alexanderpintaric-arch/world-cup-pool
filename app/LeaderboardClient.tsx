@@ -1,8 +1,75 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
 import type { LeaderboardEntry, Match, RoundState, OddsData } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
 import Flag from "@/components/Flag";
+import { handleSetSupportedTeam } from "@/app/actions";
+
+// ── WC 2026 participants ────────────────────────────────────────────────────
+// 48 teams across 6 confederations
+
+const WC2026_TEAMS: { name: string; conf: string }[] = [
+  // CONCACAF
+  { name: "Canada",        conf: "CONCACAF" },
+  { name: "Mexico",        conf: "CONCACAF" },
+  { name: "United States", conf: "CONCACAF" },
+  { name: "Panama",        conf: "CONCACAF" },
+  { name: "Costa Rica",    conf: "CONCACAF" },
+  { name: "Honduras",      conf: "CONCACAF" },
+  // CONMEBOL
+  { name: "Argentina",     conf: "CONMEBOL" },
+  { name: "Brazil",        conf: "CONMEBOL" },
+  { name: "Uruguay",       conf: "CONMEBOL" },
+  { name: "Colombia",      conf: "CONMEBOL" },
+  { name: "Ecuador",       conf: "CONMEBOL" },
+  { name: "Paraguay",      conf: "CONMEBOL" },
+  { name: "Venezuela",     conf: "CONMEBOL" },
+  // UEFA
+  { name: "France",        conf: "UEFA" },
+  { name: "Spain",         conf: "UEFA" },
+  { name: "England",       conf: "UEFA" },
+  { name: "Germany",       conf: "UEFA" },
+  { name: "Portugal",      conf: "UEFA" },
+  { name: "Netherlands",   conf: "UEFA" },
+  { name: "Italy",         conf: "UEFA" },
+  { name: "Belgium",       conf: "UEFA" },
+  { name: "Croatia",       conf: "UEFA" },
+  { name: "Switzerland",   conf: "UEFA" },
+  { name: "Denmark",       conf: "UEFA" },
+  { name: "Poland",        conf: "UEFA" },
+  { name: "Austria",       conf: "UEFA" },
+  { name: "Turkey",        conf: "UEFA" },
+  { name: "Serbia",        conf: "UEFA" },
+  { name: "Scotland",      conf: "UEFA" },
+  { name: "Ukraine",       conf: "UEFA" },
+  { name: "Romania",       conf: "UEFA" },
+  { name: "Hungary",       conf: "UEFA" },
+  { name: "Georgia",       conf: "UEFA" },
+  { name: "Slovakia",      conf: "UEFA" },
+  { name: "Slovenia",      conf: "UEFA" },
+  { name: "Albania",       conf: "UEFA" },
+  // CAF
+  { name: "Morocco",       conf: "CAF" },
+  { name: "Senegal",       conf: "CAF" },
+  { name: "Nigeria",       conf: "CAF" },
+  { name: "Cameroon",      conf: "CAF" },
+  { name: "Ghana",         conf: "CAF" },
+  { name: "Ivory Coast",   conf: "CAF" },
+  { name: "South Africa",  conf: "CAF" },
+  { name: "DR Congo",      conf: "CAF" },
+  { name: "Egypt",         conf: "CAF" },
+  // AFC
+  { name: "Japan",         conf: "AFC" },
+  { name: "South Korea",   conf: "AFC" },
+  { name: "Australia",     conf: "AFC" },
+  { name: "Iran",          conf: "AFC" },
+  { name: "Saudi Arabia",  conf: "AFC" },
+  { name: "Uzbekistan",    conf: "AFC" },
+  { name: "China",         conf: "AFC" },
+  { name: "Iraq",          conf: "AFC" },
+  // OFC
+  { name: "New Zealand",   conf: "OFC" },
+];
 
 interface Props {
   leaderboard: LeaderboardEntry[];
@@ -39,6 +106,8 @@ export default function LeaderboardClient({
   const [compareA, setCompareA] = useState<string | null>(null);
   const [compareB, setCompareB] = useState<string | null>(null);
   const [showCompare, setShowCompare] = useState(false);
+  const [showTeamPicker, setShowTeamPicker] = useState(false);
+  const myEntry = leaderboard.find(e => e.email === currentUserEmail);
 
   const liveMatches = matches.filter(m =>
     m.status === "IN_PLAY" || m.status === "PAUSED" || m.status === "LIVE"
@@ -62,8 +131,7 @@ export default function LeaderboardClient({
       .slice(0, limit);
   }, [matches, recentlyFinished.length]);
 
-  const me = leaderboard.find(e => e.email === currentUserEmail);
-  const myRank = me ? leaderboard.indexOf(me) + 1 : null;
+  const myRank = myEntry ? leaderboard.indexOf(myEntry) + 1 : null;
 
   const roundsWithMatches = roundStates.filter(r => r.matchCount > 0);
 
@@ -92,21 +160,21 @@ export default function LeaderboardClient({
           {greeting}{firstName ? `, ${firstName}` : ""}.
         </h1>
         <p className="mt-3 text-[16px] ink-soft max-w-2xl">
-          {myRank && me ? (
+          {myRank && myEntry ? (
             <>
               You&rsquo;re sitting in{" "}
               <strong className="ink">
                 {ordinal(myRank)} place
               </strong>{" "}
               with{" "}
-              <span className="font-mono tabular font-semibold ink">{me.totalScore}</span>{" "}
-              {me.totalScore === 1 ? "point" : "points"}
+              <span className="font-mono tabular font-semibold ink">{myEntry.totalScore}</span>{" "}
+              {myEntry.totalScore === 1 ? "point" : "points"}
               {leaderboard.length > 1 && myRank > 1 && (
                 <>
                   {" "}&mdash;{" "}
                   <span className="ink-soft">
-                    {leaderboard[myRank - 2].totalScore - me.totalScore}{" "}
-                    {leaderboard[myRank - 2].totalScore - me.totalScore === 1 ? "point" : "points"} behind{" "}
+                    {leaderboard[myRank - 2].totalScore - myEntry.totalScore}{" "}
+                    {leaderboard[myRank - 2].totalScore - myEntry.totalScore === 1 ? "point" : "points"} behind{" "}
                     <em className="font-serif italic">{leaderboard[myRank - 2].name}</em>
                   </span>
                 </>
@@ -237,15 +305,43 @@ export default function LeaderboardClient({
                             <div className="h-8 w-8 rounded-full bg-ink text-paper flex items-center justify-center text-[10px] font-semibold tracking-wide flex-shrink-0">
                               {initials(entry.name)}
                             </div>
-                            <div className="flex items-baseline gap-2">
-                              <span className="font-serif text-[16px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 32'}}>
-                                {entry.name}
-                              </span>
-                              {isMe && (
-                                <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-green-deep">
-                                  You
+                            <div className="flex flex-col gap-0.5 min-w-0">
+                              <div className="flex items-baseline gap-2">
+                                <span className="font-serif text-[16px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 32'}}>
+                                  {entry.name}
                                 </span>
-                              )}
+                                {isMe && (
+                                  <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-green-deep">
+                                    You
+                                  </span>
+                                )}
+                              </div>
+                              {/* Supported team display */}
+                              {entry.supportedTeam ? (
+                                <div className="flex items-center gap-1.5">
+                                  <Flag team={entry.supportedTeam} size={12} />
+                                  <span className="font-mono text-[10px] ink-faint tracking-wide truncate">
+                                    {entry.supportedTeam}
+                                  </span>
+                                  {isMe && (
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setShowTeamPicker(true); }}
+                                      className="font-mono text-[9px] ink-faint/60 hover:ink-faint transition-colors ml-0.5"
+                                      title="Change your team"
+                                    >
+                                      ✎
+                                    </button>
+                                  )}
+                                </div>
+                              ) : isMe ? (
+                                <button
+                                  onClick={e => { e.stopPropagation(); setShowTeamPicker(true); }}
+                                  className="flex items-center gap-1 font-mono text-[10px] text-accent/70 hover:text-accent transition-colors self-start"
+                                >
+                                  <span className="text-[9px]">+</span>
+                                  Pick your team
+                                </button>
+                              ) : null}
                             </div>
                           </div>
                         </td>
@@ -363,6 +459,14 @@ export default function LeaderboardClient({
           b={entryB}
           matches={matches}
           onClose={() => { setShowCompare(false); setCompareA(null); setCompareB(null); }}
+        />
+      )}
+
+      {/* ── TEAM PICKER MODAL ────────────────────────────────── */}
+      {showTeamPicker && (
+        <TeamPickerModal
+          current={myEntry?.supportedTeam ?? null}
+          onClose={() => setShowTeamPicker(false)}
         />
       )}
     </div>
@@ -609,6 +713,135 @@ function InviteCard({ league }: { league: { name: string; code: string; memberCo
         <span className="font-mono text-[11px]">{copied ? "✓" : "⎘"}</span>
         {copied ? "Copied!" : "Copy code"}
       </button>
+    </div>
+  );
+}
+
+// ── Team Picker Modal ──────────────────────────────────────────────────────
+
+function TeamPickerModal({
+  current,
+  onClose,
+}: {
+  current: string | null;
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<string | null>(current);
+  const [isPending, startTransition] = useTransition();
+
+  const filtered = query.trim()
+    ? WC2026_TEAMS.filter(t =>
+        t.name.toLowerCase().includes(query.toLowerCase()) ||
+        t.conf.toLowerCase().includes(query.toLowerCase())
+      )
+    : WC2026_TEAMS;
+
+  function save(team: string | null) {
+    setSelected(team);
+    startTransition(async () => {
+      await handleSetSupportedTeam(team);
+      onClose();
+    });
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-ink/50 backdrop-blur-sm p-4 anim-fade-in"
+      onClick={onClose}
+    >
+      <div
+        className="bg-card border border-line rounded-xl shadow-lift w-full max-w-xl max-h-[85vh] flex flex-col anim-scale-in"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="px-5 pt-5 pb-4 border-b border-line flex items-start justify-between gap-4 flex-shrink-0">
+          <div>
+            <p className="font-mono text-[10.5px] uppercase tracking-[0.22em] text-accent mb-1">
+              Personalization
+            </p>
+            <h2 className="font-serif text-[22px] font-medium ink leading-tight" style={{fontVariationSettings: '"opsz" 48'}}>
+              Pick your team
+            </h2>
+            <p className="text-[13px] ink-faint mt-1">
+              Declare your allegiance. No scoring impact — just bragging rights.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="h-8 w-8 flex items-center justify-center rounded-md ink-faint hover:ink hover:bg-paper-deep text-lg font-mono transition-colors flex-shrink-0"
+          >
+            ×
+          </button>
+        </div>
+
+        {/* Search */}
+        <div className="px-5 py-3 border-b border-line flex-shrink-0">
+          <input
+            type="search"
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            placeholder="Search teams or confederations…"
+            autoFocus
+            className="w-full bg-paper-deep border border-line rounded-lg px-3.5 py-2.5 text-[14px] ink placeholder:ink-faint outline-none focus:border-accent/50 transition-colors"
+          />
+        </div>
+
+        {/* Team grid */}
+        <div className="overflow-y-auto flex-1 p-4">
+          {selected && (
+            <button
+              onClick={() => save(null)}
+              className="w-full mb-3 flex items-center gap-2 px-4 py-2.5 rounded-lg border border-dashed border-line text-[13px] ink-faint hover:ink-soft hover:border-solid transition-colors"
+            >
+              <span className="text-[11px]">×</span>
+              Clear selection
+            </button>
+          )}
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {filtered.map(team => {
+              const isActive = selected === team.name;
+              return (
+                <button
+                  key={team.name}
+                  onClick={() => save(team.name)}
+                  disabled={isPending}
+                  className={`flex items-center gap-2.5 px-3 py-2.5 rounded-lg border text-left transition-all
+                    ${isActive
+                      ? "bg-accent/10 border-accent/40 text-accent"
+                      : "bg-paper-deep border-line hover:border-accent/30 hover:bg-accent/5 ink"
+                    } ${isPending ? "opacity-60 cursor-wait" : ""}`}
+                >
+                  <Flag team={team.name} size={18} className="flex-shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-[13px] font-medium leading-tight truncate">
+                      {team.name}
+                    </p>
+                    <p className="text-[10px] font-mono ink-faint/70 tracking-wide mt-0.5">
+                      {team.conf}
+                    </p>
+                  </div>
+                  {isActive && (
+                    <span className="ml-auto text-accent text-[12px] flex-shrink-0">✓</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          {filtered.length === 0 && (
+            <p className="text-center py-10 text-[14px] ink-faint font-serif italic">
+              No teams match &ldquo;{query}&rdquo;
+            </p>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t border-line flex-shrink-0">
+          <p className="text-[11.5px] ink-faint text-center font-mono">
+            {WC2026_TEAMS.length} teams &middot; All WC 2026 participants
+          </p>
+        </div>
+      </div>
     </div>
   );
 }

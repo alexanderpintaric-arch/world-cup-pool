@@ -1,6 +1,7 @@
 "use server";
 import { signIn, signOut, auth } from "@/lib/auth";
 import { createLeague as dbCreateLeague, joinLeagueByCode } from "@/lib/services/leagues";
+import { setUserSupportedTeam } from "@/lib/services/supabase";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -73,6 +74,18 @@ export async function handleJoinLeague(
   (await cookies()).set(LEAGUE_COOKIE, result.league.id, COOKIE_OPTS);
   redirect("/");
 }
+
+// ── Supported team ─────────────────────────────────────────────────────────
+
+/** team = null to clear the selection */
+export async function handleSetSupportedTeam(team: string | null): Promise<void> {
+  const session = await auth();
+  if (!session?.user?.email) return;
+  await setUserSupportedTeam(session.user.email, team);
+  revalidatePath("/", "layout");
+}
+
+// ── League switch ──────────────────────────────────────────────────────────
 
 /** Bound action: handleSwitchLeague.bind(null, leagueId) */
 export async function handleSwitchLeague(leagueId: string): Promise<void> {

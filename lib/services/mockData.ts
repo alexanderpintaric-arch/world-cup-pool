@@ -20,12 +20,12 @@ export const MOCK_MATCHES: Match[] = [
 ];
 
 export const MOCK_USERS: User[] = [
-  { email: "alex@example.com", name: "Alex P.", createdAt: "2026-05-01T00:00:00Z" },
-  { email: "sarah@example.com", name: "Sarah K.", createdAt: "2026-05-01T00:00:00Z" },
-  { email: "mike@example.com", name: "Mike D.", createdAt: "2026-05-02T00:00:00Z" },
-  { email: "jessica@example.com", name: "Jessica M.", createdAt: "2026-05-02T00:00:00Z" },
-  { email: "tom@example.com", name: "Tom R.", createdAt: "2026-05-03T00:00:00Z" },
-  { email: "emily@example.com", name: "Emily S.", createdAt: "2026-05-03T00:00:00Z" },
+  { email: "alex@example.com",    name: "Alex P.",    createdAt: "2026-05-01T00:00:00Z", supportedTeam: "England" },
+  { email: "sarah@example.com",   name: "Sarah K.",   createdAt: "2026-05-01T00:00:00Z", supportedTeam: "Brazil" },
+  { email: "mike@example.com",    name: "Mike D.",    createdAt: "2026-05-02T00:00:00Z", supportedTeam: "Argentina" },
+  { email: "jessica@example.com", name: "Jessica M.", createdAt: "2026-05-02T00:00:00Z", supportedTeam: null },
+  { email: "tom@example.com",     name: "Tom R.",     createdAt: "2026-05-03T00:00:00Z", supportedTeam: "France" },
+  { email: "emily@example.com",   name: "Emily S.",   createdAt: "2026-05-03T00:00:00Z", supportedTeam: null },
 ];
 
 const MOCK_LEAGUE_ID = "mock-league";

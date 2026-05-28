@@ -55,6 +55,7 @@ export function computeLeaderboard(
       scoreByRound,
       correctPicks: correct,
       totalPicks: total,
+      supportedTeam: user.supportedTeam ?? null,
     };
   });
 
