@@ -4,14 +4,6 @@ export const runtime = "edge";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
-const PLAYERS = [
-  { rank: 1, name: "Alex",   pts: 142, gold: true  },
-  { rank: 2, name: "Jamie",  pts: 138, gold: false },
-  { rank: 3, name: "Sam",    pts: 131, gold: false },
-  { rank: 4, name: "Taylor", pts: 124, gold: false },
-  { rank: 5, name: "Chris",  pts: 118, gold: false },
-];
-
 export default function OGImage() {
   return new ImageResponse(
     (
@@ -20,340 +12,383 @@ export default function OGImage() {
           width: 1200,
           height: 630,
           display: "flex",
-          background: "#0B1426",
-          position: "relative",
+          flexDirection: "column",
           overflow: "hidden",
+          fontFamily: 'Georgia, "Times New Roman", serif',
         }}
       >
-        {/* ── Decorative background circles ───────────────────────── */}
+        {/* ── TOP MASTHEAD BAR ────────────────────────────────────── */}
         <div
           style={{
-            position: "absolute",
-            top: -180,
-            left: -100,
-            width: 560,
-            height: 560,
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(201,48,44,0.09) 0%, transparent 70%)",
-          }}
-        />
-        <div
-          style={{
-            position: "absolute",
-            bottom: -200,
-            right: 380,
-            width: 480,
-            height: 480,
-            borderRadius: "50%",
-            background:
-              "radial-gradient(circle, rgba(160,120,32,0.07) 0%, transparent 70%)",
-          }}
-        />
-
-        {/* ── Accent stripe top ───────────────────────────────────── */}
-        <div
-          style={{
-            position: "absolute",
-            top: 0,
-            left: 0,
-            right: 0,
-            height: 4,
-            background: "linear-gradient(90deg, #C9302C 0%, #E8570A 40%, transparent 100%)",
-          }}
-        />
-
-        {/* ── LEFT: Branding ──────────────────────────────────────── */}
-        <div
-          style={{
+            height: 48,
+            background: "#0B1426",
             display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            padding: "64px 56px 64px 80px",
-            flex: "0 0 560px",
+            alignItems: "center",
+            paddingLeft: 56,
+            paddingRight: 56,
+            justifyContent: "space-between",
+            flexShrink: 0,
           }}
         >
-          {/* Pre-title badge */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              marginBottom: 24,
-            }}
-          >
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <div
               style={{
-                width: 7,
-                height: 7,
+                width: 6,
+                height: 6,
                 borderRadius: "50%",
                 background: "#C9302C",
               }}
             />
             <span
               style={{
-                fontSize: 12,
                 fontFamily: "monospace",
-                letterSpacing: "0.22em",
+                fontSize: 11,
+                letterSpacing: "0.26em",
                 textTransform: "uppercase",
-                color: "#8089A0",
+                color: "#F5F1E8",
               }}
             >
-              World Cup 2026
+              Nutmeg
+            </span>
+            <span
+              style={{
+                fontFamily: "monospace",
+                fontSize: 11,
+                color: "rgba(245,241,232,0.35)",
+                marginLeft: 2,
+              }}
+            >
+              · World Cup 2026 Pick&apos;em Pool
             </span>
           </div>
-
-          {/* Brand name */}
           <span
             style={{
-              fontSize: 118,
-              fontStyle: "italic",
-              fontWeight: 500,
-              color: "#F5F1E8",
-              lineHeight: 0.92,
-              letterSpacing: "-0.025em",
-              fontFamily: "Georgia, 'Times New Roman', serif",
+              fontFamily: "monospace",
+              fontSize: 11,
+              letterSpacing: "0.12em",
+              color: "rgba(245,241,232,0.3)",
             }}
           >
-            Nutmeg
+            nutmeg.bet
           </span>
-
-          {/* Accent underline */}
-          <div
-            style={{
-              width: 190,
-              height: 3,
-              background: "#C9302C",
-              marginTop: 22,
-              marginBottom: 32,
-              borderRadius: 2,
-            }}
-          />
-
-          {/* Tagline */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <span
-              style={{
-                fontSize: 24,
-                color: "#C8C2B6",
-                lineHeight: 1.45,
-                fontFamily: "'Helvetica Neue', Arial, sans-serif",
-                fontWeight: 300,
-              }}
-            >
-              Pick every match. Climb your league.
-            </span>
-            <span
-              style={{
-                fontSize: 24,
-                color: "#C8C2B6",
-                lineHeight: 1.45,
-                fontFamily: "'Helvetica Neue', Arial, sans-serif",
-                fontWeight: 300,
-              }}
-            >
-              Settle every argument.
-            </span>
-          </div>
-
-          {/* CTA pill */}
-          <div
-            style={{
-              marginTop: 44,
-              display: "flex",
-              alignItems: "center",
-              gap: 0,
-            }}
-          >
-            <div
-              style={{
-                background: "#C9302C",
-                color: "white",
-                padding: "13px 28px",
-                borderRadius: 8,
-                fontSize: 16,
-                fontFamily: "monospace",
-                letterSpacing: "0.06em",
-                fontWeight: 600,
-              }}
-            >
-              Join free at nutmeg.bet
-            </div>
-          </div>
         </div>
 
-        {/* ── Thin vertical divider ───────────────────────────────── */}
-        <div
-          style={{
-            width: 1,
-            background: "rgba(224,218,202,0.08)",
-            margin: "56px 0",
-          }}
-        />
+        {/* ── MAIN CONTENT ROW ────────────────────────────────────── */}
+        <div style={{ flex: 1, display: "flex" }}>
 
-        {/* ── RIGHT: Leaderboard card ─────────────────────────────── */}
-        <div
-          style={{
-            flex: 1,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            padding: "64px 80px 64px 56px",
-          }}
-        >
+          {/* ── LEFT: Cream paper panel ─────────────────────────── */}
           <div
             style={{
-              background: "#FFFEFA",
-              borderRadius: 18,
-              padding: "28px 32px 24px",
-              width: 360,
+              flex: "0 0 790px",
+              background: "#F5F1E8",
               display: "flex",
               flexDirection: "column",
-              boxShadow:
-                "0 2px 4px rgba(11,20,38,0.12), 0 20px 60px -20px rgba(11,20,38,0.5)",
+              justifyContent: "center",
+              padding: "48px 64px 48px 60px",
+              position: "relative",
+              overflow: "hidden",
             }}
           >
-            {/* Card header */}
+            {/* Horizontal ruled-paper texture */}
             <div
               style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: 14,
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background:
+                  "repeating-linear-gradient(0deg, transparent, transparent 31px, rgba(11,20,38,0.035) 31px, rgba(11,20,38,0.035) 32px)",
               }}
-            >
-              <span
-                style={{
-                  fontSize: 11,
-                  fontFamily: "monospace",
-                  letterSpacing: "0.16em",
-                  textTransform: "uppercase",
-                  color: "#475065",
-                  fontWeight: 600,
-                }}
-              >
-                The Pub FC
-              </span>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontFamily: "monospace",
-                  color: "#8089A0",
-                  background: "#F5F1E8",
-                  padding: "3px 8px",
-                  borderRadius: 4,
-                  letterSpacing: "0.08em",
-                }}
-              >
-                Group Stage
-              </span>
-            </div>
-
-            {/* Divider */}
-            <div
-              style={{ height: 1, background: "#E0DACA", marginBottom: 14 }}
             />
 
-            {/* Rows */}
-            {PLAYERS.map(({ rank, name, pts, gold }, i) => (
+            {/* Faded "2026" watermark */}
+            <div
+              style={{
+                position: "absolute",
+                right: -40,
+                bottom: -30,
+                fontSize: 290,
+                fontStyle: "italic",
+                fontWeight: 700,
+                color: "rgba(11,20,38,0.045)",
+                lineHeight: 1,
+                letterSpacing: "-0.05em",
+                fontFamily: 'Georgia, "Times New Roman", serif',
+              }}
+            >
+              2026
+            </div>
+
+            {/* Content layer */}
+            <div
+              style={{
+                position: "relative",
+                display: "flex",
+                flexDirection: "column",
+              }}
+            >
+              {/* Challenge headline */}
               <div
-                key={rank}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  marginBottom: 30,
+                }}
+              >
+                <span
+                  style={{
+                    fontSize: 140,
+                    fontStyle: "italic",
+                    fontWeight: 700,
+                    color: "#0B1426",
+                    lineHeight: 0.87,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  Think you
+                </span>
+                <span
+                  style={{
+                    fontSize: 140,
+                    fontStyle: "italic",
+                    fontWeight: 700,
+                    color: "#C9302C",
+                    lineHeight: 0.87,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  know
+                </span>
+                <span
+                  style={{
+                    fontSize: 140,
+                    fontStyle: "italic",
+                    fontWeight: 700,
+                    color: "#0B1426",
+                    lineHeight: 0.87,
+                    letterSpacing: "-0.03em",
+                  }}
+                >
+                  football?
+                </span>
+              </div>
+
+              {/* Stats subline */}
+              <div
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  padding: "9px 0",
-                  borderBottom:
-                    i < PLAYERS.length - 1 ? "1px solid #F0EBE0" : "none",
+                  gap: 12,
                 }}
               >
-                {/* Rank */}
-                <span
-                  style={{
-                    width: 26,
-                    fontSize: 12,
-                    fontFamily: "monospace",
-                    color: gold ? "#A07820" : rank === 2 ? "#475065" : "#8089A0",
-                    fontWeight: gold ? 700 : 400,
-                  }}
-                >
-                  #{rank}
-                </span>
-
-                {/* Colored dot (team supporter) */}
                 <div
                   style={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background:
-                      rank === 1
-                        ? "#1B7A3D"
-                        : rank === 2
-                          ? "#1E40AF"
-                          : rank === 3
-                            ? "#C9302C"
-                            : rank === 4
-                              ? "#A07820"
-                              : "#8089A0",
-                    marginRight: 10,
+                    width: 24,
+                    height: 2,
+                    background: "#C9302C",
+                    borderRadius: 1,
                     flexShrink: 0,
                   }}
                 />
-
-                {/* Name */}
                 <span
                   style={{
-                    flex: 1,
-                    fontSize: 15,
-                    color: "#0B1426",
-                    fontFamily: "'Helvetica Neue', Arial, sans-serif",
-                    fontWeight: gold ? 600 : 400,
-                  }}
-                >
-                  {name}
-                </span>
-
-                {/* Points */}
-                <span
-                  style={{
-                    fontSize: 14,
                     fontFamily: "monospace",
-                    color: gold ? "#A07820" : "#475065",
-                    fontWeight: gold ? 700 : 400,
-                  }}
-                >
-                  {pts}
-                </span>
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontFamily: "monospace",
+                    fontSize: 12,
+                    letterSpacing: "0.18em",
                     color: "#8089A0",
-                    marginLeft: 4,
+                    textTransform: "uppercase",
                   }}
                 >
-                  pts
+                  48 matches · 8 rounds · your league awaits
                 </span>
               </div>
-            ))}
-
-            {/* Footer */}
-            <div
-              style={{ height: 1, background: "#E0DACA", marginTop: 10, marginBottom: 10 }}
-            />
-            <div style={{ display: "flex", justifyContent: "center" }}>
-              <span
-                style={{
-                  fontSize: 11,
-                  color: "#8089A0",
-                  fontFamily: "monospace",
-                  letterSpacing: "0.06em",
-                }}
-              >
-                + 7 others competing
-              </span>
             </div>
           </div>
+
+          {/* ── RIGHT: Red challenge panel ───────────────────────── */}
+          <div
+            style={{
+              flex: 1,
+              background: "#C9302C",
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "center",
+              alignItems: "center",
+              position: "relative",
+              overflow: "hidden",
+            }}
+          >
+            {/* Concentric ring decorations */}
+            <div
+              style={{
+                position: "absolute",
+                top: -90,
+                right: -90,
+                width: 340,
+                height: 340,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.1)",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                top: -140,
+                right: -140,
+                width: 460,
+                height: 460,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.06)",
+              }}
+            />
+            <div
+              style={{
+                position: "absolute",
+                bottom: -100,
+                left: -80,
+                width: 300,
+                height: 300,
+                borderRadius: "50%",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+            />
+
+            {/* Inner glow */}
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background:
+                  "radial-gradient(ellipse at 50% 40%, rgba(255,255,255,0.08) 0%, transparent 70%)",
+              }}
+            />
+
+            {/* Text content */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                position: "relative",
+              }}
+            >
+              <span
+                style={{
+                  fontSize: 90,
+                  fontStyle: "italic",
+                  fontWeight: 700,
+                  color: "white",
+                  lineHeight: 0.82,
+                  letterSpacing: "-0.03em",
+                  textAlign: "center",
+                }}
+              >
+                Prove
+              </span>
+              <span
+                style={{
+                  fontSize: 90,
+                  fontStyle: "italic",
+                  fontWeight: 700,
+                  color: "white",
+                  lineHeight: 0.82,
+                  letterSpacing: "-0.03em",
+                  textAlign: "center",
+                }}
+              >
+                it.
+              </span>
+
+              {/* Divider */}
+              <div
+                style={{
+                  width: 40,
+                  height: 1,
+                  background: "rgba(255,255,255,0.35)",
+                  margin: "26px 0 22px",
+                }}
+              />
+
+              {/* URL */}
+              <span
+                style={{
+                  fontFamily: "monospace",
+                  fontSize: 17,
+                  color: "rgba(255,255,255,0.95)",
+                  letterSpacing: "0.06em",
+                  textAlign: "center",
+                  marginBottom: 8,
+                }}
+              >
+                nutmeg.bet
+              </span>
+
+              {/* CTA */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  background: "rgba(0,0,0,0.18)",
+                  borderRadius: 4,
+                  padding: "5px 14px",
+                }}
+              >
+                <span
+                  style={{
+                    fontFamily: "monospace",
+                    fontSize: 10,
+                    color: "rgba(255,255,255,0.7)",
+                    letterSpacing: "0.22em",
+                    textTransform: "uppercase",
+                  }}
+                >
+                  Join free
+                </span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        {/* ── BOTTOM BAR ──────────────────────────────────────────── */}
+        <div
+          style={{
+            height: 44,
+            background: "#0B1426",
+            display: "flex",
+            alignItems: "center",
+            paddingLeft: 60,
+            paddingRight: 60,
+            justifyContent: "space-between",
+            flexShrink: 0,
+          }}
+        >
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 11,
+              letterSpacing: "0.16em",
+              color: "rgba(245,241,232,0.4)",
+              textTransform: "uppercase",
+            }}
+          >
+            Canada · Mexico · United States
+          </span>
+          <span
+            style={{
+              fontFamily: "monospace",
+              fontSize: 11,
+              letterSpacing: "0.08em",
+              color: "rgba(245,241,232,0.28)",
+            }}
+          >
+            Jun 11 — Jul 19, 2026
+          </span>
         </div>
       </div>
     ),
