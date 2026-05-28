@@ -3,6 +3,7 @@ import "./globals.css";
 import { handleSignOut } from "./actions";
 import type { LeagueWithRole } from "@/lib/types";
 import { LeagueSwitcher } from "./LeagueSwitcher";
+import MobileNavBar from "./MobileNavBar";
 
 export const metadata: Metadata = {
   title: "WC Pool '26 — Friendly predictions for the 2026 World Cup",
@@ -61,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         </footer>
 
         {/* Mobile bottom navigation — only rendered when signed in */}
-        <MobileBottomNav />
+        <MobileNav />
 
       </body>
     </html>
@@ -69,67 +70,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 }
 
 // ── Mobile bottom nav ──────────────────────────────────────────────────────
+// Server wrapper: auth-gates the client tab bar so it never renders for guests.
 
-async function MobileBottomNav() {
+async function MobileNav() {
   const { auth } = await import("@/lib/auth");
   const session = await auth();
   if (!session?.user) return null;
-
-  return (
-    <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 bg-paper/95 backdrop-blur-md border-t border-line">
-      <div className="flex items-stretch h-16">
-
-        <MobileNavItem href="/" label="Standings">
-          {/* Podium / bar chart icon */}
-          <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
-            <rect x="2"  y="10" width="4" height="8" rx="1" fill="currentColor" opacity="0.5"/>
-            <rect x="8"  y="6"  width="4" height="12" rx="1" fill="currentColor"/>
-            <rect x="14" y="8"  width="4" height="10" rx="1" fill="currentColor" opacity="0.5"/>
-          </svg>
-        </MobileNavItem>
-
-        <MobileNavItem href="/picks" label="My Picks">
-          {/* Clipboard + checkmark icon */}
-          <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
-            <rect x="4" y="3" width="12" height="14" rx="1.5" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M7 10l2 2 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            <rect x="7" y="2" width="6" height="2.5" rx="1" fill="currentColor"/>
-          </svg>
-        </MobileNavItem>
-
-        <MobileNavItem href="/community" label="The Pool">
-          {/* Group / people icon */}
-          <svg viewBox="0 0 20 20" fill="none" className="h-5 w-5" aria-hidden="true">
-            <circle cx="7.5" cy="7" r="2.5" stroke="currentColor" strokeWidth="1.5"/>
-            <circle cx="13" cy="6.5" r="2" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M2 16c0-3 2.5-4.5 5.5-4.5S13 13 13 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M13 12c1.5 0 4 1 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </MobileNavItem>
-
-      </div>
-    </nav>
-  );
-}
-
-function MobileNavItem({
-  href,
-  label,
-  children,
-}: {
-  href: string;
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <a
-      href={href}
-      className="flex-1 flex flex-col items-center justify-center gap-1 ink-faint hover:ink transition-colors"
-    >
-      {children}
-      <span className="text-[10px] font-medium tracking-wide">{label}</span>
-    </a>
-  );
+  return <MobileNavBar />;
 }
 
 // ── Shared nav components ──────────────────────────────────────────────────
