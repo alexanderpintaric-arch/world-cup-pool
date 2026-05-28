@@ -207,6 +207,136 @@ function ReceiptMock() {
   );
 }
 
+// ── 4. All-rounds timeline (pick every game; points climb) ──────────────────
+function RoundsMock() {
+  const rounds = [
+    { name: "Group Stage",   sub: "72 matches · ✓ all picked", pts: 1, done: true },
+    { name: "Round of 32",   sub: "16 matches",                pts: 2 },
+    { name: "Round of 16",   sub: "8 matches",                 pts: 3 },
+    { name: "Quarterfinals", sub: "4 matches",                 pts: 4 },
+    { name: "Semifinals",    sub: "2 matches",                 pts: 5 },
+    { name: "Final",         sub: "1 match",                   pts: 6, last: true },
+  ];
+  return (
+    <Frame label="My Picks · All rounds">
+      <div className="relative">
+        {/* connector line */}
+        <span className="absolute top-4 bottom-4 left-[4px] w-px bg-line" aria-hidden="true" />
+        {rounds.map((r, i) => (
+          <div key={i} className="relative flex items-center gap-3.5 py-2">
+            <span
+              className="relative z-10 h-2.5 w-2.5 rounded-full flex-shrink-0"
+              style={{
+                background: r.done ? "var(--color-green-deep)" : "var(--color-card)",
+                border: `1.5px solid ${r.done ? "var(--color-green-deep)" : "var(--color-line)"}`,
+              }}
+            />
+            <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
+              <div className="min-w-0">
+                <div className="font-serif text-[15px] font-medium ink leading-tight" style={{ fontVariationSettings: '"opsz" 24' }}>{r.name}</div>
+                <div className="font-mono text-[10px] ink-faint mt-0.5">{r.sub}</div>
+              </div>
+              <span
+                className={`font-mono text-[11px] font-bold tabular px-2.5 py-1 rounded-md flex-shrink-0 border
+                  ${r.last ? "bg-ink text-paper border-ink" : "bg-paper-deep ink-soft border-line"}`}
+              >
+                {r.pts} pt
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Frame>
+  );
+}
+
+// ── 5. Pool distribution (competitive split) ────────────────────────────────
+function PoolMock() {
+  const HOME = "#1B7A3D", DRAW = "#A07820", AWAY = "#1E40AF";
+  return (
+    <Frame label="The Pool · Group C">
+      <div className="flex items-center justify-between mb-3">
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] ink-faint">Match 3 · 24 picks in</span>
+        <span className="font-mono text-[10px] tabular ink-faint">Jun 19</span>
+      </div>
+
+      <div className="flex items-center justify-between gap-3 mb-3.5">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Flag team="France" size={20} />
+          <span className="font-serif text-[15px] font-medium ink truncate" style={{ fontVariationSettings: '"opsz" 24' }}>France</span>
+        </div>
+        <span className="font-serif italic text-[12px] ink-faint flex-shrink-0">vs</span>
+        <div className="flex items-center gap-2 flex-1 min-w-0 justify-end">
+          <span className="font-serif text-[15px] font-medium ink truncate text-right" style={{ fontVariationSettings: '"opsz" 24' }}>Brazil</span>
+          <Flag team="Brazil" size={20} />
+        </div>
+      </div>
+
+      {/* Distribution bar */}
+      <div className="flex h-9 rounded-md overflow-hidden" style={{ gap: "1px", background: "var(--color-line)" }}>
+        {[{ pct: 48, c: HOME }, { pct: 19, c: DRAW }, { pct: 33, c: AWAY }].map((s, i) => (
+          <div key={i} className="relative flex items-center justify-center min-w-0" style={{ flex: s.pct, background: s.c }}>
+            <span className="font-mono text-[10px] font-semibold tabular" style={{ color: "rgba(255,255,255,0.9)" }}>{s.pct}%</span>
+          </div>
+        ))}
+      </div>
+
+      {/* Legend */}
+      <div className="mt-4 flex items-start justify-between gap-4">
+        <div className="flex flex-col items-start gap-1.5 ink">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: HOME }} />
+            <span className="font-mono text-[15px] font-semibold tabular leading-none">48%</span>
+          </div>
+          <span className="font-mono text-[12px] ink-faint leading-none pl-[18px]">11 picks</span>
+          <span className="font-mono text-[11px] font-semibold text-accent leading-none pl-[18px]">← you</span>
+        </div>
+        <div className="flex flex-col items-center gap-1.5 ink-faint">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: DRAW }} />
+            <span className="font-mono text-[15px] font-semibold tabular leading-none">19%</span>
+          </div>
+          <span className="font-mono text-[12px] leading-none">Draw</span>
+        </div>
+        <div className="flex flex-col items-end gap-1.5 ink-faint">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-[15px] font-semibold tabular leading-none">33%</span>
+            <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: AWAY }} />
+          </div>
+          <span className="font-mono text-[12px] leading-none pr-[18px]">8 picks</span>
+        </div>
+      </div>
+    </Frame>
+  );
+}
+
+// ── 6. Notifications (deadline alerts) ──────────────────────────────────────
+function NotificationsMock() {
+  const notes = [
+    { icon: "⏰", bg: "bg-accent-soft", title: "Round of 16 picks lock in 24 hours", sub: "Last call — review your slip before kickoff", time: "1h" },
+    { icon: "🏆", bg: "bg-gold-soft",   title: "The Lads is live — here's the playbook", sub: "Your league code: 8MCGJ4", time: "2d" },
+    { icon: "⚽", bg: "bg-green-soft",  title: "Brazil 2–0 Senegal — you won +1", sub: "You're up to 3rd in The Lads", time: "3d" },
+  ];
+  return (
+    <Frame label="Notifications">
+      <div className="space-y-2.5">
+        {notes.map((n, i) => (
+          <div key={i} className="flex items-start gap-3 rounded-lg border border-line bg-paper/50 px-3.5 py-3">
+            <span className={`flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-[14px] emoji ${n.bg}`}>{n.icon}</span>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline justify-between gap-2">
+                <span className="font-serif text-[13.5px] font-medium ink leading-tight" style={{ fontVariationSettings: '"opsz" 24' }}>{n.title}</span>
+                <span className="font-mono text-[9.5px] ink-faint flex-shrink-0">{n.time}</span>
+              </div>
+              <p className="text-[11.5px] ink-faint mt-1 leading-snug truncate">{n.sub}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Frame>
+  );
+}
+
 // ── Feature row (text + mock, alternating) ──────────────────────────────────
 function FeatureRow({ kicker, title, body, mock, flip, delay }: {
   kicker: string; title: React.ReactNode; body: string; mock: React.ReactNode; flip?: boolean; delay?: number;
@@ -244,8 +374,23 @@ export default function LandingShowcase() {
       <FeatureRow
         kicker="Make your picks"
         title={<>Pick every match. <span className="italic text-accent">Odds included.</span></>}
-        body="Tap a winner — or call a draw — for all 104 matches. Live bookmaker odds sit on every option in American format, so you always know the underdog from the lock. Picks save the instant you tap, and you can change your mind right up to kickoff."
+        body="Tap a winner — or call a draw — for every match. Live bookmaker odds sit on every option in American format, so you always know the underdog from the lock. Picks save the instant you tap, and you can change your mind right up to kickoff."
         mock={<PicksMock />}
+      />
+
+      <FeatureRow
+        kicker="Every round"
+        title={<>From the opener <span className="italic text-accent">to the final.</span></>}
+        body="You don't just call the group stage — you pick every game in every round, all the way to the final. Each knockout round is worth more than the last, so the points (and the stakes) climb to the final whistle."
+        mock={<RoundsMock />}
+        flip
+      />
+
+      <FeatureRow
+        kicker="See the split"
+        title={<>Watch the pool <span className="italic text-accent">fight it out.</span></>}
+        body="See exactly how your league voted on every match. The percentages lay bare the favourites, the toss-ups, and who's brave enough to back the underdog. It gets competitive fast."
+        mock={<PoolMock />}
       />
 
       <FeatureRow
@@ -261,6 +406,14 @@ export default function LandingShowcase() {
         title={<>Every round, <span className="italic text-accent">printed like a bet slip.</span></>}
         body="Your picks, your odds, your hits and misses — laid out as a tear-off receipt with the locked-in price beside each call. One for every round, ready to copy or print and settle any argument."
         mock={<ReceiptMock />}
+      />
+
+      <FeatureRow
+        kicker="Never miss a deadline"
+        title={<>We&rsquo;ll tap you <span className="italic text-accent">on the shoulder.</span></>}
+        body="Get an email the moment each round opens, plus a 24-hour warning before picks lock. Make your calls, then let us keep you on schedule — no spreadsheets, no nagging the group chat."
+        mock={<NotificationsMock />}
+        flip
       />
     </section>
   );
