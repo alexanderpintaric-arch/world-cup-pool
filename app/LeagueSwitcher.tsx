@@ -34,16 +34,18 @@ export function LeagueSwitcher({
   return (
     <div ref={ref} className="relative">
 
-      {/* Pill trigger */}
+      {/* Chip trigger */}
       <button
         onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13px] font-medium transition-colors
-          ${open ? "bg-paper-deep ink" : "ink-soft hover:ink hover:bg-paper-deep"}`}
+        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[13px] font-medium transition-colors
+          ${open
+            ? "bg-paper-deep border-line ink"
+            : "border-line/70 ink-soft hover:ink hover:border-line hover:bg-paper-deep"}`}
       >
         <span className="h-1.5 w-1.5 rounded-full bg-accent flex-shrink-0" />
-        <span className="max-w-[110px] truncate leading-none">{active.name}</span>
+        <span className="max-w-[88px] sm:max-w-[120px] truncate leading-none">{active.name}</span>
         <svg
-          className={`h-3 w-3 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`}
+          className={`h-3 w-3 flex-shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`}
           viewBox="0 0 12 12" fill="none"
         >
           <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

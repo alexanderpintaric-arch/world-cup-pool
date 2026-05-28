@@ -17,38 +17,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-screen">
 
         <header className="sticky top-0 z-40 bg-paper/85 backdrop-blur-md border-b border-line">
-          <div className="mx-auto max-w-6xl flex items-center justify-between px-5 sm:px-8 h-14">
+          <div className="mx-auto max-w-6xl flex items-center justify-between gap-4 px-5 sm:px-8 h-14 sm:h-16">
 
             {/* Brand */}
-            <a href="/" className="flex items-baseline gap-2 group select-none">
-              <span className="font-serif italic text-[20px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 60'}}>
+            <a href="/" className="flex items-baseline gap-2 group select-none shrink-0">
+              <span className="font-serif italic text-[21px] font-medium ink leading-none" style={{fontVariationSettings: '"opsz" 60'}}>
                 Nutmeg
               </span>
-              <span className="font-mono text-[10px] font-medium tabular ink-faint group-hover:text-accent transition-colors hidden sm:inline">
-                World Cup 2026
+              <span className="font-mono text-[9.5px] font-medium uppercase tracking-[0.18em] tabular ink-faint group-hover:text-accent transition-colors hidden sm:inline pb-[1px]">
+                WC&rsquo;26
               </span>
             </a>
 
-            {/* Nav — desktop only */}
-            <nav className="flex items-center gap-1 sm:gap-2">
-              {/* Nav links: hidden on mobile, shown on sm+ */}
-              <div className="hidden sm:flex items-center gap-1">
+            {/* Nav cluster */}
+            <nav className="flex items-center gap-2 sm:gap-4">
+              {/* Section links + admin: hidden on mobile (bottom bar covers it) */}
+              <div className="hidden sm:flex items-center gap-2">
                 <NavLinksWrapper />
                 <AdminNavLink />
               </div>
-              <div className="ml-0 sm:ml-2">
-                <LeagueNav />
-              </div>
-              <div className="ml-1 sm:ml-3">
-                <AuthButton />
-              </div>
+              <LeagueNav />
+              <AuthButton />
             </nav>
 
           </div>
         </header>
 
-        {/* Extra bottom padding on mobile to clear the fixed bottom nav */}
-        <main className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 py-8 sm:py-12 pb-24 sm:pb-12">
+        {/* Extra bottom padding on mobile to clear the fixed bottom nav + safe area */}
+        <main className="relative z-10 mx-auto max-w-6xl px-5 sm:px-8 py-8 sm:py-12 pb-28 sm:pb-12">
           {children}
         </main>
 
@@ -116,9 +112,9 @@ async function AdminNavLink() {
   return (
     <a
       href="/admin"
-      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[13.5px] font-medium ink-soft hover:ink hover:bg-paper-deep transition-colors"
+      className="group/admin flex items-center gap-1.5 px-3.5 py-2 text-[13.5px] font-medium tracking-[-0.01em] ink-faint hover:ink transition-colors"
     >
-      <span className="h-1.5 w-1.5 rounded-full bg-accent flex-shrink-0" />
+      <span className="h-1.5 w-1.5 rounded-full bg-accent flex-shrink-0 transition-transform group-hover/admin:scale-125" />
       Admin
     </a>
   );
@@ -131,8 +127,8 @@ async function AuthButton() {
     const initials = (session.user.name ?? session.user.email ?? "?")
       .split(/\s+/).map(s => s[0]).join("").slice(0, 2).toUpperCase();
     return (
-      <form action={handleSignOut} className="flex items-center gap-2">
-        <div className="h-7 w-7 rounded-full bg-ink text-paper flex items-center justify-center text-[10px] font-semibold tracking-wide flex-shrink-0">
+      <form action={handleSignOut} className="flex items-center gap-2.5">
+        <div className="h-8 w-8 rounded-full bg-ink text-paper flex items-center justify-center text-[10.5px] font-semibold tracking-wide flex-shrink-0 ring-1 ring-transparent hover:ring-accent/40 transition-all">
           {initials}
         </div>
         {/* "Sign out" text hidden on mobile — too cramped */}
