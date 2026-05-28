@@ -98,6 +98,7 @@ export interface LeagueWithRole extends League {
 
 export interface SyncResult {
   matchesUpdated: number;
+  oddsUpdated: number;
   roundsOpened: string[];
   emailsSent: number;
   error?: string;

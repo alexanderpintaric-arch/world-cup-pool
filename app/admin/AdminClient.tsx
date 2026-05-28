@@ -10,6 +10,7 @@ export default function AdminClient({ lastSync, stats }: Props) {
   const [syncing, setSyncing] = useState(false);
   const [result, setResult] = useState<{
     matchesUpdated: number;
+    oddsUpdated: number;
     roundsOpened: string[];
     emailsSent: number;
     error?: string;
@@ -24,7 +25,7 @@ export default function AdminClient({ lastSync, stats }: Props) {
       const data = await res.json();
       setResult(data);
     } catch {
-      setResult({ matchesUpdated: 0, roundsOpened: [], emailsSent: 0, error: "Network error", syncedAt: new Date().toISOString() });
+      setResult({ matchesUpdated: 0, oddsUpdated: 0, roundsOpened: [], emailsSent: 0, error: "Network error", syncedAt: new Date().toISOString() });
     } finally {
       setSyncing(false);
     }
@@ -101,7 +102,7 @@ export default function AdminClient({ lastSync, stats }: Props) {
             <p className="text-[13.5px] ink-faint italic font-serif">No syncs recorded yet.</p>
           )}
           <p className="mt-5 pt-4 border-t border-[color:var(--line-soft)] font-mono text-[10.5px] ink-faint">
-            Auto-sync runs every 15 minutes via Vercel Cron.
+            Auto-sync runs daily at 15:00 UTC via Vercel Cron.
           </p>
         </div>
       </section>
@@ -156,6 +157,7 @@ export default function AdminClient({ lastSync, stats }: Props) {
               )}
               <dl className="space-y-1 text-[13px] ink-soft">
                 <Row label="Matches updated" value={String(result.matchesUpdated)} compact mono />
+                <Row label="Odds refreshed" value={result.oddsUpdated > 0 ? String(result.oddsUpdated) : "none available"} compact mono />
                 <Row label="Emails sent" value={String(result.emailsSent)} compact mono />
                 {result.roundsOpened.length > 0 && (
                   <Row label="Rounds opened" value={result.roundsOpened.join(", ")} compact />

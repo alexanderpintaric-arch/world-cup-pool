@@ -15,6 +15,7 @@ const REMIND_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h
 export async function runSync(): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
   let matchesUpdated = 0;
+  let oddsUpdated = 0;
   const roundsOpened: string[] = [];
   let emailsSent = 0;
   let error = "";
@@ -41,7 +42,10 @@ export async function runSync(): Promise<SyncResult> {
     // 5. Fetch odds (non-fatal) — pass fresh matches so IDs can be resolved by team name
     try {
       const odds = await fetchWCOdds(freshMatches);
-      if (odds.length > 0) await upsertOdds(odds);
+      if (odds.length > 0) {
+        await upsertOdds(odds);
+        oddsUpdated = odds.length;
+      }
     } catch (e) {
       console.error("Odds sync failed (non-fatal):", e);
     }
@@ -169,5 +173,5 @@ export async function runSync(): Promise<SyncResult> {
     error,
   });
 
-  return { matchesUpdated, roundsOpened, emailsSent, error: error || undefined, syncedAt };
+  return { matchesUpdated, oddsUpdated, roundsOpened, emailsSent, error: error || undefined, syncedAt };
 }
