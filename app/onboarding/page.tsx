@@ -11,12 +11,16 @@ export default async function OnboardingPage({
   const session = await auth();
   if (!session?.user?.email) redirect("/auth/signin");
 
-  // Users who already belong to a league have nothing to do here
-  const leagues = await getUserLeagues(session.user.email);
-  if (leagues.length > 0) redirect("/");
-
   const params = await searchParams;
-  const defaultMode = params.mode === "join" ? "join" : "create";
+  const mode = params.mode === "join" ? "join" : params.mode === "create" ? "create" : null;
 
-  return <OnboardingClient defaultMode={defaultMode} />;
+  // Only auto-bounce home when there's no explicit intent to create/join.
+  // This lets existing members reach onboarding to add ANOTHER league, while
+  // still keeping aimless visits (e.g. a stale /onboarding link) off the page.
+  if (!mode) {
+    const leagues = await getUserLeagues(session.user.email);
+    if (leagues.length > 0) redirect("/");
+  }
+
+  return <OnboardingClient defaultMode={mode ?? "create"} />;
 }
