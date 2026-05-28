@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import type { Match, RoundState, Round } from "@/lib/types";
 import { inferGroups } from "@/lib/services/grouping";
 import Flag from "@/components/Flag";
@@ -44,6 +44,9 @@ export default function CommunityClient({
     activeRound?.round ?? "GROUP"
   );
   const [modal, setModal] = useState<ModalState | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<"all" | "contested" | "my-picks">("all");
+  const searchRef = useRef<HTMLInputElement>(null);
 
   const groups           = useMemo(() => inferGroups(matches), [matches]);
   const roundsWithMatches = roundStates.filter(r => r.matchCount > 0);
@@ -56,6 +59,58 @@ export default function CommunityClient({
   );
 
   const isGroupStage = selectedRound === "GROUP";
+  const searchQuery = search.trim().toLowerCase();
+
+  // Reset search + filter when switching rounds
+  useEffect(() => { setSearch(""); setFilter("all"); }, [selectedRound]);
+
+  // "/" shortcut to focus the search box
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName;
+      if (e.key === "/" && tag !== "INPUT" && tag !== "TEXTAREA") {
+        e.preventDefault();
+        searchRef.current?.focus();
+      }
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Compute filter counts for pill labels
+  const contestedCount = useMemo(() =>
+    roundMatches.filter(m => {
+      const { H, A, T, total } = counts[m.matchId] ?? { H: 0, A: 0, T: 0, total: 0 };
+      if (total === 0) return false;
+      return Math.max(H, A, T) / total <= 0.6;
+    }).length,
+    [roundMatches, counts]
+  );
+  const myPicksCount = useMemo(() =>
+    roundMatches.filter(m => !!myPicks[m.matchId]).length,
+    [roundMatches, myPicks]
+  );
+
+  // Filtered matches — null = show everything normally (no active filters)
+  const filteredMatches = useMemo(() => {
+    const isActive = searchQuery.length > 0 || filter !== "all";
+    if (!isActive) return null;
+    return roundMatches.filter(m => {
+      // Search
+      if (searchQuery &&
+          !m.homeTeam.toLowerCase().includes(searchQuery) &&
+          !m.awayTeam.toLowerCase().includes(searchQuery)) return false;
+      // Filter: Contested — top pick ≤ 60% of the pool
+      if (filter === "contested") {
+        const { H, A, T, total } = counts[m.matchId] ?? { H: 0, A: 0, T: 0, total: 0 };
+        if (total === 0) return false;
+        return Math.max(H, A, T) / total <= 0.6;
+      }
+      // Filter: My picks — only games I've voted on
+      if (filter === "my-picks") return !!myPicks[m.matchId];
+      return true;
+    });
+  }, [roundMatches, searchQuery, filter, counts, myPicks]);
 
   function openModal(match: Match) {
     const result: Option | null =
@@ -125,8 +180,111 @@ export default function CommunityClient({
         </div>
       </nav>
 
+      {/* ── SEARCH + FILTER BAR ─────────────────────────────── */}
+      {roundMatches.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 anim-fade-up" style={{ animationDelay: "80ms" }}>
+
+          {/* Search input */}
+          <div className={`flex flex-1 min-w-[180px] items-center gap-2.5 px-3.5 h-10 rounded-lg border transition-all duration-150
+            ${search ? "border-ink/30 bg-card shadow-paper" : "border-line bg-card/60 hover:border-line/80"}`}
+          >
+            <svg className="h-3.5 w-3.5 flex-shrink-0 ink-faint/50" fill="none" viewBox="0 0 16 16" aria-hidden="true">
+              <circle cx="6.5" cy="6.5" r="4" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M9.5 9.5L13 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <input
+              ref={searchRef}
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              onKeyDown={e => e.key === "Escape" && (setSearch(""), searchRef.current?.blur())}
+              placeholder="Search teams…"
+              aria-label="Search teams in this round"
+              className="flex-1 bg-transparent text-[13.5px] ink placeholder:ink-faint/40 outline-none min-w-0"
+            />
+            {search ? (
+              <button
+                onClick={() => { setSearch(""); searchRef.current?.focus(); }}
+                aria-label="Clear search"
+                className="flex-shrink-0 p-1 rounded ink-faint/40 hover:ink-faint transition-colors"
+              >
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 12 12" aria-hidden="true">
+                  <path d="M2 2L10 10M10 2L2 10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </button>
+            ) : (
+              <kbd className="hidden sm:flex items-center font-mono text-[9px] ink-faint/30 border border-line/50 rounded px-1.5 py-0.5 flex-shrink-0 select-none">
+                /
+              </kbd>
+            )}
+          </div>
+
+          {/* Filter pills */}
+          <div className="flex items-center gap-1 flex-shrink-0" role="group" aria-label="Filter matches">
+            {([
+              { value: "all",       label: "All",       count: roundMatches.length, title: undefined },
+              { value: "contested", label: "Contested",  count: contestedCount,      title: "Pool split — top pick ≤ 60%" },
+              { value: "my-picks",  label: "My picks",  count: myPicksCount,        title: "Games you've voted on" },
+            ] as const).map(({ value, label, count, title }) => (
+              <button
+                key={value}
+                onClick={() => setFilter(value)}
+                title={title}
+                className={`flex items-center gap-1.5 h-10 px-3 rounded-lg text-[12.5px] font-medium border transition-all
+                  ${filter === value
+                    ? "bg-ink text-paper border-ink"
+                    : "bg-card/60 border-line ink-soft hover:ink hover:border-line/80"
+                  }`}
+              >
+                {label}
+                <span className={`font-mono text-[10px] tabular ${filter === value ? "text-paper/50" : "ink-faint/60"}`}>
+                  {count}
+                </span>
+              </button>
+            ))}
+          </div>
+
+        </div>
+      )}
+
       {/* ── MATCH LIST ──────────────────────────────────────── */}
-      {isGroupStage ? (
+      {filteredMatches !== null ? (
+        /* ── FILTERED / SEARCH RESULTS ──────────────────────── */
+        filteredMatches.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3">
+            <svg className="h-8 w-8 ink-faint/30" fill="none" viewBox="0 0 32 32" aria-hidden="true">
+              <circle cx="14" cy="14" r="8" stroke="currentColor" strokeWidth="1.5"/>
+              <path d="M20 20L28 28" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            <p className="font-serif italic text-[16px] ink-faint/70" style={{ fontVariationSettings: '"opsz" 32' }}>
+              {filter === "contested" && !search
+                ? "No close calls yet — the pool has strong opinions."
+                : filter === "my-picks" && !search
+                  ? "No picks made in this round yet."
+                  : <>No matches found for &ldquo;{search}&rdquo;</>}
+            </p>
+            <button
+              onClick={() => { setSearch(""); setFilter("all"); }}
+              className="font-mono text-[11px] text-accent/80 hover:text-accent underline underline-offset-2 transition-colors"
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2 anim-fade-up">
+            {filteredMatches.map((match, i) => (
+              <MatchPicksCard
+                key={match.matchId}
+                match={match}
+                matchNumber={i + 1}
+                count={counts[match.matchId] ?? { H: 0, A: 0, T: 0, total: 0 }}
+                myPick={myPicks[match.matchId] ?? null}
+                onBarClick={() => openModal(match)}
+              />
+            ))}
+          </div>
+        )
+      ) : isGroupStage ? (
         <div className="space-y-12">
           {groups.map((group, gi) => (
             <section
