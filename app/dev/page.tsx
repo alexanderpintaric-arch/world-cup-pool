@@ -147,41 +147,49 @@ const MOCK_LEADERBOARD: LeaderboardEntry[] = [
     email: "alexanderpintaric@gmail.com", name: "Alexander Pintaric",
     totalScore: 7, maxPossibleScore: 72, correctPicks: 4, totalPicks: 5,
     scoreByRound: { GROUP: 7, ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINALS: 0, SEMI_FINALS: 0, FINAL: 0 },
+    streak: 3, upsets: 2,
   },
   {
     email: "sarah@example.com", name: "Sarah Chen",
     totalScore: 6, maxPossibleScore: 72, correctPicks: 3, totalPicks: 5,
     scoreByRound: { GROUP: 6, ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINALS: 0, SEMI_FINALS: 0, FINAL: 0 },
+    streak: 2, upsets: 1,
   },
   {
     email: "mike@example.com", name: "Mike Torres",
     totalScore: 5, maxPossibleScore: 72, correctPicks: 4, totalPicks: 5,
     scoreByRound: { GROUP: 5, ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINALS: 0, SEMI_FINALS: 0, FINAL: 0 },
+    streak: 4, upsets: 0,
   },
   {
     email: "jana@example.com", name: "Jana Novak",
     totalScore: 4, maxPossibleScore: 72, correctPicks: 3, totalPicks: 5,
     scoreByRound: { GROUP: 4, ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINALS: 0, SEMI_FINALS: 0, FINAL: 0 },
+    streak: 0, upsets: 3,
   },
   {
     email: "liam@example.com", name: "Liam Walsh",
     totalScore: 4, maxPossibleScore: 72, correctPicks: 3, totalPicks: 5,
     scoreByRound: { GROUP: 4, ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINALS: 0, SEMI_FINALS: 0, FINAL: 0 },
+    streak: 0, upsets: 0,
   },
   {
     email: "priya@example.com", name: "Priya Sharma",
     totalScore: 3, maxPossibleScore: 72, correctPicks: 2, totalPicks: 5,
     scoreByRound: { GROUP: 3, ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINALS: 0, SEMI_FINALS: 0, FINAL: 0 },
+    streak: 2, upsets: 1,
   },
   {
     email: "tom@example.com", name: "Tom Eriksen",
     totalScore: 2, maxPossibleScore: 72, correctPicks: 2, totalPicks: 5,
     scoreByRound: { GROUP: 2, ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINALS: 0, SEMI_FINALS: 0, FINAL: 0 },
+    streak: 0, upsets: 0,
   },
   {
     email: "cam@example.com", name: "Cameron Hill",
     totalScore: 1, maxPossibleScore: 72, correctPicks: 1, totalPicks: 5,
     scoreByRound: { GROUP: 1, ROUND_OF_32: 0, ROUND_OF_16: 0, QUARTER_FINALS: 0, SEMI_FINALS: 0, FINAL: 0 },
+    streak: 0, upsets: 0,
   },
 ];
 

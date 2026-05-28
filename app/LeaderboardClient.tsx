@@ -371,6 +371,27 @@ export default function LeaderboardClient({
                                   Pick your team
                                 </button>
                               ) : null}
+                              {/* Streak + upset badges */}
+                              {(entry.streak >= 2 || entry.upsets >= 1) && (
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                  {entry.streak >= 2 && (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 font-mono text-[9px] text-gold bg-gold-soft border border-gold/20 rounded px-1.5 py-0.5 leading-none"
+                                      title={`${entry.streak} correct picks in a row`}
+                                    >
+                                      🔥 {entry.streak}
+                                    </span>
+                                  )}
+                                  {entry.upsets >= 1 && (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 font-mono text-[9px] text-accent/70 bg-accent-soft border border-accent/10 rounded px-1.5 py-0.5 leading-none"
+                                      title={`${entry.upsets} brave pick${entry.upsets !== 1 ? "s" : ""} came in`}
+                                    >
+                                      ⚡ {entry.upsets}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -408,6 +429,41 @@ export default function LeaderboardClient({
           <a href="/picks" className="mt-7 inline-flex items-center gap-2 text-[13.5px] font-semibold text-accent editorial-underline">
             Make your picks early <span className="font-mono">&rarr;</span>
           </a>
+        </section>
+      )}
+
+      {/* ── FLAIR — streak + upset king ─────────────────────── */}
+      {leaderboard.some(e => e.streak >= 2 || e.upsets >= 1) && (
+        <section className="anim-fade-up" style={{ animationDelay: "120ms" }}>
+          <SectionHeader kicker="Bragging Rights" title="Individual flair" />
+          <div className="mt-6 grid sm:grid-cols-2 gap-4">
+            <FlairCard
+              emoji="🔥"
+              title="Hottest streak"
+              subtitle="Current run of consecutive correct picks"
+              entries={[...leaderboard]
+                .filter(e => e.streak >= 2)
+                .sort((a, b) => b.streak - a.streak)
+                .slice(0, 3)}
+              getValue={e => e.streak}
+              formatValue={v => `${v} in a row`}
+              currentUserEmail={currentUserEmail}
+              emptyText="No active streaks yet"
+            />
+            <FlairCard
+              emoji="⚡"
+              title="Upset king"
+              subtitle="Correct picks where < 30% of the pool agreed"
+              entries={[...leaderboard]
+                .filter(e => e.upsets >= 1)
+                .sort((a, b) => b.upsets - a.upsets)
+                .slice(0, 3)}
+              getValue={e => e.upsets}
+              formatValue={v => `${v} ${v === 1 ? "upset" : "upsets"}`}
+              currentUserEmail={currentUserEmail}
+              emptyText="No upsets called yet"
+            />
+          </div>
         </section>
       )}
 
@@ -982,6 +1038,83 @@ function TeamPickerModal({
           </p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── FlairCard ──────────────────────────────────────────────────────────────
+
+function FlairCard({
+  emoji, title, subtitle, entries, getValue, formatValue, currentUserEmail, emptyText,
+}: {
+  emoji:             string;
+  title:             string;
+  subtitle:          string;
+  entries:           LeaderboardEntry[];
+  getValue:          (e: LeaderboardEntry) => number;
+  formatValue:       (v: number) => string;
+  currentUserEmail:  string | null;
+  emptyText:         string;
+}) {
+  return (
+    <div className="bg-card border border-line rounded-xl p-5 sm:p-6 shadow-paper">
+      {/* Card header */}
+      <div className="flex items-start gap-3 mb-5">
+        <span className="text-[22px] leading-none mt-0.5 flex-shrink-0">{emoji}</span>
+        <div>
+          <h3
+            className="font-serif text-[17px] font-medium ink leading-tight"
+            style={{ fontVariationSettings: '"opsz" 32' }}
+          >
+            {title}
+          </h3>
+          <p className="font-mono text-[9.5px] ink-faint mt-0.5 leading-relaxed">{subtitle}</p>
+        </div>
+      </div>
+
+      {entries.length === 0 ? (
+        <p className="font-serif italic text-[13.5px] ink-faint/70">{emptyText}</p>
+      ) : (
+        <div className="space-y-3">
+          {entries.map((e, i) => {
+            const value    = getValue(e);
+            const isMe     = e.email === currentUserEmail;
+            const isFirst  = i === 0;
+            return (
+              <div
+                key={e.email}
+                className={`flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors
+                  ${isFirst ? "bg-paper-deep/70" : ""}`}
+              >
+                {/* Rank */}
+                <span className="font-mono text-[10px] tabular ink-faint/50 w-3 flex-shrink-0 text-center">
+                  {i + 1}
+                </span>
+                {/* Avatar */}
+                <div className="h-7 w-7 rounded-full bg-ink text-paper flex items-center justify-center text-[8.5px] font-semibold flex-shrink-0">
+                  {initials(e.name)}
+                </div>
+                {/* Name */}
+                <span
+                  className="font-serif text-[14px] font-medium ink flex-1 min-w-0 truncate"
+                  style={{ fontVariationSettings: '"opsz" 24' }}
+                >
+                  {formatName(e.name)}
+                  {isMe && (
+                    <span className="ml-2 font-mono text-[9px] uppercase tracking-[0.12em] text-green-deep not-italic">
+                      you
+                    </span>
+                  )}
+                </span>
+                {/* Value */}
+                <span className="font-mono text-[12px] tabular font-semibold ink-soft flex-shrink-0">
+                  {formatValue(value)}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

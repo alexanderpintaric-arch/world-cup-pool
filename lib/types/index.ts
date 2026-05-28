@@ -50,6 +50,10 @@ export interface LeaderboardEntry {
   correctPicks: number;
   totalPicks: number;
   supportedTeam?: string | null;
+  /** Current active streak of consecutive correct picks (0 = none) */
+  streak: number;
+  /** Count of correct picks where < 30% of the pool chose the same outcome */
+  upsets: number;
   tiebreaker?: {
     finalHomeScore: number | null;
     finalAwayScore: number | null;

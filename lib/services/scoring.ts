@@ -8,6 +8,23 @@ export function computeLeaderboard(
 ): LeaderboardEntry[] {
   const matchMap = new Map(allMatches.map(m => [m.matchId, m]));
 
+  // ── Pool pick counts (used for upset detection) ─────────────────────────
+  // Count how many league members picked each outcome per match.
+  type PickCount = { H: number; A: number; T: number; total: number };
+  const poolCounts = new Map<string, PickCount>();
+  for (const p of allPicks) {
+    if (!p.pick) continue;
+    if (!poolCounts.has(p.matchId)) poolCounts.set(p.matchId, { H: 0, A: 0, T: 0, total: 0 });
+    const c = poolCounts.get(p.matchId)!;
+    (c[p.pick as "H" | "A" | "T"])++;
+    c.total++;
+  }
+
+  // ── Finished matches sorted chronologically (for streak calculation) ────
+  const finishedSorted = allMatches
+    .filter(m => m.status === "FINISHED" && m.result)
+    .sort((a, b) => new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime());
+
   // Group picks by email
   const picksByEmail = new Map<string, Pick[]>();
   for (const p of allPicks) {
@@ -17,11 +34,13 @@ export function computeLeaderboard(
 
   const entries: LeaderboardEntry[] = users.map(user => {
     const picks = picksByEmail.get(user.email) ?? [];
+    const pickMap = new Map(picks.map(p => [p.matchId, p]));
     const scoreByRound = {} as Record<Round, number>;
     let totalScore = 0;
     let maxPossible = 0;
     let correct = 0;
     let total = 0;
+    let upsets = 0;
 
     for (const round of Object.keys(ROUND_CONFIG) as Round[]) {
       scoreByRound[round] = 0;
@@ -38,6 +57,13 @@ export function computeLeaderboard(
           scoreByRound[pick.round] = (scoreByRound[pick.round] ?? 0) + pts;
           totalScore += pts;
           correct++;
+
+          // Upset: correct AND < 30% of the pool backed this outcome
+          const pool = poolCounts.get(pick.matchId);
+          if (pool && pool.total > 0) {
+            const pct = pool[pick.pick as "H" | "A" | "T"] / pool.total;
+            if (pct < 0.30) upsets++;
+          }
         }
       } else if (match.status !== "FINISHED") {
         // Match not yet played — counts toward max possible
@@ -46,6 +72,17 @@ export function computeLeaderboard(
     }
 
     maxPossible += totalScore;
+
+    // ── Streak: walk backwards through finished matches ──────────────────
+    // A wrong pick breaks the streak; a missing pick (late joiner) is skipped.
+    let streak = 0;
+    for (let i = finishedSorted.length - 1; i >= 0; i--) {
+      const match = finishedSorted[i];
+      const pick = pickMap.get(match.matchId);
+      if (!pick) continue;               // no pick for this match — skip
+      if (pick.pick === match.result) streak++;
+      else break;                        // wrong pick — streak ends
+    }
 
     return {
       email: user.email,
@@ -56,6 +93,8 @@ export function computeLeaderboard(
       correctPicks: correct,
       totalPicks: total,
       supportedTeam: user.supportedTeam ?? null,
+      streak,
+      upsets,
     };
   });
 
