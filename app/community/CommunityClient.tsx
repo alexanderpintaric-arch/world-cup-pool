@@ -11,9 +11,9 @@ type NamedEntry = { name: string; email: string };
 type NamedPicks = { H: NamedEntry[]; A: NamedEntry[]; T: NamedEntry[] };
 type Option     = "H" | "A" | "T";
 
-// Bar colours — green (home) / yellow (draw) / blue (away), dark enough for white text
+// Bar colours — green (home) / sienna (draw) / blue (away), dark enough for white text
 const BAR_HOME = "#1B7A3D";
-const BAR_DRAW = "#A07820";
+const BAR_DRAW = "#9B6040";
 const BAR_AWAY = "#1E40AF";
 
 interface ModalState {
@@ -510,17 +510,15 @@ function MatchPicksCard({
           </div>
         </div>
 
-        {/* Stacked bar — single clickable button.
-            Two-layer segments: bg div (dimmed for losers) + text span (always
-            readable). Winner = full green; losers = 30%-opacity tint + dark
-            text so the % label stays legible regardless of segment size. */}
+        {/* Stacked bar — flag + % embedded in each segment */}
         {total > 0 ? (
           <button
-            className="flex h-9 rounded-md overflow-hidden w-full cursor-pointer hover:opacity-90 transition-opacity"
+            className="flex h-11 rounded-md overflow-hidden w-full cursor-pointer hover:opacity-90 transition-opacity"
             style={{ gap: "1px", background: "var(--color-line)" }}
             onClick={onBarClick}
             title="See all picks"
           >
+            {/* Home segment */}
             {H > 0 && (() => {
               const isWinner = result === "H";
               const isLoser  = result !== null && !isWinner;
@@ -528,18 +526,23 @@ function MatchPicksCard({
               return (
                 <div
                   style={{ flex: H }}
-                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "H" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "H" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
                   <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
                   {pctH >= 14 && (
-                    <span className="relative font-mono text-[10px] tabular leading-none select-none font-semibold"
-                      style={{ color: isLoser ? BAR_HOME : "rgba(255,255,255,0.88)" }}>
-                      {pctH}%
-                    </span>
+                    <div className="relative flex items-center gap-1 px-1 min-w-0">
+                      {pctH >= 28 && <Flag team={match.homeTeam} size={13} className="flex-shrink-0" />}
+                      <span className="font-mono text-[10px] tabular leading-none select-none font-semibold"
+                        style={{ color: isLoser ? BAR_HOME : "rgba(255,255,255,0.9)" }}>
+                        {pctH}%
+                      </span>
+                    </div>
                   )}
                 </div>
               );
             })()}
+
+            {/* Draw segment — group stage only */}
             {!isKnockout && T > 0 && (() => {
               const isWinner = result === "T";
               const isLoser  = result !== null && !isWinner;
@@ -547,18 +550,25 @@ function MatchPicksCard({
               return (
                 <div
                   style={{ flex: T }}
-                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "T" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "T" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
                   <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
                   {pctT >= 14 && (
-                    <span className="relative font-mono text-[10px] tabular leading-none select-none font-semibold"
-                      style={{ color: isLoser ? BAR_DRAW : "rgba(255,255,255,0.88)" }}>
-                      {pctT}%
-                    </span>
+                    <div className="relative flex items-center gap-1 px-0.5">
+                      {pctT >= 28 && (
+                        <span className="text-[11px] leading-none flex-shrink-0" style={{ opacity: isLoser ? 0.5 : 0.85 }}>🤝</span>
+                      )}
+                      <span className="font-mono text-[10px] tabular leading-none select-none font-semibold"
+                        style={{ color: isLoser ? BAR_DRAW : "rgba(255,255,255,0.9)" }}>
+                        {pctT}%
+                      </span>
+                    </div>
                   )}
                 </div>
               );
             })()}
+
+            {/* Away segment */}
             {A > 0 && (() => {
               const isWinner = result === "A";
               const isLoser  = result !== null && !isWinner;
@@ -566,94 +576,51 @@ function MatchPicksCard({
               return (
                 <div
                   style={{ flex: A }}
-                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "A" ? "ring-2 ring-inset ring-white/25" : ""}`}
+                  className={`relative flex items-center justify-center min-w-0 overflow-hidden ${myPick === "A" ? "ring-2 ring-inset ring-white/30" : ""}`}
                 >
                   <div className="absolute inset-0" style={{ background: bg, opacity: isLoser ? 0.28 : 1 }} />
                   {pctA >= 14 && (
-                    <span className="relative font-mono text-[10px] tabular leading-none select-none font-semibold"
-                      style={{ color: isLoser ? BAR_AWAY : "rgba(255,255,255,0.88)" }}>
-                      {pctA}%
-                    </span>
+                    <div className="relative flex items-center gap-1 px-1 min-w-0">
+                      {pctA >= 28 && <Flag team={match.awayTeam} size={13} className="flex-shrink-0" />}
+                      <span className="font-mono text-[10px] tabular leading-none select-none font-semibold"
+                        style={{ color: isLoser ? BAR_AWAY : "rgba(255,255,255,0.9)" }}>
+                        {pctA}%
+                      </span>
+                    </div>
                   )}
                 </div>
               );
             })()}
           </button>
         ) : (
-          <div className="h-9 rounded-md bg-paper-deep border border-line flex items-center justify-center">
+          <div className="h-11 rounded-md bg-paper-deep border border-line flex items-center justify-center">
             <span className="font-mono text-[10.5px] ink-faint">No picks yet — be the first</span>
           </div>
         )}
 
-        {/* Legend */}
-        <div className="mt-4 flex items-start justify-between gap-4">
-          {/* Home */}
-          <button
-            className={`flex flex-col items-start gap-1.5 cursor-pointer transition-colors hover:ink group min-w-0
-              ${myPick === "H" ? "ink" : "ink-faint"}`}
-            onClick={onBarClick}
-          >
-            <div className="flex items-center gap-2">
-              <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: result === "H" ? "var(--color-green-deep)" : BAR_HOME }} />
-              <span className="font-mono text-[15px] font-semibold tabular leading-none">{pctH}%</span>
-            </div>
-            <span className="font-mono text-[12px] leading-none pl-[18px]">
-              {H} {H === 1 ? "pick" : "picks"}
-            </span>
-            {myPick === "H" && (
-              <span className={`font-mono text-[11px] font-semibold mt-0.5 pl-[18px] ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
-                {myPickCorrect ? "✓ you" : myPickWrong ? "✗ you" : "← you"}
-              </span>
-            )}
-          </button>
-
-          {/* Draw — group stage only */}
-          {!isKnockout && (
-            <button
-              className={`flex flex-col items-center gap-1.5 cursor-pointer transition-colors hover:ink
-                ${myPick === "T" ? "ink" : "ink-faint"}`}
-              onClick={onBarClick}
+        {/* Your pick + tap hint — single compact row */}
+        <div className="mt-3 flex items-center justify-between gap-2 min-h-[18px]">
+          {myPick ? (
+            <span className={`font-mono text-[10.5px] flex items-center gap-1
+              ${myPickCorrect ? "text-green-deep" : myPickWrong ? "ink-faint" : "text-accent"}`}
             >
-              <div className="flex items-center gap-2">
-                <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: result === "T" ? "var(--color-green-deep)" : BAR_DRAW }} />
-                <span className="font-mono text-[15px] font-semibold tabular leading-none">{pctT}%</span>
-              </div>
-              <span className="font-mono text-[12px] leading-none">Draw</span>
-              {myPick === "T" && (
-                <span className={`font-mono text-[11px] font-semibold mt-0.5 ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
-                  {myPickCorrect ? "✓ you" : myPickWrong ? "✗ you" : "you"}
-                </span>
-              )}
+              <span>{myPickCorrect ? "✓" : myPickWrong ? "✗" : "›"}</span>
+              <span className={myPickWrong ? "line-through" : ""}>
+                You picked {myPick === "H" ? match.homeTeam : myPick === "A" ? match.awayTeam : "Draw"}
+              </span>
+            </span>
+          ) : (
+            <span />
+          )}
+          {total > 0 && (
+            <button
+              onClick={onBarClick}
+              className="font-mono text-[10px] ink-faint/60 hover:ink-faint transition-colors flex-shrink-0"
+            >
+              see all →
             </button>
           )}
-
-          {/* Away */}
-          <button
-            className={`flex flex-col items-end gap-1.5 cursor-pointer transition-colors hover:ink text-right
-              ${myPick === "A" ? "ink" : "ink-faint"}`}
-            onClick={onBarClick}
-          >
-            <div className="flex items-center gap-2">
-              <span className="font-mono text-[15px] font-semibold tabular leading-none">{pctA}%</span>
-              <span className="h-2.5 w-2.5 rounded-sm flex-shrink-0" style={{ background: result === "A" ? "var(--color-green-deep)" : BAR_AWAY }} />
-            </div>
-            <span className="font-mono text-[12px] leading-none pr-[18px]">
-              {A} {A === 1 ? "pick" : "picks"}
-            </span>
-            {myPick === "A" && (
-              <span className={`font-mono text-[11px] font-semibold mt-0.5 pr-[18px] ${myPickCorrect ? "text-green-deep" : myPickWrong ? "line-through opacity-50" : "text-accent"}`}>
-                {myPickCorrect ? "you ✓" : myPickWrong ? "you ✗" : "you →"}
-              </span>
-            )}
-          </button>
         </div>
-
-        {/* "Click to reveal" hint — only show when there are picks */}
-        {total > 0 && (
-          <p className="mt-4 pt-3 border-t border-[color:var(--line-soft)] font-mono text-[11px] ink-faint/70 text-center leading-none">
-            tap to see all picks
-          </p>
-        )}
       </div>
     </article>
   );
