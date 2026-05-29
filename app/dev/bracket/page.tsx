@@ -67,8 +67,16 @@ const MOCK_ODDS: OddsData[] = MOCK_MATCHES.map((m, i) => {
   };
 });
 
-export default function DevBracketPage() {
+export default async function DevBracketPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   if (process.env.NODE_ENV !== "development") notFound();
+
+  // ?preview → no real teams yet, so the board shows the official seed slots
+  // (1E, 3A/B/C/D/F, …) read-only, exactly as it looks before the group stage.
+  const preview = (await searchParams)?.preview !== undefined;
 
   return (
     <div className="space-y-6">
@@ -84,13 +92,21 @@ export default function DevBracketPage() {
           Click a team to advance them. Winners flow into the next round automatically;
           change an early pick and the downstream slots that depended on it reset.
         </p>
+        <div className="mt-3 flex gap-2 font-mono text-[12px]">
+          <a href="/dev/bracket" className={`px-3 py-1.5 rounded-md border ${!preview ? "bg-ink text-paper border-ink" : "border-line ink-soft hover:ink"}`}>
+            Determined
+          </a>
+          <a href="/dev/bracket?preview" className={`px-3 py-1.5 rounded-md border ${preview ? "bg-ink text-paper border-ink" : "border-line ink-soft hover:ink"}`}>
+            Pre-draw preview
+          </a>
+        </div>
       </header>
 
       <BracketBoard
-        matches={MOCK_MATCHES}
-        odds={MOCK_ODDS}
+        matches={preview ? [] : MOCK_MATCHES}
+        odds={preview ? [] : MOCK_ODDS}
         userBracketPicks={[]}
-        available={true}
+        available={!preview}
         locked={false}
         deadline={daysFromNow(20, 12)}
         sandbox

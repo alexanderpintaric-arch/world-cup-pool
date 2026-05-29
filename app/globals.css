@@ -332,6 +332,7 @@
   display: flex;
   flex-direction: column;
   scroll-margin-left: 12px;
+  width: 220px;
 }
 .bkt-cell {
   flex: 1 1 0;
@@ -347,6 +348,15 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
+  width: 34px;
+}
+
+/* Mobile: compress columns, connectors and vertical spacing so more games
+   fit on screen with less scrolling. */
+@media (max-width: 640px) {
+  .bkt-col { width: 146px; }
+  .bkt-conn { width: 14px; }
+  .bkt-cell { min-height: 98px; padding: 3px 0; }
 }
 .bkt-conn-group {
   flex: 1 1 0;
