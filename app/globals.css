@@ -319,6 +319,64 @@
   .sc-saved { animation: none; opacity: 1; transform: none; }
 }
 
+/* ── Knockout bracket tree (Apple Sports–inspired) ─────────────────────────── */
+/* A real bracket: equal-flex cells per column give automatic vertical centering
+   of each match between its two feeders; connector columns draw elbow joins
+   using fixed 25/50/75% positions that line up with those centered bands. */
+.bkt-tree {
+  display: flex;
+  align-items: stretch;
+  width: max-content;
+}
+.bkt-col {
+  display: flex;
+  flex-direction: column;
+  scroll-margin-left: 12px;
+}
+.bkt-cell {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Must clear a full R32 card (meta line + two 36px team rows + borders) so
+     the equal-flex bands don't compress cards into their neighbours. */
+  min-height: 108px;
+  padding: 4px 0;
+}
+.bkt-conn {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+}
+.bkt-conn-group {
+  flex: 1 1 0;
+  position: relative;
+}
+/* The four segments of one elbow: two feeder stubs, a vertical riser, an outlet */
+.bkt-seg { position: absolute; background: var(--bkt-c, var(--color-line)); transition: background 0.35s ease; }
+.bkt-seg-top { top: 25%; left: 0;   width: 50%; height: 2px; transform: translateY(-1px); border-radius: 1px; }
+.bkt-seg-bot { top: 75%; left: 0;   width: 50%; height: 2px; transform: translateY(-1px); border-radius: 1px; }
+.bkt-seg-vert{ top: 25%; left: 50%; width: 2px; height: 50%; transform: translateX(-1px); border-radius: 1px; }
+.bkt-seg-out { top: 50%; left: 50%; width: 50%; height: 2px; transform: translateY(-1px); border-radius: 1px; }
+
+/* Round rail: density minimap bars, mirrors Apple's column-shape scrubber */
+.bkt-rail-bars { display: flex; flex-direction: column; gap: 2px; align-items: center; justify-content: center; }
+.bkt-rail-bar  { height: 1.5px; border-radius: 1px; background: currentColor; opacity: 0.55; }
+
+/* Champion plate shimmer */
+@keyframes goldSheen {
+  0%, 100% { background-position: -120% 0; }
+  55%      { background-position: 220% 0; }
+}
+.champion-plate {
+  background-image: linear-gradient(110deg, transparent 30%, rgba(160,120,32,0.16) 48%, transparent 66%);
+  background-size: 220% 100%;
+  animation: goldSheen 4.5s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .champion-plate { animation: none; }
+}
+
 /* ── Schedule: pulsing glow on the active (open) round card ────────────────── */
 @keyframes schedGlow {
   0%, 100% {
