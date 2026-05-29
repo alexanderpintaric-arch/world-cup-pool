@@ -65,13 +65,13 @@ export default function BracketBoard({
   });
   const [error, setError] = useState<string | null>(null);
 
-  // ── Round window ───────────────────────────────────────────────────────────
-  // Desktop: fit as many rounds as the pane allows (`fitCount`).
-  // Mobile: the player chooses 1 or 2 rounds by tapping the header chips
-  //         (`mobileSize`), swiping to page between them.
+  // ── Round selection ─────────────────────────────────────────────────────────
+  // Players choose how many rounds to view (1–5, contiguous): defaults to as many
+  // as fit the pane, then columns flex to fill the width. Tapping chips grows or
+  // shrinks the selection — what's selected is exactly what renders.
   const [windowStart, setWindowStart] = useState(0);
-  const [fitCount, setFitCount] = useState(5);
-  const [mobileSize, setMobileSize] = useState<1 | 2>(2);
+  const [windowCount, setWindowCount] = useState(5);
+  const [manualSel, setManualSel] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -87,6 +87,8 @@ export default function BracketBoard({
   }, []);
   // If the viewport grows past mobile while the modal is open, drop out of it.
   useEffect(() => { if (!isMobile && fullscreen) setFullscreen(false); }, [isMobile, fullscreen]);
+  // The modal's width differs from the inline pane — let it re-auto-fit.
+  useEffect(() => { setManualSel(false); }, [fullscreen]);
 
   // Lock body scroll + allow Esc to close while the full-screen modal is open.
   useEffect(() => {
@@ -109,35 +111,34 @@ export default function BracketBoard({
   const teamsSet = r32Slots.some(m => m !== null);
   const readOnly = locked || !teamsSet;
 
-  // Mobile shows the player's chosen 1–2 rounds; desktop fits as many as it can.
-  const visibleCount = isMobile ? mobileSize : fitCount;
-  const maxStart = Math.max(0, KNOCKOUT_ROUNDS.length - visibleCount);
+  const TOTAL_ROUNDS = KNOCKOUT_ROUNDS.length;
+  const maxStart = Math.max(0, TOTAL_ROUNDS - windowCount);
   const clampedStart = Math.min(windowStart, maxStart);
-  const visibleRounds = KNOCKOUT_ROUNDS.slice(clampedStart, clampedStart + visibleCount);
-  const windowed = visibleCount < KNOCKOUT_ROUNDS.length;
+  const endIdx = clampedStart + windowCount - 1;
+  const visibleRounds = KNOCKOUT_ROUNDS.slice(clampedStart, clampedStart + windowCount);
+  const windowed = windowCount < TOTAL_ROUNDS;
 
-  // Desktop: measure the pane and show as many whole columns as fit (1–5).
+  // Auto-fit the round count to the pane width — until the player overrides it.
   useEffect(() => {
     const cont = scrollRef.current;
-    if (!cont) return;
+    if (!cont || manualSel) return;
     const recompute = () => {
       const w = cont.clientWidth;
       const narrow = w < 640;
-      const colW  = narrow ? 146 : 220;
-      const connW = narrow ? 14 : 34;
-      const pad   = 18; // tree + pane horizontal padding
-      const n = Math.floor((w - pad + connW) / (colW + connW));
-      setFitCount(Math.max(1, Math.min(KNOCKOUT_ROUNDS.length, n)));
+      const target = narrow ? 150 : 240; // comfortable column width before adding another
+      const connW  = narrow ? 18 : 30;
+      const n = Math.max(1, Math.min(TOTAL_ROUNDS, Math.floor((w + connW) / (target + connW))));
+      setWindowCount(n);
     };
     recompute();
     const ro = new ResizeObserver(recompute);
     ro.observe(cont);
     return () => ro.disconnect();
-  }, [fullscreen]);
+  }, [fullscreen, manualSel, TOTAL_ROUNDS]);
 
   const moveWindow = useCallback((delta: number) =>
-    setWindowStart(s => Math.min(Math.max(0, s + delta), Math.max(0, KNOCKOUT_ROUNDS.length - visibleCount))),
-    [visibleCount]);
+    setWindowStart(s => Math.min(Math.max(0, s + delta), Math.max(0, TOTAL_ROUNDS - windowCount))),
+    [windowCount, TOTAL_ROUNDS]);
 
   // Swipe left/right to page between rounds (mobile).
   const touch = useRef<{ x: number; y: number } | null>(null);
@@ -169,40 +170,31 @@ export default function BracketBoard({
     cont.scrollTo({ left: Math.max(0, left - 10), top: Math.max(0, top - 8), behavior: "smooth" });
   }, []);
 
-  // Desktop: clicking a round jumps/scrolls to it.
-  const focusRound = useCallback((i: number) => {
-    const start = Math.min(Math.max(0, i), KNOCKOUT_ROUNDS.length - visibleCount);
-    setWindowStart(start);
-    requestAnimationFrame(() => scrollToRound(KNOCKOUT_ROUNDS[i]));
-  }, [visibleCount, scrollToRound]);
-
-  // Mobile: tap a round chip to focus it (1 round); tap a neighbour to expand to
-  // 2; tap a selected chip to collapse back to 1. Always 1–2 adjacent rounds.
+  // Tap a round chip to grow/shrink the contiguous selection (1–5 rounds):
+  // tap outside the range to extend to it, tap an edge to drop it, tap inside to
+  // focus that single round.
   const toggleRound = useCallback((i: number) => {
-    const selStart = clampedStart;
-    const selEnd = clampedStart + visibleCount - 1;
-    const inSel = i >= selStart && i <= selEnd;
-    if (visibleCount === 2 && inSel) {
-      setMobileSize(1);
-      setWindowStart(i === selStart ? selEnd : selStart); // keep the other one
-    } else if (visibleCount === 1 && inSel) {
-      return; // tapping the lone round — keep it (can't show zero)
-    } else if (visibleCount === 1 && Math.abs(i - selStart) === 1) {
-      setMobileSize(2);
-      setWindowStart(Math.min(i, selStart)); // expand to cover both
-    } else {
-      setMobileSize(1);
-      setWindowStart(i); // focus a fresh single round
-    }
-  }, [clampedStart, visibleCount]);
+    setManualSel(true);
+    const s = clampedStart;
+    const e = endIdx;
+    let ns = s, ne = e;
+    if (i < s)        ns = i;             // extend left
+    else if (i > e)   ne = i;             // extend right
+    else if (s === e) return;             // lone round — keep it
+    else if (i === s) ns = s + 1;         // shrink from left edge
+    else if (i === e) ne = e - 1;         // shrink from right edge
+    else { ns = i; ne = i; }              // interior tap → focus one
+    setWindowStart(ns);
+    setWindowCount(ne - ns + 1);
+    requestAnimationFrame(() => scrollToRound(KNOCKOUT_ROUNDS[i]));
+  }, [clampedStart, endIdx, scrollToRound]);
 
-  const onRoundTap = isMobile ? toggleRound : focusRound;
-
-  // When the window (or fullscreen) changes, bring the leftmost round into view.
+  // When the selection (or modal) changes, bring the leftmost round into view.
+  // Keyed to the selection only — must not re-fire on every pick re-render.
   useEffect(() => {
-    const id = requestAnimationFrame(() => scrollToRound(visibleRounds[0]));
+    const id = requestAnimationFrame(() => scrollToRound(KNOCKOUT_ROUNDS[clampedStart]));
     return () => cancelAnimationFrame(id);
-  }, [clampedStart, visibleCount, fullscreen, visibleRounds, scrollToRound]);
+  }, [clampedStart, windowCount, fullscreen, scrollToRound]);
 
   const save = useCallback(async (next: Record<string, string>) => {
     if (sandbox) return; // dev sandbox — local state only, no persistence
@@ -264,12 +256,12 @@ export default function BracketBoard({
       )}
       <div className="flex-1 flex gap-1 overflow-x-auto no-scrollbar py-0.5">
         {KNOCKOUT_ROUNDS.map((round, i) => {
-          const inWin  = i >= clampedStart && i < clampedStart + visibleCount;
+          const inWin  = i >= clampedStart && i <= endIdx;
           const isDone = decided[round];
           return (
             <button
               key={round}
-              onClick={() => onRoundTap(i)}
+              onClick={() => toggleRound(i)}
               aria-pressed={inWin}
               className={`group flex-shrink-0 flex items-center gap-2 pl-2 pr-3 py-2 rounded-lg border transition-all
                 ${inWin
@@ -298,50 +290,77 @@ export default function BracketBoard({
     </div>
   );
 
-  // ── The tree pane (windowed) ───────────────────────────────────────────────
+  // ── The tree pane ──────────────────────────────────────────────────────────
+  const renderColumn = (round: KnockoutRound) => {
+    const count = nodesInRound(round).length;
+    return (
+      <div
+        key={round}
+        ref={el => { colRefs.current[round] = el; }}
+        data-round={round}
+        className="bkt-col"
+      >
+        <div className="bkt-col-title">
+          <span className="font-mono text-[10px] uppercase tracking-[0.1em] ink leading-none truncate">
+            {ROUND_CONFIG[round].label}
+          </span>
+          <span className="font-mono text-[8.5px] ink-faint leading-none mt-0.5">
+            {ROUND_CONFIG[round].pointsValue}&nbsp;pt · {count}&nbsp;{count === 1 ? "match" : "matches"}
+          </span>
+        </div>
+        <div className="bkt-col-body">
+          {nodesInRound(round).map(node => {
+            const [a, b] = participantsOf(node.id, bracket, r32Slots);
+            const labels = r32SlotLabels(node.id);
+            const m = round === "ROUND_OF_32" ? r32Slots[node.matchSlot ?? -1] ?? null : null;
+            const o = m ? oddsMap.get(m.matchId) ?? null : null;
+            return (
+              <div key={node.id} className="bkt-cell">
+                <BracketMatch
+                  teamA={a}
+                  teamB={b}
+                  labelA={labels?.[0] ?? null}
+                  labelB={labels?.[1] ?? null}
+                  matchNo={NODE_MATCH_NO[node.id]}
+                  kickoff={m?.kickoffUtc ?? NODE_KICKOFF[node.id]}
+                  odds={o}
+                  chosen={bracket[node.id] ?? null}
+                  readOnly={readOnly}
+                  decided={decided[round]}
+                  advanced={advancers[round]}
+                  isFinal={round === "FINAL"}
+                  onPick={team => pick(node.id, team)}
+                />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   const pane = (
     <div
       ref={scrollRef}
       onTouchStart={onTouchStart}
       onTouchEnd={onTouchEnd}
-      className="overflow-auto rounded-xl border border-line bg-paper/40"
-      style={{ maxHeight: fullscreen ? "calc(100dvh - 188px)" : "min(60vh, 560px)" }}
+      className={`overflow-auto rounded-xl border border-line bg-paper/40 ${fullscreen ? "flex-1 min-h-0" : ""}`}
+      style={fullscreen ? undefined : { maxHeight: "min(64vh, 600px)" }}
     >
-      <div className="bkt-tree py-3 pr-3" data-size={visibleRounds.length}>
+      <div className="bkt-tree pr-2">
+        {/* Left stub — lines in from the previous (hidden) round */}
+        {clampedStart > 0 && (
+          <Connectors
+            destRound={KNOCKOUT_ROUNDS[clampedStart]}
+            feederRound={KNOCKOUT_ROUNDS[clampedStart - 1]}
+            bracket={bracket}
+            decided={decided[KNOCKOUT_ROUNDS[clampedStart - 1]]}
+            advanced={advancers[KNOCKOUT_ROUNDS[clampedStart - 1]]}
+          />
+        )}
         {visibleRounds.map((round, ri) => (
           <div key={round} className="contents">
-            <div
-              ref={el => { colRefs.current[round] = el; }}
-              data-round={round}
-              className="bkt-col"
-            >
-              {nodesInRound(round).map(node => {
-                const [a, b] = participantsOf(node.id, bracket, r32Slots);
-                const labels = r32SlotLabels(node.id);
-                const m = round === "ROUND_OF_32" ? r32Slots[node.matchSlot ?? -1] ?? null : null;
-                const o = m ? oddsMap.get(m.matchId) ?? null : null;
-                return (
-                  <div key={node.id} className="bkt-cell">
-                    <BracketMatch
-                      teamA={a}
-                      teamB={b}
-                      labelA={labels?.[0] ?? null}
-                      labelB={labels?.[1] ?? null}
-                      matchNo={NODE_MATCH_NO[node.id]}
-                      kickoff={m?.kickoffUtc ?? NODE_KICKOFF[node.id]}
-                      odds={o}
-                      chosen={bracket[node.id] ?? null}
-                      readOnly={readOnly}
-                      decided={decided[round]}
-                      advanced={advancers[round]}
-                      isFinal={round === "FINAL"}
-                      onPick={team => pick(node.id, team)}
-                    />
-                  </div>
-                );
-              })}
-            </div>
-
+            {renderColumn(round)}
             {ri < visibleRounds.length - 1 && (
               <Connectors
                 destRound={visibleRounds[ri + 1]}
@@ -353,12 +372,22 @@ export default function BracketBoard({
             )}
           </div>
         ))}
+        {/* Right stub — winners advance toward the next (hidden) round */}
+        {endIdx < TOTAL_ROUNDS - 1 && (
+          <Connectors
+            destRound={KNOCKOUT_ROUNDS[endIdx + 1]}
+            feederRound={KNOCKOUT_ROUNDS[endIdx]}
+            bracket={bracket}
+            decided={decided[KNOCKOUT_ROUNDS[endIdx]]}
+            advanced={advancers[KNOCKOUT_ROUNDS[endIdx]]}
+          />
+        )}
       </div>
     </div>
   );
 
   const boardInner = (
-    <div className="space-y-4">
+    <div className={fullscreen ? "flex flex-col flex-1 min-h-0 gap-3" : "space-y-4"}>
       {rail}
       {pane}
     </div>
@@ -385,10 +414,10 @@ export default function BracketBoard({
             Close
           </button>
         </div>
-        <div className="flex-1 overflow-hidden px-4 sm:px-6 py-4 space-y-3">
+        <div className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-4 flex flex-col gap-3">
           {error && <BoardError msg={error} />}
           <p className="font-mono text-[10px] uppercase tracking-[0.1em] ink-faint text-center">
-            Tap a round to focus · tap a neighbour for two · swipe ← → to move
+            Tap rounds to add or remove · swipe ← → to move
           </p>
           {boardInner}
         </div>
@@ -536,6 +565,8 @@ function Connectors({
   const destNodes = nodesInRound(destRound);
   return (
     <div className="bkt-conn">
+      <div className="bkt-conn-title" />
+      <div className="bkt-conn-body">
       {destNodes.map(dest => {
         const [topId, botId] = BRACKET_NODE_MAP.get(dest.id)?.children ?? [];
         const fTop = topId ? bracket[topId] : undefined;
@@ -557,6 +588,7 @@ function Connectors({
           </div>
         );
       })}
+      </div>
     </div>
   );
 }
