@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useMemo, useState, useRef, useEffect } from "react";
+import type { TouchEvent as ReactTouchEvent } from "react";
 import { createPortal } from "react-dom";
 import type { Match, OddsData, BracketPick } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
@@ -15,7 +16,7 @@ interface Props {
   matches: Match[];
   odds: OddsData[];
   userBracketPicks: BracketPick[];
-  available: boolean;
+  /** Picks are disabled once the Round of 32 has kicked off. */
   locked: boolean;
   deadline: string | null;
   /** Dev sandbox: keep all state local, never hit the save API. */
@@ -46,7 +47,7 @@ function fmtKick(iso: string | undefined): string | null {
 }
 
 export default function BracketBoard({
-  matches, odds, userBracketPicks, available, locked, deadline, sandbox = false,
+  matches, odds, userBracketPicks, locked, deadline, sandbox = false,
 }: Props) {
   const r32Slots = useMemo(() => orderedR32Matches(matches), [matches]);
   const oddsMap = useMemo(() => new Map(odds.map(o => [o.matchId, o])), [odds]);
@@ -64,13 +65,28 @@ export default function BracketBoard({
   });
   const [error, setError] = useState<string | null>(null);
 
-  // ── Round window: show as many rounds as the pane can fit (all 5 on a wide
-  //    desktop), sliding 1-at-a-time when they don't all fit (mobile/tablet).
+  // ── Round window ───────────────────────────────────────────────────────────
+  // Desktop: fit as many rounds as the pane allows (`fitCount`).
+  // Mobile: the player chooses 1 or 2 rounds by tapping the header chips
+  //         (`mobileSize`), swiping to page between them.
   const [windowStart, setWindowStart] = useState(0);
-  const [visibleCount, setVisibleCount] = useState(5);
+  const [fitCount, setFitCount] = useState(5);
+  const [mobileSize, setMobileSize] = useState<1 | 2>(2);
+  const [isMobile, setIsMobile] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
+
+  // Full-screen bracket is a mobile-only affordance.
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    const update = () => setIsMobile(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  // If the viewport grows past mobile while the modal is open, drop out of it.
+  useEffect(() => { if (!isMobile && fullscreen) setFullscreen(false); }, [isMobile, fullscreen]);
 
   // Lock body scroll + allow Esc to close while the full-screen modal is open.
   useEffect(() => {
@@ -93,12 +109,14 @@ export default function BracketBoard({
   const teamsSet = r32Slots.some(m => m !== null);
   const readOnly = locked || !teamsSet;
 
+  // Mobile shows the player's chosen 1–2 rounds; desktop fits as many as it can.
+  const visibleCount = isMobile ? mobileSize : fitCount;
   const maxStart = Math.max(0, KNOCKOUT_ROUNDS.length - visibleCount);
   const clampedStart = Math.min(windowStart, maxStart);
   const visibleRounds = KNOCKOUT_ROUNDS.slice(clampedStart, clampedStart + visibleCount);
   const windowed = visibleCount < KNOCKOUT_ROUNDS.length;
 
-  // Measure the pane and show as many whole columns as fit (1–5).
+  // Desktop: measure the pane and show as many whole columns as fit (1–5).
   useEffect(() => {
     const cont = scrollRef.current;
     if (!cont) return;
@@ -109,7 +127,7 @@ export default function BracketBoard({
       const connW = narrow ? 14 : 34;
       const pad   = 18; // tree + pane horizontal padding
       const n = Math.floor((w - pad + connW) / (colW + connW));
-      setVisibleCount(Math.max(1, Math.min(KNOCKOUT_ROUNDS.length, n)));
+      setFitCount(Math.max(1, Math.min(KNOCKOUT_ROUNDS.length, n)));
     };
     recompute();
     const ro = new ResizeObserver(recompute);
@@ -117,8 +135,24 @@ export default function BracketBoard({
     return () => ro.disconnect();
   }, [fullscreen]);
 
-  const moveWindow = (delta: number) =>
-    setWindowStart(s => Math.min(Math.max(0, s + delta), maxStart));
+  const moveWindow = useCallback((delta: number) =>
+    setWindowStart(s => Math.min(Math.max(0, s + delta), Math.max(0, KNOCKOUT_ROUNDS.length - visibleCount))),
+    [visibleCount]);
+
+  // Swipe left/right to page between rounds (mobile).
+  const touch = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (e: ReactTouchEvent) => {
+    const t = e.touches[0];
+    touch.current = { x: t.clientX, y: t.clientY };
+  };
+  const onTouchEnd = (e: ReactTouchEvent) => {
+    if (!touch.current) return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touch.current.x;
+    const dy = t.clientY - touch.current.y;
+    touch.current = null;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) moveWindow(dx < 0 ? 1 : -1);
+  };
 
   // Scroll the pane to a round's column — horizontally, and vertically to its
   // first match (later rounds sit centered far down the tall tree).
@@ -135,12 +169,34 @@ export default function BracketBoard({
     cont.scrollTo({ left: Math.max(0, left - 10), top: Math.max(0, top - 8), behavior: "smooth" });
   }, []);
 
-  // Clicking a round: slide the window to start there (if windowed), then scroll.
+  // Desktop: clicking a round jumps/scrolls to it.
   const focusRound = useCallback((i: number) => {
     const start = Math.min(Math.max(0, i), KNOCKOUT_ROUNDS.length - visibleCount);
     setWindowStart(start);
     requestAnimationFrame(() => scrollToRound(KNOCKOUT_ROUNDS[i]));
   }, [visibleCount, scrollToRound]);
+
+  // Mobile: tap a round chip to focus it (1 round); tap a neighbour to expand to
+  // 2; tap a selected chip to collapse back to 1. Always 1–2 adjacent rounds.
+  const toggleRound = useCallback((i: number) => {
+    const selStart = clampedStart;
+    const selEnd = clampedStart + visibleCount - 1;
+    const inSel = i >= selStart && i <= selEnd;
+    if (visibleCount === 2 && inSel) {
+      setMobileSize(1);
+      setWindowStart(i === selStart ? selEnd : selStart); // keep the other one
+    } else if (visibleCount === 1 && inSel) {
+      return; // tapping the lone round — keep it (can't show zero)
+    } else if (visibleCount === 1 && Math.abs(i - selStart) === 1) {
+      setMobileSize(2);
+      setWindowStart(Math.min(i, selStart)); // expand to cover both
+    } else {
+      setMobileSize(1);
+      setWindowStart(i); // focus a fresh single round
+    }
+  }, [clampedStart, visibleCount]);
+
+  const onRoundTap = isMobile ? toggleRound : focusRound;
 
   // When the window (or fullscreen) changes, bring the leftmost round into view.
   useEffect(() => {
@@ -213,7 +269,7 @@ export default function BracketBoard({
           return (
             <button
               key={round}
-              onClick={() => focusRound(i)}
+              onClick={() => onRoundTap(i)}
               aria-pressed={inWin}
               className={`group flex-shrink-0 flex items-center gap-2 pl-2 pr-3 py-2 rounded-lg border transition-all
                 ${inWin
@@ -246,6 +302,8 @@ export default function BracketBoard({
   const pane = (
     <div
       ref={scrollRef}
+      onTouchStart={onTouchStart}
+      onTouchEnd={onTouchEnd}
       className="overflow-auto rounded-xl border border-line bg-paper/40"
       style={{ maxHeight: fullscreen ? "calc(100dvh - 188px)" : "min(60vh, 560px)" }}
     >
@@ -327,8 +385,11 @@ export default function BracketBoard({
             Close
           </button>
         </div>
-        <div className="flex-1 overflow-hidden px-4 sm:px-6 py-4 space-y-4">
+        <div className="flex-1 overflow-hidden px-4 sm:px-6 py-4 space-y-3">
           {error && <BoardError msg={error} />}
+          <p className="font-mono text-[10px] uppercase tracking-[0.1em] ink-faint text-center">
+            Tap a round to focus · tap a neighbour for two · swipe ← → to move
+          </p>
           {boardInner}
         </div>
       </div>,
@@ -356,37 +417,25 @@ export default function BracketBoard({
             </p>
           </div>
 
-          <div className="flex items-stretch gap-2.5 flex-shrink-0">
-            <div
-              className={`champion-plate flex items-center gap-3 rounded-lg border px-4 py-2.5
-                ${champion ? "border-gold/45 bg-gold-soft/40" : "border-dashed border-line bg-paper-deep/40"}`}
-            >
-              <span className="text-[22px] leading-none">🏆</span>
-              <div className="leading-tight">
-                <p className="font-mono text-[9px] uppercase tracking-[0.18em] ink-faint">Your champion</p>
-                {champion ? (
-                  <span className={`inline-flex items-center gap-1.5 font-serif font-medium text-[16px] leading-snug ${championDecided ? "text-green-deep" : "ink"}`} style={{ fontVariationSettings: '"opsz" 24' }}>
-                    <Flag team={champion} size={16} />
-                    {champion}
-                    {championDecided && <span className="font-mono text-[10px]">✓</span>}
-                  </span>
-                ) : (
-                  <span className="font-serif italic text-[15px] ink-faint" style={{ fontVariationSettings: '"opsz" 24' }}>
-                    Undecided
-                  </span>
-                )}
-              </div>
+          <div
+            className={`champion-plate flex-shrink-0 flex items-center gap-3 rounded-lg border px-4 py-2.5
+              ${champion ? "border-gold/45 bg-gold-soft/40" : "border-dashed border-line bg-paper-deep/40"}`}
+          >
+            <span className="text-[22px] leading-none">🏆</span>
+            <div className="leading-tight">
+              <p className="font-mono text-[9px] uppercase tracking-[0.18em] ink-faint">Your champion</p>
+              {champion ? (
+                <span className={`inline-flex items-center gap-1.5 font-serif font-medium text-[16px] leading-snug ${championDecided ? "text-green-deep" : "ink"}`} style={{ fontVariationSettings: '"opsz" 24' }}>
+                  <Flag team={champion} size={16} />
+                  {champion}
+                  {championDecided && <span className="font-mono text-[10px]">✓</span>}
+                </span>
+              ) : (
+                <span className="font-serif italic text-[15px] ink-faint" style={{ fontVariationSettings: '"opsz" 24' }}>
+                  Undecided
+                </span>
+              )}
             </div>
-
-            <button
-              onClick={() => setFullscreen(true)}
-              title="Full screen"
-              className="flex-shrink-0 inline-flex items-center justify-center px-3 rounded-lg border border-line bg-card ink-soft hover:ink hover:border-[color:var(--ink-faint)]/40 transition-all"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -414,7 +463,31 @@ export default function BracketBoard({
         </p>
       </div>
 
-      {boardInner}
+      {isMobile ? (
+        <button
+          onClick={() => setFullscreen(true)}
+          className="w-full flex items-center justify-between gap-3 rounded-xl border border-ink bg-ink text-paper px-5 py-4 shadow-paper active:scale-[0.99] transition-transform"
+        >
+          <span className="flex items-center gap-3 min-w-0">
+            <span className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-paper/15">
+              <svg className="h-5 w-5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+            <span className="text-left leading-tight min-w-0">
+              <span className="block font-serif font-medium text-[17px]" style={{ fontVariationSettings: '"opsz" 28' }}>
+                {teamsSet ? "Open your bracket" : "Open the bracket"}
+              </span>
+              <span className="block font-mono text-[9.5px] uppercase tracking-[0.14em] text-paper/60 mt-0.5 truncate">
+                Full screen · swipe between rounds
+              </span>
+            </span>
+          </span>
+          <span className="flex-shrink-0 font-mono text-[18px] leading-none">→</span>
+        </button>
+      ) : (
+        boardInner
+      )}
     </div>
   );
 }

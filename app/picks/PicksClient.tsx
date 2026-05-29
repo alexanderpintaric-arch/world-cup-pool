@@ -267,11 +267,20 @@ export default function PicksClient({
               >
                 <span className="flex items-center gap-2">
                   {t.label}
+                  {/* Before the group stage ends: explorable preview, not a lock */}
+                  {isBracket && !bracketAvailable && (
+                    <span className={`font-mono text-[8.5px] uppercase tracking-[0.12em] px-1.5 py-0.5 rounded-full border
+                      ${active ? "border-paper/25 text-paper/70" : "border-line ink-faint bg-paper-deep/50"}`}>
+                      Preview
+                    </span>
+                  )}
+                  {/* Open for picks */}
                   {isBracket && bracketAvailable && !bracketLocked && !active && (
                     <span className="h-1.5 w-1.5 rounded-full bg-accent anim-ring-pulse" />
                   )}
-                  {isBracket && !bracketAvailable && (
-                    <span className="font-mono text-[10px] ink-faint">⊘</span>
+                  {/* Locked (Round of 32 underway) */}
+                  {isBracket && bracketAvailable && bracketLocked && (
+                    <span className={`text-[10px] ${active ? "text-paper/60" : "ink-faint"}`}>🔒</span>
                   )}
                 </span>
               </button>
@@ -360,12 +369,35 @@ export default function PicksClient({
         )}
       </nav>
 
+      {/* ── Bracket preview invite (group stage only) ────────── */}
+      {tab === "group" && !bracketAvailable && (
+        <button
+          onClick={() => setTab("bracket")}
+          className="group w-full anim-fade-up flex items-center justify-between gap-3 rounded-md border border-line bg-card px-4 py-3.5 text-left shadow-paper hover:border-[color:var(--ink-faint)]/40 transition-colors"
+          style={{ animationDelay: "70ms" }}
+        >
+          <span className="flex items-center gap-3 min-w-0">
+            <span className="flex-shrink-0 text-[20px] leading-none">🗺️</span>
+            <span className="min-w-0">
+              <span className="block text-[13.5px] font-medium ink">
+                Preview the knockout bracket
+              </span>
+              <span className="block text-[12px] ink-soft">
+                Explore the road to the Final now — picks open the moment the group stage ends.
+              </span>
+            </span>
+          </span>
+          <span className="flex-shrink-0 font-mono text-[12px] ink-faint group-hover:ink transition-colors">
+            Preview &rarr;
+          </span>
+        </button>
+      )}
+
       {tab === "bracket" ? (
         <BracketBoard
           matches={matches}
           odds={odds}
           userBracketPicks={bracketPicks}
-          available={bracketAvailable}
           locked={bracketLocked}
           deadline={bracketDeadline}
         />

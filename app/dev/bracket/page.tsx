@@ -106,7 +106,6 @@ export default async function DevBracketPage({
         matches={preview ? [] : MOCK_MATCHES}
         odds={preview ? [] : MOCK_ODDS}
         userBracketPicks={[]}
-        available={!preview}
         locked={false}
         deadline={daysFromNow(20, 12)}
         sandbox
