@@ -4,10 +4,11 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import {
-  getAllMatches, getPicksForUser, getAllOdds, getPicksForLeague,
+  getAllMatches, getPicksForUser, getAllOdds, getPicksForLeague, getBracketPicks,
 } from "@/lib/services/supabase";
 import { getUserLeagues } from "@/lib/services/leagues";
 import { getRoundStates, getActiveRound } from "@/lib/services/scoring";
+import { orderedR32Matches } from "@/lib/services/bracket";
 import PicksClient from "./PicksClient";
 
 const isMock = !process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -34,15 +35,30 @@ export default async function PicksPage() {
     leagueId = activeLeague.id;
   }
 
-  const [matches, userPicks, odds, allPicks] = await Promise.all([
+  const [matches, userPicks, odds, allPicks, bracketPicks] = await Promise.all([
     getAllMatches(),
     getPicksForUser(email, leagueId),
     getAllOdds(),
     getPicksForLeague(leagueId),
+    getBracketPicks(email, leagueId),
   ]);
 
   const roundStates = getRoundStates(matches);
   const activeRound = getActiveRound(roundStates);
+
+  // ── Bracket gate ─────────────────────────────────────────────────────────
+  // The knockout bracket opens once the group stage is complete (R32 available)
+  // and locks all at once at the first Round-of-32 kickoff.
+  const r32State = roundStates.find(r => r.round === "ROUND_OF_32");
+  const bracketAvailable = r32State?.isAvailable ?? false;
+  const r32Slots = orderedR32Matches(matches);
+  const r32Kickoffs = r32Slots
+    .filter((m): m is NonNullable<typeof m> => !!m)
+    .map(m => new Date(m.kickoffUtc).getTime());
+  const bracketDeadline = r32Kickoffs.length > 0
+    ? new Date(Math.min(...r32Kickoffs)).toISOString()
+    : null;
+  const bracketLocked = bracketDeadline !== null && Date.now() >= new Date(bracketDeadline).getTime();
 
   // ── Anonymous vote counts ───────────────────────────────────────────────
   // Used only for the "X picks in" footer badge on SCHEDULED matches.
@@ -67,6 +83,10 @@ export default async function PicksPage() {
       userEmail={email}
       userName={name}
       popularCounts={popularCounts}
+      bracketPicks={bracketPicks}
+      bracketAvailable={bracketAvailable}
+      bracketLocked={bracketLocked}
+      bracketDeadline={bracketDeadline}
     />
   );
 }

@@ -34,6 +34,24 @@ export interface Pick {
   updatedAt: string;
 }
 
+/**
+ * A single node in the knockout bracket. Unlike `Pick` (which is tied to a real
+ * match), a bracket pick records the team the user advances out of a bracket
+ * slot — the later-round matchups are hypothetical until the tournament plays
+ * out, so they can't be keyed by a real match id.
+ */
+export interface BracketPick {
+  email: string;
+  leagueId: string;
+  nodeId: string;       // 'R32-1' ... 'F-1'
+  round: Round;         // ROUND_OF_32 ... FINAL
+  team: string;         // predicted winner advancing from this node
+  /** Decimal odds of the picked team at pick time. R32 only; null otherwise. */
+  odds?: number | null;
+  submittedAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   email: string;
   name: string;

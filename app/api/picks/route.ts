@@ -92,6 +92,9 @@ export async function POST(req: Request) {
   for (const p of picks) {
     const match = matchMap.get(p.matchId);
     if (!match) continue;
+    // Knockout predictions now live in the bracket (/api/bracket); this endpoint
+    // only handles group-stage picks so there's a single source of truth.
+    if (match.round !== "GROUP") continue;
     if (!availableRounds.has(match.round)) continue;
     // Reject if the round deadline (first kickoff) has passed — whole round locks at once
     const rs = roundStateMap.get(match.round);

@@ -1,11 +1,11 @@
 "use client";
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import type { Match, Pick, OddsData, RoundState, MatchResult, Round } from "@/lib/types";
-import { ROUND_CONFIG } from "@/lib/constants";
+import type { Match, Pick, BracketPick, OddsData, RoundState, MatchResult, Round } from "@/lib/types";
 import { inferGroups } from "@/lib/services/grouping";
 import MatchCard from "@/components/MatchCard";
 import Flag from "@/components/Flag";
 import CountdownTimer from "@/components/CountdownTimer";
+import BracketBoard from "./BracketBoard";
 
 type PopularCount = { H: number; A: number; T: number; total: number };
 
@@ -18,14 +18,10 @@ interface Props {
   userEmail: string;
   userName: string;
   popularCounts: Record<string, PopularCount>;
-}
-
-function getRoundTabStatus(rs: RoundState): "active" | "complete" | "unavailable" | "locked" | "upcoming" {
-  if (!rs.isAvailable && rs.matchCount > 0) return "unavailable";
-  if (rs.isComplete) return "complete";
-  if (rs.isOpen) return "active";
-  if (rs.matchCount > 0) return "locked";
-  return "upcoming";
+  bracketPicks: BracketPick[];
+  bracketAvailable: boolean;
+  bracketLocked: boolean;
+  bracketDeadline: string | null;
 }
 
 const ROUND_TAGLINE: Record<Round, string> = {
@@ -39,10 +35,15 @@ const ROUND_TAGLINE: Record<Round, string> = {
 
 export default function PicksClient({
   matches, userPicks, odds, roundStates, activeRound, userName, popularCounts,
+  bracketPicks, bracketAvailable, bracketLocked, bracketDeadline,
 }: Props) {
-  const [selectedRound, setSelectedRound] = useState<Round>(
-    activeRound?.round ?? "GROUP"
+  // Two views: the group stage (per-match picks) and the knockout bracket.
+  const [tab, setTab] = useState<"group" | "bracket">(
+    bracketAvailable ? "bracket" : "group"
   );
+  // The match-grid view only ever shows the group stage now; knockouts live in
+  // the bracket tab.
+  const selectedRound: Round = "GROUP";
   const [picks, setPicks] = useState<Record<string, MatchResult>>(() => {
     const init: Record<string, MatchResult> = {};
     for (const p of userPicks) init[p.matchId] = p.pick;
@@ -188,7 +189,6 @@ export default function PicksClient({
     savePick(matchId, pick);
   }
 
-  const roundsWithMatches = roundStates.filter(r => r.matchCount > 0);
   const firstName = (userName ?? "").split(/\s+/)[0] || "friend";
 
   return (
@@ -245,47 +245,42 @@ export default function PicksClient({
         </div>
       )}
 
-      {/* ── ROUND TABS ───────────────────────────────────────── */}
+      {/* ── VIEW TABS ────────────────────────────────────────── */}
       <nav className="anim-fade-up" style={{animationDelay: '60ms'}}>
         <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-1 px-1">
-          {roundsWithMatches.map(rs => {
-            const active = selectedRound === rs.round;
-            const tabStatus = getRoundTabStatus(rs);
+          {([
+            { value: "group" as const,   label: "Group Stage" },
+            { value: "bracket" as const, label: "Knockout Bracket" },
+          ]).map(t => {
+            const active = tab === t.value;
+            const isBracket = t.value === "bracket";
             return (
               <button
-                key={rs.round}
-                onClick={() => setSelectedRound(rs.round)}
+                key={t.value}
+                onClick={() => setTab(t.value)}
                 className={`group relative flex-shrink-0 px-4 py-2.5 rounded-md text-[13.5px] font-medium transition-all border
                   ${active
                     ? "bg-ink text-paper border-ink"
-                    : tabStatus === "unavailable"
-                      ? "bg-paper border-line ink-faint opacity-60 hover:opacity-80 cursor-default"
-                      : "bg-card border-line ink-soft hover:ink hover:border-[color:var(--ink-faint)]/40"
+                    : "bg-card border-line ink-soft hover:ink hover:border-[color:var(--ink-faint)]/40"
                   }
                 `}
               >
                 <span className="flex items-center gap-2">
-                  {rs.label}
-                  {tabStatus === "active" && !active && (
+                  {t.label}
+                  {isBracket && bracketAvailable && !bracketLocked && !active && (
                     <span className="h-1.5 w-1.5 rounded-full bg-accent anim-ring-pulse" />
                   )}
-                  {tabStatus === "complete" && (
-                    <span className="font-mono text-[10px] text-gold">✓</span>
-                  )}
-                  {tabStatus === "unavailable" && !active && (
+                  {isBracket && !bracketAvailable && (
                     <span className="font-mono text-[10px] ink-faint">⊘</span>
                   )}
                 </span>
               </button>
             );
           })}
-          {roundsWithMatches.length === 0 && (
-            <p className="ink-faint text-[14px] italic font-serif px-2 py-2">Waiting for the schedule…</p>
-          )}
         </div>
 
-        {/* Round tagline + progress */}
-        {currentRoundState && totalCount > 0 && (
+        {/* Round tagline + progress (group stage) */}
+        {tab === "group" && currentRoundState && totalCount > 0 && (
           <div className="mt-5 bg-card border border-line rounded-md p-5 shadow-paper">
             <div className="flex items-start justify-between gap-5 flex-wrap">
               <div className="flex-1 min-w-[200px]">
@@ -365,6 +360,17 @@ export default function PicksClient({
         )}
       </nav>
 
+      {tab === "bracket" ? (
+        <BracketBoard
+          matches={matches}
+          odds={odds}
+          userBracketPicks={bracketPicks}
+          available={bracketAvailable}
+          locked={bracketLocked}
+          deadline={bracketDeadline}
+        />
+      ) : (
+      <>
       {/* ── SEARCH + FILTER BAR ──────────────────────────────── */}
       {totalCount > 0 && (
         <div className="flex flex-wrap items-center gap-2 anim-fade-up" style={{ animationDelay: "80ms" }}>
@@ -562,6 +568,8 @@ export default function PicksClient({
             />
           ))}
         </section>
+      )}
+      </>
       )}
 
 

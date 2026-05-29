@@ -1,11 +1,17 @@
 "use client";
 import { useState, useMemo } from "react";
-import type { Match, Pick, RoundState, MatchResult } from "@/lib/types";
+import type { Match, Pick, BracketPick, RoundState, MatchResult } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
+import {
+  isKnockoutRound, nodesInRound, participantsOf, orderedR32Matches,
+  type KnockoutRound,
+} from "@/lib/services/bracket";
+import { computeActualAdvancers, knockoutRoundDecided } from "@/lib/services/scoring";
 
 interface Props {
   matches: Match[];
   userPicks: Pick[];
+  userBracketPicks: BracketPick[];
   roundStates: RoundState[];
   userName: string;
   leagueName: string;
@@ -55,8 +61,25 @@ function barcodeBars(seed: string): number[] {
   return bars;
 }
 
+/**
+ * One knockout bracket node, flattened for the receipt: the matchup the user is
+ * predicting (participants resolved from their own upstream picks) plus their
+ * chosen advancer and whether it actually advanced (advancement-based scoring).
+ */
+type BracketItem = {
+  nodeId: string;
+  teamA: string | null;
+  teamB: string | null;
+  pickedTeam: string | null;
+  odds: number | null;
+  advanced: boolean;     // pickedTeam actually advanced from this round
+};
+
 type RoundDatum = RoundState & {
-  matches: Match[];
+  kind: "group" | "knockout";
+  matches: Match[];           // group rounds only ([] for knockout)
+  bracketItems: BracketItem[]; // knockout rounds only ([] for group)
+  decided: boolean;           // round fully resolved (scored/locked-in)
   pickedCount: number;
   totalCount: number;
   finishedCount: number;
@@ -80,7 +103,7 @@ const STAMP_TEXT: Record<ReturnType<typeof roundPhase>, string> = {
 };
 
 export default function ReceiptsClient({
-  matches, userPicks, roundStates, userName, leagueName,
+  matches, userPicks, userBracketPicks, roundStates, userName, leagueName,
 }: Props) {
   const [copied, setCopied] = useState(false);
 
@@ -97,9 +120,66 @@ export default function ReceiptsClient({
     return map;
   }, [userPicks]);
 
-  // Per-round data — only rounds that actually have determined matches
+  // ── Knockout bracket inputs ───────────────────────────────────────────────
+  // Knockout predictions live in bracket_picks (one row per node), scored by
+  // advancement: a node's chosen team earns its round's points if that team
+  // actually advanced from the round.
+  const r32Slots  = useMemo(() => orderedR32Matches(matches), [matches]);
+  const advancers = useMemo(() => computeActualAdvancers(matches), [matches]);
+  const r32Ready  = useMemo(() => r32Slots.some(m => m !== null), [r32Slots]);
+  const bracketByNode = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const bp of userBracketPicks) m[bp.nodeId] = bp.team;
+    return m;
+  }, [userBracketPicks]);
+  const bracketOddsByNode = useMemo(() => {
+    const m = new Map<string, number | null>();
+    for (const bp of userBracketPicks) m.set(bp.nodeId, bp.odds ?? null);
+    return m;
+  }, [userBracketPicks]);
+
+  // Per-round data — group rounds with determined matches, plus the knockout
+  // bracket rounds once the bracket has unlocked (R32 matchups are known).
   const roundData = useMemo<RoundDatum[]>(() => {
-    return roundStates.map(rs => {
+    return roundStates.map<RoundDatum>(rs => {
+      // ── Knockout rounds: read from the bracket ──────────────────────────
+      if (isKnockoutRound(rs.round)) {
+        const round = rs.round as KnockoutRound;
+        const decided  = knockoutRoundDecided(round, matches);
+        const advanced = advancers[round];
+        const items: BracketItem[] = nodesInRound(round).map(node => {
+          const [a, b] = participantsOf(node.id, bracketByNode, r32Slots);
+          const picked = bracketByNode[node.id] ?? null;
+          return {
+            nodeId:     node.id,
+            teamA:      a,
+            teamB:      b,
+            pickedTeam: picked,
+            odds:       bracketOddsByNode.get(node.id) ?? null,
+            advanced:   picked ? advanced.has(picked) : false,
+          };
+        });
+        const totalCount   = items.length;
+        const pickedCount  = items.filter(i => i.pickedTeam).length;
+        const correctCount = decided ? items.filter(i => i.pickedTeam && i.advanced).length : 0;
+
+        return {
+          ...rs,
+          isAvailable:   r32Ready, // the whole bracket unlocks together at R32
+          kind:          "knockout",
+          matches:       [],
+          bracketItems:  items,
+          decided,
+          pickedCount,
+          totalCount,
+          finishedCount: decided ? totalCount : 0,
+          correctCount,
+          missedCount:   decided ? items.filter(i => !i.pickedTeam).length : 0,
+          pts:           correctCount * rs.pointsValue,
+        };
+      }
+
+      // ── Group stage: per-match picks (unchanged) ────────────────────────
       const roundMatches = matches
         .filter(m => m.round === rs.round && !(m.homeTeam === "TBD" && m.awayTeam === "TBD"))
         .sort((a, b) => new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime());
@@ -114,7 +194,10 @@ export default function ReceiptsClient({
 
       return {
         ...rs,
+        kind:          "group",
         matches:       roundMatches,
+        bracketItems:  [],
+        decided:       roundMatches.length > 0 && finished.length === roundMatches.length,
         pickedCount:   roundMatches.filter(m => pickMap.has(m.matchId)).length,
         totalCount:    roundMatches.length,
         finishedCount: finished.length,
@@ -122,8 +205,8 @@ export default function ReceiptsClient({
         missedCount:   missed.length,
         pts,
       };
-    }).filter(rd => rd.totalCount > 0);
-  }, [roundStates, matches, pickMap]);
+    }).filter(rd => rd.kind === "knockout" ? r32Ready : rd.totalCount > 0);
+  }, [roundStates, matches, pickMap, advancers, bracketByNode, bracketOddsByNode, r32Slots, r32Ready]);
 
   // Active round — default to the open round if any, else the first
   const initialRound = (roundData.find(r => r.isOpen) ?? roundData[0])?.round ?? "GROUP";
@@ -174,19 +257,33 @@ export default function ReceiptsClient({
       `----------------------------`,
     ];
 
-    for (const m of rd.matches) {
-      const pick = pickMap.get(m.matchId);
-      const label = pick ? pickLabel(pick, m) : "(no pick)";
-      const odds = oddsMap.get(m.matchId);
-      const oddsStr = pick && odds ? ` (${toAmerican(odds)})` : "";
-      const score = scoreStr(m);
-      const isFinished = m.status === "FINISHED";
-      const isCorrect  = isFinished && pick && pick === m.result;
-      const isWrong    = isFinished && pick && pick !== m.result;
-      const flag = isCorrect ? `  WON +${m.pointsValue}` : isWrong ? "  LOST" : "";
-      const matchup = score ? `${m.homeTeam} ${score} ${m.awayTeam}` : `${m.homeTeam} v ${m.awayTeam}`;
-      lines.push(`  ${matchup}`);
-      lines.push(`   > ${label}${oddsStr}${flag}`);
+    if (rd.kind === "knockout") {
+      for (const item of rd.bracketItems) {
+        const picked  = item.pickedTeam;
+        const label   = picked ?? "(no pick)";
+        const oddsStr = picked && item.odds ? ` (${toAmerican(item.odds)})` : "";
+        const isCorrect = rd.decided && picked && item.advanced;
+        const isWrong   = rd.decided && picked && !item.advanced;
+        const flag = isCorrect ? `  WON +${rd.pointsValue}` : isWrong ? "  LOST" : "";
+        const matchup = `${item.teamA ?? "TBD"} v ${item.teamB ?? "TBD"}`;
+        lines.push(`  ${matchup}`);
+        lines.push(`   > ${label}${oddsStr}${flag}`);
+      }
+    } else {
+      for (const m of rd.matches) {
+        const pick = pickMap.get(m.matchId);
+        const label = pick ? pickLabel(pick, m) : "(no pick)";
+        const odds = oddsMap.get(m.matchId);
+        const oddsStr = pick && odds ? ` (${toAmerican(odds)})` : "";
+        const score = scoreStr(m);
+        const isFinished = m.status === "FINISHED";
+        const isCorrect  = isFinished && pick && pick === m.result;
+        const isWrong    = isFinished && pick && pick !== m.result;
+        const flag = isCorrect ? `  WON +${m.pointsValue}` : isWrong ? "  LOST" : "";
+        const matchup = score ? `${m.homeTeam} ${score} ${m.awayTeam}` : `${m.homeTeam} v ${m.awayTeam}`;
+        lines.push(`  ${matchup}`);
+        lines.push(`   > ${label}${oddsStr}${flag}`);
+      }
     }
 
     lines.push(`----------------------------`);
@@ -363,6 +460,17 @@ export default function ReceiptsClient({
             <p className="font-mono text-[11px] ink-faint italic py-2 text-center">
               [ LOCKED — opens when the previous round settles ]
             </p>
+          ) : active.kind === "knockout" ? (
+            <div className="space-y-2.5">
+              {active.bracketItems.map(item => (
+                <BracketPickRow
+                  key={item.nodeId}
+                  item={item}
+                  decided={active.decided}
+                  pointsValue={active.pointsValue}
+                />
+              ))}
+            </div>
           ) : (
             <div className="space-y-2.5">
               {active.matches.map(m => (
@@ -525,6 +633,58 @@ function PickRow({ match, pick, odds }: {
           &rsaquo; {label}
           {!notPicked && odds != null && (
             <span className="ink-faint/70 font-normal tabular ml-1.5">{toAmerican(odds)}</span>
+          )}
+        </span>
+        <span className="lead" />
+        <span className="flex-shrink-0 text-[10.5px] tracking-[0.06em] uppercase">{status}</span>
+      </div>
+    </div>
+  );
+}
+
+function BracketPickRow({ item, decided, pointsValue }: {
+  item: BracketItem;
+  decided: boolean;
+  pointsValue: number;
+}) {
+  const picked    = item.pickedTeam;
+  const isCorrect = decided && !!picked && item.advanced;
+  const isWrong   = decided && !!picked && !item.advanced;
+  const notPicked = !picked;
+
+  const label   = picked ?? "no pick";
+  const teamA   = item.teamA ?? "TBD";
+  const teamB   = item.teamB ?? "TBD";
+
+  // Status chunk on the right of the pick line — mirrors the group-stage rows.
+  let status: React.ReactNode;
+  if (isCorrect)                  status = <span className="text-green-deep font-bold">WON +{pointsValue}</span>;
+  else if (isWrong)               status = <span className="text-accent font-bold">LOST</span>;
+  else if (decided && notPicked)  status = <span className="ink-faint/60">MISSED</span>;
+  else if (picked)                status = <span className="ink-soft">PICKED</span>;
+  else                            status = <span className="ink-faint/50">open</span>;
+
+  return (
+    <div className="font-mono text-[12px] leading-tight">
+      {/* Matchup line — participants resolved from the user's own bracket */}
+      <div className="flex items-baseline gap-2">
+        <span className="ink-soft truncate">
+          {teamA}
+          <span className="ink-faint/50 mx-1">v</span>
+          {teamB}
+        </span>
+      </div>
+      {/* Pick line with leader dots + status */}
+      <div className="rcpt-line mt-1 pl-3">
+        <span className={`flex-shrink-0
+          ${isCorrect ? "text-green-deep font-semibold"
+          : isWrong ? "text-accent font-semibold"
+          : notPicked ? "ink-faint/50 italic"
+          : "ink font-medium"}`}
+        >
+          &rsaquo; {label}
+          {!notPicked && item.odds != null && (
+            <span className="ink-faint/70 font-normal tabular ml-1.5">{toAmerican(item.odds)}</span>
           )}
         </span>
         <span className="lead" />

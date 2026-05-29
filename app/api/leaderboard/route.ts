@@ -1,18 +1,19 @@
 import { NextResponse } from "next/server";
-import { getAllMatches, getAllPicks, getAllUsers, getAllOdds } from "@/lib/services/supabase";
+import { getAllMatches, getAllPicks, getAllUsers, getAllOdds, getAllBracketPicks } from "@/lib/services/supabase";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "@/lib/services/scoring";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const [matches, picks, users, odds] = await Promise.all([
+  const [matches, picks, users, odds, bracketPicks] = await Promise.all([
     getAllMatches(),
     getAllPicks(),
     getAllUsers(),
     getAllOdds(),
+    getAllBracketPicks(),
   ]);
 
-  const leaderboard = computeLeaderboard(users, picks, matches);
+  const leaderboard = computeLeaderboard(users, picks, matches, bracketPicks);
   const roundStates = getRoundStates(matches);
   const activeRound = getActiveRound(roundStates);
 

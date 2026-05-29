@@ -3,7 +3,7 @@ import { fetchWCOdds } from "./odds";
 import {
   getAllMatches, upsertMatches, getAllPicks, getAllUsers,
   upsertOdds, logSync, getLastSync,
-  getRemindedRounds, markRoundReminded,
+  getRemindedRounds, markRoundReminded, getAllBracketPicks,
 } from "./supabase";
 import { getAllMemberEmails } from "./leagues";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "./scoring";
@@ -52,8 +52,10 @@ export async function runSync(): Promise<SyncResult> {
 
     // 6. Send score update emails for newly finished matches
     if (newlyFinished.length > 0) {
-      const [allPicks, allUsers] = await Promise.all([getAllPicks(), getAllUsers()]);
-      const leaderboard = computeLeaderboard(allUsers, allPicks, freshMatches);
+      const [allPicks, allUsers, allBracketPicks] = await Promise.all([
+        getAllPicks(), getAllUsers(), getAllBracketPicks(),
+      ]);
+      const leaderboard = computeLeaderboard(allUsers, allPicks, freshMatches, allBracketPicks);
       const totalParticipants = leaderboard.length;
 
       for (const match of newlyFinished) {
@@ -102,8 +104,10 @@ export async function runSync(): Promise<SyncResult> {
     if (newActiveRound && newActiveRound.round !== prevActiveRound?.round) {
       roundsOpened.push(newActiveRound.label);
 
-      if (newActiveRound.round !== "GROUP") {
-        // Only send "round open" emails for knockout rounds
+      // Knockout is now a single bracket filled out at once, so the only
+      // knockout "round open" notice is when the bracket unlocks (R32 becomes
+      // available). R16/QF/SF/Final no longer trigger per-round emails.
+      if (newActiveRound.round === "ROUND_OF_32") {
         const allUsers = await getAllUsers();
         for (const user of allUsers) {
           try {
@@ -124,9 +128,13 @@ export async function runSync(): Promise<SyncResult> {
     try {
       const now = Date.now();
       const reminded = await getRemindedRounds();
+      // Knockout deadline reminders collapse to a single one for the bracket
+      // (R32 lock); the later knockout rounds don't have their own deadlines now.
+      const KNOCKOUT_NON_BRACKET = ["ROUND_OF_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"];
       const dueRounds = newRoundStates.filter(rs =>
         rs.isAvailable &&
         rs.matchCount > 0 &&
+        !KNOCKOUT_NON_BRACKET.includes(rs.round) &&
         rs.deadline != null &&
         !reminded.has(rs.round) &&
         (() => {

@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { getAllMatches, getPicksForUser } from "@/lib/services/supabase";
+import { getAllMatches, getPicksForUser, getBracketPicks } from "@/lib/services/supabase";
 import { getUserLeagues } from "@/lib/services/leagues";
 import { getRoundStates } from "@/lib/services/scoring";
 import ReceiptsClient from "./ReceiptsClient";
@@ -22,9 +22,10 @@ export default async function ReceiptsPage() {
   const activeLeagueId = cookieStore.get("wcp_league")?.value;
   const activeLeague = leagues.find(l => l.id === activeLeagueId) ?? leagues[0];
 
-  const [matches, userPicks] = await Promise.all([
+  const [matches, userPicks, userBracketPicks] = await Promise.all([
     getAllMatches(),
     getPicksForUser(email, activeLeague.id),
+    getBracketPicks(email, activeLeague.id),
   ]);
 
   const roundStates = getRoundStates(matches);
@@ -33,6 +34,7 @@ export default async function ReceiptsPage() {
     <ReceiptsClient
       matches={matches}
       userPicks={userPicks}
+      userBracketPicks={userBracketPicks}
       roundStates={roundStates}
       userName={name}
       leagueName={activeLeague.name}

@@ -5,9 +5,11 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import {
   getAllMatches, getPicksForLeague, getPicksForUser, getAllUsers,
+  getBracketPicksForLeague,
 } from "@/lib/services/supabase";
 import { getUserLeagues, getLeagueMembers } from "@/lib/services/leagues";
 import { getRoundStates, getActiveRound } from "@/lib/services/scoring";
+import { orderedR32Matches } from "@/lib/services/bracket";
 import CommunityClient from "./CommunityClient";
 
 const isMock = !process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -44,10 +46,11 @@ export default async function CommunityPage() {
     allUsers = fetchedUsers.filter(u => memberEmails.has(u.email));
   }
 
-  const [matches, allPicks, userPicks] = await Promise.all([
+  const [matches, allPicks, userPicks, leagueBracketPicks] = await Promise.all([
     getAllMatches(),
     getPicksForLeague(leagueId),
     getPicksForUser(email, leagueId),
+    getBracketPicksForLeague(leagueId),
   ]);
 
   const roundStates = getRoundStates(matches);
@@ -95,6 +98,36 @@ export default async function CommunityPage() {
     }
   }
 
+  // ── Knockout bracket consensus (per node) ──────────────────────────────
+  // Knockout predictions live in bracket_picks; the pool's consensus is "which
+  // team did members advance out of each bracket node". Counts are always
+  // visible; names stay hidden until the bracket locks (first R32 kickoff).
+  const r32Slots = orderedR32Matches(matches);
+  const r32Kickoffs = r32Slots
+    .filter((m): m is NonNullable<typeof m> => !!m)
+    .map(m => new Date(m.kickoffUtc).getTime());
+  const bracketLocked = r32Kickoffs.length > 0 && Date.now() >= Math.min(...r32Kickoffs);
+
+  // Per node: team -> count (always), and team -> named pickers (post-lock only).
+  const bracketCounts: Record<string, Record<string, number>> = {};
+  const bracketNamed: Record<string, Record<string, { name: string; email: string }[]>> = {};
+  for (const bp of leagueBracketPicks) {
+    (bracketCounts[bp.nodeId] ??= {});
+    bracketCounts[bp.nodeId][bp.team] = (bracketCounts[bp.nodeId][bp.team] ?? 0) + 1;
+    if (bracketLocked) {
+      (bracketNamed[bp.nodeId] ??= {});
+      (bracketNamed[bp.nodeId][bp.team] ??= []);
+      const name = userMap.get(bp.email)?.name ?? bp.email;
+      bracketNamed[bp.nodeId][bp.team].push({ name, email: bp.email });
+    }
+  }
+
+  // Current user's own bracket (for "you" highlighting).
+  const myBracket: Record<string, string> = {};
+  for (const bp of leagueBracketPicks) {
+    if (bp.email === email) myBracket[bp.nodeId] = bp.team;
+  }
+
   return (
     <CommunityClient
       matches={matches}
@@ -104,6 +137,10 @@ export default async function CommunityPage() {
       named={named}
       myPicks={myPicks}
       userEmail={email}
+      bracketCounts={bracketCounts}
+      bracketNamed={bracketNamed}
+      myBracket={myBracket}
+      bracketLocked={bracketLocked}
     />
   );
 }

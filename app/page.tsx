@@ -1,4 +1,4 @@
-import { getAllMatches, getPicksForLeague, getAllUsers, getAllOdds } from "@/lib/services/supabase";
+import { getAllMatches, getPicksForLeague, getAllUsers, getAllOdds, getBracketPicksForLeague } from "@/lib/services/supabase";
 import { getUserLeagues, getLeagueMembers } from "@/lib/services/leagues";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "@/lib/services/scoring";
 import { auth } from "@/lib/auth";
@@ -48,15 +48,16 @@ export default async function HomePage() {
   const activeLeague = leagues.find(l => l.id === activeLeagueId) ?? leagues[0];
 
   // Load picks scoped to the active league alongside member list
-  const [picks, members] = await Promise.all([
+  const [picks, bracketPicks, members] = await Promise.all([
     getPicksForLeague(activeLeague.id),
+    getBracketPicksForLeague(activeLeague.id),
     getLeagueMembers(activeLeague.id),
   ]);
 
   // Filter leaderboard to league members only
   const memberEmails = new Set(members.map(m => m.email));
   const leagueUsers = users.filter(u => memberEmails.has(u.email));
-  const leaderboard = computeLeaderboard(leagueUsers, picks, matches);
+  const leaderboard = computeLeaderboard(leagueUsers, picks, matches, bracketPicks);
 
   // Popular picks for closed rounds (anonymous vote counts for match cards)
   const now = new Date();

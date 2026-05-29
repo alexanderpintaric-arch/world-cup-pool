@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Match, Pick, User, OddsData } from "../types";
+import type { Match, Pick, BracketPick, User, OddsData } from "../types";
 import { ROUND_CONFIG } from "../constants";
+import { BRACKET_NODES } from "./bracket";
 import { MOCK_MATCHES, MOCK_PICKS, MOCK_USERS, MOCK_ODDS } from "./mockData";
 
 const isMock = !process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -144,6 +145,114 @@ export async function upsertPicksBatch(picks: Pick[]): Promise<void> {
   }
 
   if (error) throw error;
+}
+
+// ── Bracket picks (knockout) ─────────────────────────────────────────────────
+// The group stage stays in `picks`; knockout predictions live here, one row per
+// bracket node. See supabase/migrations/005_bracket_picks.sql.
+
+function rowToBracketPick(r: Record<string, unknown>): BracketPick {
+  return {
+    email:       r.email as string,
+    leagueId:    (r.league_id ?? "unknown") as string,
+    nodeId:      r.node_id as string,
+    round:       r.round as BracketPick["round"],
+    team:        r.team as string,
+    odds:        (r.odds as number | null) ?? null,
+    submittedAt: (r.submitted_at ?? new Date().toISOString()) as string,
+    updatedAt:   (r.updated_at ?? r.submitted_at ?? new Date().toISOString()) as string,
+  };
+}
+
+export async function getBracketPicks(email: string, leagueId: string): Promise<BracketPick[]> {
+  if (isMock) return [];
+  const { data, error } = await getClient()
+    .from("bracket_picks")
+    .select("*")
+    .eq("email", email)
+    .eq("league_id", leagueId);
+  if (error) {
+    // Table not migrated yet — degrade to an empty bracket rather than crashing.
+    if (/bracket_picks/i.test(error.message) && /(relation|table|schema cache|does not exist)/i.test(error.message)) {
+      return [];
+    }
+    throw error;
+  }
+  return (data ?? []).map(rowToBracketPick);
+}
+
+export async function getBracketPicksForLeague(leagueId: string): Promise<BracketPick[]> {
+  if (isMock) return [];
+  const { data, error } = await getClient()
+    .from("bracket_picks")
+    .select("*")
+    .eq("league_id", leagueId);
+  if (error) {
+    if (/bracket_picks/i.test(error.message) && /(relation|table|schema cache|does not exist)/i.test(error.message)) {
+      return [];
+    }
+    throw error;
+  }
+  return (data ?? []).map(rowToBracketPick);
+}
+
+export async function getAllBracketPicks(): Promise<BracketPick[]> {
+  if (isMock) return [];
+  const { data, error } = await getClient().from("bracket_picks").select("*");
+  if (error) {
+    if (/bracket_picks/i.test(error.message) && /(relation|table|schema cache|does not exist)/i.test(error.message)) {
+      return [];
+    }
+    throw error;
+  }
+  return (data ?? []).map(rowToBracketPick);
+}
+
+/**
+ * Replace a user's bracket within a league: upsert the supplied nodes and delete
+ * any of their existing nodes that aren't in the new set. The whole bracket is
+ * tiny (≤31 nodes) so we just send it in full on every save.
+ */
+export async function replaceBracketPicks(
+  email: string,
+  leagueId: string,
+  picks: BracketPick[]
+): Promise<void> {
+  if (isMock) return;
+  const client = getClient();
+  const now = new Date().toISOString();
+
+  if (picks.length > 0) {
+    const rows = picks.map(p => ({
+      email:        email,
+      league_id:    leagueId,
+      node_id:      p.nodeId,
+      round:        p.round,
+      team:         p.team,
+      odds:         p.odds ?? null,
+      submitted_at: now,
+      updated_at:   now,
+    }));
+    const { error } = await client
+      .from("bracket_picks")
+      .upsert(rows, { onConflict: "email,league_id,node_id" });
+    if (error) throw error;
+  }
+
+  // Delete nodes the user no longer has selected. Rather than a `not in` filter,
+  // delete the explicit complement from the fixed 31-node set — unambiguous and
+  // avoids any PostgREST list-quoting edge cases.
+  const keep = new Set(picks.map(p => p.nodeId));
+  const toDelete = BRACKET_NODES.map(n => n.id).filter(id => !keep.has(id));
+  if (toDelete.length > 0) {
+    const { error: delErr } = await client
+      .from("bracket_picks")
+      .delete()
+      .eq("email", email)
+      .eq("league_id", leagueId)
+      .in("node_id", toDelete);
+    if (delErr) throw delErr;
+  }
 }
 
 // ── Users ──────────────────────────────────────────────────────────────────

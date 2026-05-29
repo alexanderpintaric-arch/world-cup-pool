@@ -1,12 +1,85 @@
-import type { Match, Pick, User, LeaderboardEntry, RoundState, Round } from "../types";
+import type { Match, Pick, BracketPick, User, LeaderboardEntry, RoundState, Round } from "../types";
 import { ROUND_CONFIG } from "../constants";
+import { KNOCKOUT_ROUNDS, type KnockoutRound } from "./bracket";
+
+/** Winner of a finished knockout match (no draws), else null. */
+function knockoutWinner(m: Match): string | null {
+  if (m.status !== "FINISHED" || !m.result) return null;
+  if (m.result === "H") return m.homeTeam;
+  if (m.result === "A") return m.awayTeam;
+  return null;
+}
+
+/**
+ * Among the FINAL-bucket matches, the actual Final is the one with the latest
+ * kickoff. (football-data buckets the 3rd-place playoff into the FINAL round too,
+ * but the bracket only cares about the champion.)
+ */
+function finalMatch(matches: Match[]): Match | null {
+  const finals = matches
+    .filter(m => m.round === "FINAL")
+    .sort((a, b) => new Date(b.kickoffUtc).getTime() - new Date(a.kickoffUtc).getTime());
+  return finals[0] ?? null;
+}
+
+/**
+ * Teams that actually advanced out of each knockout round (winners of that
+ * round's real matches; the champion for FINAL). Drives advancement-based
+ * bracket scoring — opponents don't matter, only who advanced.
+ */
+export function computeActualAdvancers(matches: Match[]): Record<KnockoutRound, Set<string>> {
+  const out = {
+    ROUND_OF_32:    new Set<string>(),
+    ROUND_OF_16:    new Set<string>(),
+    QUARTER_FINALS: new Set<string>(),
+    SEMI_FINALS:    new Set<string>(),
+    FINAL:          new Set<string>(),
+  } as Record<KnockoutRound, Set<string>>;
+
+  for (const round of ["ROUND_OF_32", "ROUND_OF_16", "QUARTER_FINALS", "SEMI_FINALS"] as const) {
+    for (const m of matches.filter(m => m.round === round)) {
+      const w = knockoutWinner(m);
+      if (w) out[round].add(w);
+    }
+  }
+
+  const fm = finalMatch(matches);
+  if (fm) {
+    const champ = knockoutWinner(fm);
+    if (champ) out.FINAL.add(champ);
+  }
+
+  return out;
+}
+
+/** Whether a knockout round has fully resolved (so its picks are scored/locked-in). */
+export function knockoutRoundDecided(round: KnockoutRound, matches: Match[]): boolean {
+  if (round === "FINAL") {
+    const fm = finalMatch(matches);
+    return !!fm && fm.status === "FINISHED" && !!fm.result;
+  }
+  const roundMatches = matches.filter(m => m.round === round);
+  return roundMatches.length > 0 && roundMatches.every(m => m.status === "FINISHED");
+}
 
 export function computeLeaderboard(
   users: User[],
   allPicks: Pick[],
-  allMatches: Match[]
+  allMatches: Match[],
+  allBracketPicks: BracketPick[] = []
 ): LeaderboardEntry[] {
   const matchMap = new Map(allMatches.map(m => [m.matchId, m]));
+
+  // ── Knockout advancement scoring inputs ─────────────────────────────────
+  const advancers = computeActualAdvancers(allMatches);
+  const roundDecided = {} as Record<KnockoutRound, boolean>;
+  for (const r of KNOCKOUT_ROUNDS) roundDecided[r] = knockoutRoundDecided(r, allMatches);
+
+  const bracketByEmail = new Map<string, BracketPick[]>();
+  for (const bp of allBracketPicks) {
+    if (!bracketByEmail.has(bp.email)) bracketByEmail.set(bp.email, []);
+    bracketByEmail.get(bp.email)!.push(bp);
+  }
 
   // ── Pool pick counts (used for upset detection) ─────────────────────────
   // Count how many league members picked each outcome per match.
@@ -68,6 +141,27 @@ export function computeLeaderboard(
       } else if (match.status !== "FINISHED") {
         // Match not yet played — counts toward max possible
         maxPossible += match.pointsValue;
+      }
+    }
+
+    // ── Knockout bracket (advancement-based) ─────────────────────────────
+    // One point-bearing pick per filled bracket node. A pick scores its round's
+    // points if that team actually advanced from the round; undecided rounds
+    // count toward max possible.
+    const bracketPicks = bracketByEmail.get(user.email) ?? [];
+    for (const bp of bracketPicks) {
+      const round = bp.round as KnockoutRound;
+      const pts = ROUND_CONFIG[round]?.pointsValue ?? 0;
+      total++;
+      if (roundDecided[round]) {
+        if (advancers[round]?.has(bp.team)) {
+          scoreByRound[round] = (scoreByRound[round] ?? 0) + pts;
+          totalScore += pts;
+          correct++;
+        }
+      } else {
+        // Round not resolved yet — still winnable
+        maxPossible += pts;
       }
     }
 

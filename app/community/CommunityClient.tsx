@@ -2,6 +2,11 @@
 import { useState, useMemo, useEffect, useRef } from "react";
 import type { Match, RoundState, Round } from "@/lib/types";
 import { inferGroups } from "@/lib/services/grouping";
+import { ROUND_CONFIG } from "@/lib/constants";
+import {
+  nodesInRound, orderedR32Matches, type KnockoutRound,
+} from "@/lib/services/bracket";
+import { computeActualAdvancers, knockoutRoundDecided } from "@/lib/services/scoring";
 import Flag from "@/components/Flag";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -25,20 +30,29 @@ interface ModalState {
   result:       Option | null;
 }
 
+// Per node: team -> count, and team -> named pickers (post-lock only)
+type BracketCounts = Record<string, Record<string, number>>;
+type BracketNamed  = Record<string, Record<string, NamedEntry[]>>;
+
 interface Props {
-  matches:     Match[];
-  roundStates: RoundState[];
-  activeRound: RoundState | null;
-  counts:      Record<string, PickCount>;
-  named:       Record<string, NamedPicks>;
-  myPicks:     Record<string, Option>;
-  userEmail:   string;
+  matches:        Match[];
+  roundStates:    RoundState[];
+  activeRound:    RoundState | null;
+  counts:         Record<string, PickCount>;
+  named:          Record<string, NamedPicks>;
+  myPicks:        Record<string, Option>;
+  userEmail:      string;
+  bracketCounts:  BracketCounts;
+  bracketNamed:   BracketNamed;
+  myBracket:      Record<string, string>;
+  bracketLocked:  boolean;
 }
 
 // ── Main component ───────────────────────────────────────────────────────────
 
 export default function CommunityClient({
   matches, roundStates, activeRound, counts, named, myPicks, userEmail,
+  bracketCounts, bracketNamed, myBracket, bracketLocked,
 }: Props) {
   const [selectedRound, setSelectedRound] = useState<Round>(
     activeRound?.round ?? "GROUP"
@@ -49,7 +63,17 @@ export default function CommunityClient({
   const searchRef = useRef<HTMLInputElement>(null);
 
   const groups           = useMemo(() => inferGroups(matches), [matches]);
-  const roundsWithMatches = roundStates.filter(r => r.matchCount > 0);
+
+  // ── Knockout bracket inputs ───────────────────────────────────────────────
+  const r32Slots  = useMemo(() => orderedR32Matches(matches), [matches]);
+  const r32Ready  = useMemo(() => r32Slots.some(m => m !== null), [r32Slots]);
+  const advancers = useMemo(() => computeActualAdvancers(matches), [matches]);
+
+  // Knockout rounds appear once the bracket has unlocked (R32 matchups known),
+  // even before their real fixtures are scheduled — that's when picks exist.
+  const roundsWithMatches = roundStates.filter(
+    r => r.matchCount > 0 || (r.round !== "GROUP" && r32Ready)
+  );
 
   const roundMatches = useMemo(() =>
     matches
@@ -180,8 +204,8 @@ export default function CommunityClient({
         </div>
       </nav>
 
-      {/* ── SEARCH + FILTER BAR ─────────────────────────────── */}
-      {roundMatches.length > 0 && (
+      {/* ── SEARCH + FILTER BAR (group stage only) ──────────── */}
+      {isGroupStage && roundMatches.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 anim-fade-up" style={{ animationDelay: "80ms" }}>
 
           {/* Search input */}
@@ -353,28 +377,18 @@ export default function CommunityClient({
           })()}
         </div>
       ) : (
-        <div className="anim-fade-up">
-          {roundMatches.length === 0 ? (
-            <div className="bg-card border border-line border-dashed rounded-md p-12 text-center shadow-paper">
-              <p className="font-serif italic text-[18px] ink-soft" style={{ fontVariationSettings: '"opsz" 32' }}>
-                Matchups will appear once the bracket is set.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {roundMatches.map((match, i) => (
-                <MatchPicksCard
-                  key={match.matchId}
-                  match={match}
-                  matchNumber={i + 1}
-                  count={counts[match.matchId] ?? { H: 0, A: 0, T: 0, total: 0 }}
-                  myPick={myPicks[match.matchId] ?? null}
-                  onBarClick={() => openModal(match)}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+        <KnockoutConsensus
+          round={selectedRound as KnockoutRound}
+          r32Slots={r32Slots}
+          r32Ready={r32Ready}
+          advanced={advancers[selectedRound as KnockoutRound]}
+          decided={knockoutRoundDecided(selectedRound as KnockoutRound, matches)}
+          bracketCounts={bracketCounts}
+          bracketNamed={bracketNamed}
+          myBracket={myBracket}
+          bracketLocked={bracketLocked}
+          userEmail={userEmail}
+        />
       )}
 
       {/* ── MODAL ───────────────────────────────────────────── */}
@@ -916,6 +930,348 @@ function PickModal({
             <div className="px-5 py-10 text-center">
               <p className="font-serif italic text-[16px] ink-soft" style={{ fontVariationSettings: '"opsz" 32' }}>
                 No picks have been made yet.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Knockout bracket consensus ────────────────────────────────────────────────
+// Knockout predictions live in bracket_picks. Per bracket node we show which
+// team the pool advanced (ranked), scored by advancement (computeActualAdvancers
+// + knockoutRoundDecided), matching BracketBoard's correct/incorrect styling.
+
+// Ranked-bar palette: darkest = most popular, descending. Winner overrides green.
+const BRACKET_RANK_COLORS = ["#1E1C18", "var(--color-accent)", "#635D58", "#8A847E", "#B4AEA8"];
+
+/** Teams picked at a node, sorted by pick count desc (ties: A→Z). */
+function rankedBracketTeams(counts: Record<string, number>): [string, number][] {
+  return Object.entries(counts)
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+}
+
+function KnockoutConsensus({
+  round, r32Slots, r32Ready, advanced, decided,
+  bracketCounts, bracketNamed, myBracket, bracketLocked, userEmail,
+}: {
+  round:         KnockoutRound;
+  r32Slots:      (Match | null)[];
+  r32Ready:      boolean;
+  advanced:      Set<string>;
+  decided:       boolean;
+  bracketCounts: BracketCounts;
+  bracketNamed:  BracketNamed;
+  myBracket:     Record<string, string>;
+  bracketLocked: boolean;
+  userEmail:     string;
+}) {
+  const [modalNode, setModalNode] = useState<string | null>(null);
+
+  if (!r32Ready) {
+    return (
+      <div className="anim-fade-up bg-card border border-line border-dashed rounded-md p-12 text-center shadow-paper">
+        <p className="font-serif italic text-[18px] ink-soft" style={{ fontVariationSettings: '"opsz" 32' }}>
+          The bracket unlocks when the group stage wraps. Pool predictions will appear here then.
+        </p>
+      </div>
+    );
+  }
+
+  const nodes = nodesInRound(round);
+
+  return (
+    <div className="anim-fade-up space-y-4">
+      {!bracketLocked && (
+        <p className="font-mono text-[11px] ink-faint flex items-center gap-1.5">
+          <span>🔒</span>
+          Names stay hidden until the bracket locks at the first Round of 32 kickoff.
+        </p>
+      )}
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        {nodes.map((node, i) => (
+          <BracketNodeCard
+            key={node.id}
+            round={round}
+            nodeNumber={i + 1}
+            realMatch={round === "ROUND_OF_32" ? r32Slots[node.matchSlot ?? -1] ?? null : null}
+            counts={bracketCounts[node.id] ?? {}}
+            advanced={advanced}
+            decided={decided}
+            myTeam={myBracket[node.id] ?? null}
+            onClick={() => setModalNode(node.id)}
+          />
+        ))}
+      </div>
+
+      {modalNode && (
+        <BracketNodeModal
+          round={round}
+          counts={bracketCounts[modalNode] ?? {}}
+          named={bracketNamed[modalNode] ?? {}}
+          advanced={advanced}
+          decided={decided}
+          myTeam={myBracket[modalNode] ?? null}
+          bracketLocked={bracketLocked}
+          userEmail={userEmail}
+          onClose={() => setModalNode(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function BracketNodeCard({
+  round, nodeNumber, realMatch, counts, advanced, decided, myTeam, onClick,
+}: {
+  round:      KnockoutRound;
+  nodeNumber: number;
+  realMatch:  Match | null;
+  counts:     Record<string, number>;
+  advanced:   Set<string>;
+  decided:    boolean;
+  myTeam:     string | null;
+  onClick:    () => void;
+}) {
+  const ranked = rankedBracketTeams(counts);
+  const total  = ranked.reduce((s, [, n]) => s + n, 0);
+
+  return (
+    <article className="relative bg-card border border-line rounded-lg overflow-hidden shadow-paper transition-all hover:border-[color:var(--ink-faint)]/30 hover:shadow-lift">
+      {/* Header */}
+      <div className="px-4 pt-3 pb-2.5 border-b border-[color:var(--line-soft)] flex items-center justify-between gap-2">
+        <span className="font-mono text-[10px] uppercase tracking-[0.16em] ink-faint">
+          {round === "ROUND_OF_32" ? `Match ${nodeNumber}` : `${ROUND_CONFIG[round].label} · #${nodeNumber}`}
+        </span>
+        <span className="font-mono text-[10px] ink-faint">
+          {total > 0 ? `${total} ${total === 1 ? "pick" : "picks"}` : "no picks"}
+        </span>
+      </div>
+
+      <div className="px-4 pt-3.5 pb-4">
+        {/* Round-of-32 real matchup context */}
+        {round === "ROUND_OF_32" && realMatch && (
+          <div className="flex items-center justify-between gap-2 mb-3">
+            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+              <Flag team={realMatch.homeTeam} size={18} />
+              <span className="font-serif text-[14px] font-medium truncate ink" style={{ fontVariationSettings: '"opsz" 24' }}>
+                {realMatch.homeTeam}
+              </span>
+            </div>
+            <span className="font-serif italic text-[12px] ink-faint flex-shrink-0 px-1" style={{ fontVariationSettings: '"opsz" 24' }}>vs</span>
+            <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-row-reverse justify-start">
+              <Flag team={realMatch.awayTeam} size={18} />
+              <span className="font-serif text-[14px] font-medium truncate text-right ink" style={{ fontVariationSettings: '"opsz" 24' }}>
+                {realMatch.awayTeam}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Ranked team bars */}
+        {total === 0 ? (
+          <div className="h-11 rounded-md bg-paper-deep border border-line flex items-center justify-center">
+            <span className="font-mono text-[10.5px] ink-faint">No predictions yet</span>
+          </div>
+        ) : (
+          <button onClick={onClick} className="w-full space-y-1.5 text-left" title="See who picked what">
+            {ranked.map(([team, n], idx) => {
+              const pct      = Math.round((n / total) * 100);
+              const isWinner = decided && advanced.has(team);
+              const isLoser  = decided && !advanced.has(team);
+              const isMine   = myTeam === team;
+              const color    = isWinner
+                ? "var(--color-green-deep)"
+                : BRACKET_RANK_COLORS[idx] ?? BRACKET_RANK_COLORS[BRACKET_RANK_COLORS.length - 1];
+              return (
+                <div key={team} className={`flex items-center gap-2 ${isLoser ? "opacity-50" : ""}`}>
+                  <Flag team={team} size={14} className="flex-shrink-0" />
+                  <span
+                    className={`text-[12px] truncate flex-shrink-0 max-w-[42%]
+                      ${isWinner ? "text-green-deep font-semibold" : "ink"}
+                      ${isLoser && isMine ? "line-through" : ""}`}
+                  >
+                    {team}
+                  </span>
+                  <div className="flex-1 h-2 rounded-full overflow-hidden" style={{ background: "var(--color-line)" }}>
+                    <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color }} />
+                  </div>
+                  <span className="font-mono text-[10px] tabular ink-soft flex-shrink-0 w-8 text-right">{pct}%</span>
+                  {isMine && (
+                    <span className={`font-mono text-[9px] font-bold flex-shrink-0
+                      ${isWinner ? "text-green-deep" : isLoser ? "ink-faint" : "text-accent"}`}>
+                      you
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </button>
+        )}
+
+        {/* Your pick + tap hint */}
+        <div className="mt-3 flex items-center justify-between gap-2 min-h-[18px]">
+          {myTeam ? (
+            <span className={`font-mono text-[10.5px] flex items-center gap-1
+              ${decided ? (advanced.has(myTeam) ? "text-green-deep" : "ink-faint") : "ink-soft"}`}>
+              <span>{decided ? (advanced.has(myTeam) ? "✓" : "✗") : "›"}</span>
+              <span className={decided && !advanced.has(myTeam) ? "line-through" : ""}>
+                You picked {myTeam}
+              </span>
+            </span>
+          ) : (
+            <span />
+          )}
+          {total > 0 && (
+            <button
+              onClick={onClick}
+              className="font-mono text-[10px] ink-faint/60 hover:ink-faint transition-colors flex-shrink-0"
+            >
+              see all →
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function BracketNodeModal({
+  round, counts, named, advanced, decided, myTeam, bracketLocked, userEmail, onClose,
+}: {
+  round:         KnockoutRound;
+  counts:        Record<string, number>;
+  named:         Record<string, NamedEntry[]>;
+  advanced:      Set<string>;
+  decided:       boolean;
+  myTeam:        string | null;
+  bracketLocked: boolean;
+  userEmail:     string;
+  onClose:       () => void;
+}) {
+  const ranked = rankedBracketTeams(counts);
+  const total  = ranked.reduce((s, [, n]) => s + n, 0);
+
+  const initials = (name: string) =>
+    name.split(/\s+/).map(s => s[0] ?? "").join("").slice(0, 2).toUpperCase();
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+      style={{ paddingBottom: 'calc(4.5rem + env(safe-area-inset-bottom))' }}
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-ink/50 backdrop-blur-sm" />
+
+      <div
+        className="relative bg-paper border border-line rounded-t-2xl sm:rounded-xl shadow-lift w-full sm:max-w-md overflow-hidden anim-scale-in"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="sm:hidden absolute top-2.5 left-1/2 -translate-x-1/2 w-10 h-1 rounded-full bg-line" />
+
+        {/* Header */}
+        <div className="px-5 pt-6 sm:pt-4 pb-4 border-b border-line flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <p className="font-mono text-[10px] uppercase tracking-[0.18em] ink-faint mb-1">
+              Who the pool advances
+            </p>
+            <p className="font-serif font-medium text-[18px] ink leading-tight" style={{ fontVariationSettings: '"opsz" 32' }}>
+              {ROUND_CONFIG[round].label}
+            </p>
+            <p className="mt-1 font-mono text-[11px] ink-faint">
+              {total === 0
+                ? "No predictions yet"
+                : `${total} ${total === 1 ? "prediction" : "predictions"} in the pool`}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex-shrink-0 h-7 w-7 rounded-full bg-paper-deep hover:bg-line flex items-center justify-center ink-faint hover:ink transition-colors mt-0.5"
+            aria-label="Close"
+          >
+            <span className="text-[13px] leading-none">✕</span>
+          </button>
+        </div>
+
+        {/* Sections */}
+        <div className="overflow-y-auto overscroll-contain" style={{ maxHeight: "calc(100dvh - 4.5rem - env(safe-area-inset-bottom) - 160px)" }}>
+          {ranked.map(([team, n], idx) => {
+            const pct      = total > 0 ? Math.round((n / total) * 100) : 0;
+            const isWinner = decided && advanced.has(team);
+            const isLoser  = decided && !advanced.has(team);
+            const isMine   = myTeam === team;
+            const users    = named[team] ?? [];
+
+            return (
+              <div
+                key={team}
+                className={`px-5 py-4 ${idx < ranked.length - 1 ? "border-b border-line" : ""} ${isLoser ? "opacity-50" : ""}`}
+              >
+                {/* Section header */}
+                <div className="flex items-center gap-2.5 mb-2.5">
+                  <Flag team={team} size={18} className="flex-shrink-0" />
+                  <span
+                    className={`font-serif text-[15px] font-medium leading-none flex-1 min-w-0 truncate ${isWinner ? "text-green-deep" : "ink"}`}
+                    style={{ fontVariationSettings: '"opsz" 24' }}
+                  >
+                    {team}
+                    {isWinner && (
+                      <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.12em] text-green-deep font-semibold not-italic">
+                        ✓ advanced
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex items-baseline gap-1.5 flex-shrink-0">
+                    <span className="font-mono text-[13px] font-semibold tabular ink">{pct}%</span>
+                    <span className="font-mono text-[10px] ink-faint">({n})</span>
+                    {isMine && (
+                      <span className={`font-mono text-[10px] font-semibold
+                        ${isWinner ? "text-green-deep" : isLoser ? "ink-faint line-through" : "text-accent"}`}>
+                        you
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mini progress bar */}
+                <div className="h-1.5 rounded-full overflow-hidden mb-3" style={{ background: "var(--color-line)" }}>
+                  <div
+                    className="h-full rounded-full transition-all"
+                    style={{ width: `${pct}%`, background: isWinner ? "var(--color-green-deep)" : "var(--color-ink)" }}
+                  />
+                </div>
+
+                {/* User chips / privacy message */}
+                {!bracketLocked ? (
+                  <div className="flex items-center gap-2 py-1">
+                    <span className="text-[14px]">🔒</span>
+                    <span className="font-mono text-[11px] ink-faint">
+                      {n} {n === 1 ? "person" : "people"} — revealed when the bracket locks.
+                    </span>
+                  </div>
+                ) : users.length === 0 ? (
+                  <p className="font-mono text-[11px] ink-faint py-1">Nobody picked this.</p>
+                ) : (
+                  <UserStack
+                    users={users}
+                    userEmail={userEmail}
+                    isWinner={isWinner}
+                    isLoser={isLoser}
+                    initials={initials}
+                  />
+                )}
+              </div>
+            );
+          })}
+
+          {total === 0 && (
+            <div className="px-5 py-10 text-center">
+              <p className="font-serif italic text-[16px] ink-soft" style={{ fontVariationSettings: '"opsz" 32' }}>
+                No predictions have been made yet.
               </p>
             </div>
           )}
