@@ -142,9 +142,9 @@ export async function sendLeagueWelcomeEmail(
     ${p(`Your picks save the instant you tap them, and you can change your mind as often as you like &mdash; right up until each round&rsquo;s deadline.`)}
 
     <div style="font-family:${MONO};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:${C.accent};margin:24px 0 10px;">What to expect</div>
-    ${p(`&bull;&nbsp; <strong style="color:${C.ink};">Group stage</strong> kicks off <strong style="color:${C.ink};">June 11, 2026</strong> &mdash; get your group picks in before then.<br>
-        &bull;&nbsp; <strong style="color:${C.ink};">Knockout rounds</strong> unlock as the bracket fills in. We&rsquo;ll email you the moment each one opens.<br>
-        &bull;&nbsp; We&rsquo;ll give you a friendly <strong style="color:${C.ink};">nudge 3 hours</strong> before every deadline, so you never get caught out.`)}
+    ${p(`&bull;&nbsp; <strong style="color:${C.ink};">Group stage</strong> kicks off <strong style="color:${C.ink};">June 11, 2026</strong> &mdash; pick every match individually before each kicks off.<br>
+        &bull;&nbsp; <strong style="color:${C.ink};">Knockout bracket</strong> opens after the group stage. Fill it out <em>once</em> &mdash; your picks cover all five rounds from the Round of 32 to the Final. We&rsquo;ll email you when it opens.<br>
+        &bull;&nbsp; We&rsquo;ll give you a friendly <strong style="color:${C.ink};">nudge 3 hours</strong> before each deadline, so you never get caught out.`)}
 
     ${codeBox}
 
@@ -216,7 +216,10 @@ export async function sendDeadlineReminderEmail(
   });
 }
 
-// ── 3. Round open (knockout bracket set) ────────────────────────────────────
+// ── 3. Knockout bracket open (sent once, when R32 draw is set) ──────────────
+// Note: this email is only sent when ROUND_OF_32 becomes available. Later
+// knockout rounds (R16 → Final) are part of the same bracket — no separate
+// email per round.
 
 export async function sendRoundOpenEmail(
   to: string,
@@ -230,30 +233,50 @@ export async function sendRoundOpenEmail(
     timeZone: "America/Toronto", timeZoneName: "short",
   });
 
+  const bracketRounds = [
+    ["Round of 32",  "2 pts"],
+    ["Round of 16",  "3 pts"],
+    ["Quarterfinals","4 pts"],
+    ["Semifinals",   "5 pts"],
+    ["Final",        "6 pts"],
+  ].map(([r, v], i) => `
+    <tr>
+      <td style="padding:7px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};${i > 0 ? `border-top:1px solid ${C.line};` : ""}">${r}</td>
+      <td style="padding:7px 0;font-family:${MONO};font-size:13px;font-weight:bold;color:${C.ink};text-align:right;${i > 0 ? `border-top:1px solid ${C.line};` : ""}">${v}</td>
+    </tr>`).join("");
+
   const body = `
     ${p(`Hi ${firstName(name)},`)}
-    ${p(`The <strong style="color:${C.ink};">${roundLabel}</strong> bracket is set &mdash; the matchups are in and picks are open. Get yours in before:`)}
+    ${p(`The group stage is done and the knockout draw is set. <strong style="color:${C.ink};">Your bracket is now open.</strong>`)}
+    ${p(`Fill it out once &mdash; your picks cover all five knockout rounds from the Round of 32 to the Final. Every team you correctly pick to advance scores points:`)}
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:6px 18px;margin:0 0 20px;">
+      ${bracketRounds}
+    </table>
+
+    ${p(`Your bracket locks when the Round of 32 kicks off &mdash; fill it in before:`)}
 
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 22px;">
       <tr><td style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:16px 20px;text-align:center;">
-        <div style="font-family:${MONO};font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:${C.inkFaint};margin-bottom:7px;">Picks lock</div>
+        <div style="font-family:${MONO};font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:${C.inkFaint};margin-bottom:7px;">Bracket locks</div>
         <div style="font-family:${MONO};font-size:16px;font-weight:bold;color:${C.ink};">${deadlineStr}</div>
       </td></tr>
     </table>
 
     <div style="text-align:center;margin:6px 0 4px;">
-      ${button(`${appUrl}/picks`, "Submit my picks")}
+      ${button(`${appUrl}/picks`, "Fill out my bracket")}
     </div>
+    ${p(`Good luck &mdash; may your bracket survive the first weekend.`, `text-align:center;margin-top:18px;font-style:italic;font-family:${SERIF};color:${C.inkFaint};`)}
   `;
 
   await deliver({
     from: FROM(),
     to,
-    subject: `Picks open: ${roundLabel} — ${APP_NAME()}`,
+    subject: `🏆 Your knockout bracket is open — ${APP_NAME()}`,
     html: shell({
-      preview: `The ${roundLabel} bracket is set. Make your picks.`,
-      kicker: "Bracket set",
-      heading: `${roundLabel} picks are open.`,
+      preview: `The knockout draw is set. Fill out your bracket before the Round of 32 kicks off.`,
+      kicker: "Bracket open",
+      heading: `Fill out your bracket.`,
       bodyHtml: body,
     }),
   });

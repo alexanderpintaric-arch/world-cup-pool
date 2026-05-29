@@ -30,13 +30,13 @@ interface Props {
 const STEPS = [
   {
     n: "01",
-    title: "Pick every match.",
-    body: "From the opening whistle in Mexico City to the final in New Jersey. 104 matches. Group stage, then every knockout round.",
+    title: "Pick matches. Fill a bracket.",
+    body: "Group stage: call the result of all 72 matches, one by one. Then when the draw is set, fill out your knockout bracket once — it covers every round from the Round of 32 to the Final.",
   },
   {
     n: "02",
     title: "Earn as games end.",
-    body: "Group games count for 1. Each knockout round is worth more — last 32 → 2, last 16 → 3, quarters → 4, semis → 5, final → 6.",
+    body: "Group picks score 1 point each. In the bracket, every team you correctly picked to advance earns points — 2 in the Ro32, climbing to 6 for calling the champion.",
   },
   {
     n: "03",
@@ -48,7 +48,7 @@ const STEPS = [
 const FAQ = [
   {
     q: "When do picks lock?",
-    a: "Group stage picks lock at the first whistle of each group&rsquo;s opening match. Knockout picks lock the moment that round begins.",
+    a: "Group stage picks lock match by match — each game locks at kickoff. Knockout bracket picks all lock together when the Round of 32 begins, so fill out your full bracket before that first whistle.",
   },
   {
     q: "Can I change a pick before the deadline?",
@@ -312,13 +312,30 @@ export default function Landing({ matches, participantCount }: Props) {
               <tr className="border-b border-line bg-paper-deep">
                 <th className="text-left font-medium ink-soft px-5 sm:px-7 py-3.5 text-[11px] uppercase tracking-[0.16em]">Round</th>
                 <th className="text-right font-medium ink-soft px-5 sm:px-7 py-3.5 text-[11px] uppercase tracking-[0.16em]">Matches</th>
-                <th className="text-right font-medium ink-soft px-5 sm:px-7 py-3.5 text-[11px] uppercase tracking-[0.16em]">Per pick</th>
+                <th className="text-right font-medium ink-soft px-5 sm:px-7 py-3.5 text-[11px] uppercase tracking-[0.16em]">Per correct</th>
                 <th className="text-right font-medium ink-soft px-5 sm:px-7 py-3.5 text-[11px] uppercase tracking-[0.16em]">Round total</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[color:var(--line-soft)]">
+              {/* Group Stage — per-match picks */}
+              <tr className="bg-paper-deep/30">
+                <td colSpan={4} className="px-5 sm:px-7 py-2">
+                  <span className="font-mono text-[9.5px] uppercase tracking-[0.2em] ink-faint">Phase 1 · Pick every match</span>
+                </td>
+              </tr>
+              <tr className="hover:bg-paper-deep/40 transition-colors">
+                <td className="px-5 sm:px-7 py-3.5 ink font-medium">Group stage</td>
+                <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink-soft">72</td>
+                <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink-soft">1pt</td>
+                <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink font-semibold">72</td>
+              </tr>
+              {/* Knockout bracket — one bracket, 5 rounds */}
+              <tr className="bg-paper-deep/30">
+                <td colSpan={4} className="px-5 sm:px-7 py-2">
+                  <span className="font-mono text-[9.5px] uppercase tracking-[0.2em] ink-faint">Phase 2 · Fill one bracket · points per team advanced</span>
+                </td>
+              </tr>
               {[
-                ["Group stage",     72, 1, 72],
                 ["Round of 32",     16, 2, 32],
                 ["Round of 16",      8, 3, 24],
                 ["Quarterfinals",    4, 4, 16],

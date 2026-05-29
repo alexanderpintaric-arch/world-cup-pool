@@ -494,73 +494,7 @@ export default function LeaderboardClient({
       {roundsWithMatches.length > 0 && (
         <section className="anim-fade-up" style={{animationDelay: '200ms'}}>
           <SectionHeader kicker="Schedule" title="Where we are" />
-          <div className="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
-            {roundsWithMatches.map((rs, i) => {
-              const status = rs.isComplete ? "Done" : rs.isOpen ? "Open" : "Soon";
-              const statusColor = rs.isComplete ? "text-green-deep" : rs.isOpen ? "text-accent" : "ink-faint";
-              const dotColor = rs.isComplete ? "bg-green-deep" : rs.isOpen ? "bg-accent" : "bg-[color:var(--ink-faint)]/30";
-              return (
-                <div
-                  key={rs.round}
-                  className={`relative bg-card border rounded-xl p-5 anim-fade-up transition-colors
-                    ${rs.isOpen
-                      ? "border-accent/50 sched-glow"
-                      : rs.isComplete
-                      ? "border-green-deep/30 shadow-paper"
-                      : "border-line shadow-paper"}
-                  `}
-                  style={{ animationDelay: `${220 + i * 50}ms` }}
-                >
-                  {/* Status */}
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <span className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${dotColor} ${rs.isOpen ? "anim-ring-pulse" : ""}`} />
-                    <span className={`font-mono text-[10px] uppercase tracking-[0.18em] font-medium ${statusColor}`}>
-                      {status}
-                    </span>
-                  </div>
-
-                  {/* Round name */}
-                  <h3 className="font-serif text-[18px] ink font-medium leading-tight" style={{ fontVariationSettings: '"opsz" 36' }}>
-                    {rs.label}
-                  </h3>
-
-                  {/* Matches + points */}
-                  <div className="mt-2.5 flex items-center gap-2">
-                    <span className="font-mono text-[11px] tabular ink-soft">
-                      {rs.matchCount} {rs.matchCount === 1 ? "match" : "matches"}
-                    </span>
-                    <span className="font-mono text-[10px] tabular font-semibold ink px-1.5 py-0.5 rounded bg-paper-deep">
-                      {rs.pointsValue}pt
-                    </span>
-                  </div>
-
-                  {/* Dates */}
-                  {(rs.deadline || (rs.lastKickoff && rs.lastKickoff !== rs.deadline)) && (
-                    <div className="mt-4 pt-3.5 border-t border-[color:var(--line-soft)] space-y-2.5">
-                      {rs.deadline && (
-                        <div>
-                          <div className="font-mono text-[9px] uppercase tracking-[0.16em] ink-faint mb-1">Picks close</div>
-                          <div className="font-mono text-[12px] tabular ink-soft leading-none">
-                            {new Date(rs.deadline).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-                            <span className="ink-faint"> · </span>
-                            {new Date(rs.deadline).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" })}
-                          </div>
-                        </div>
-                      )}
-                      {rs.lastKickoff && rs.lastKickoff !== rs.deadline && (
-                        <div>
-                          <div className="font-mono text-[9px] uppercase tracking-[0.16em] ink-faint mb-1">Last match</div>
-                          <div className="font-mono text-[12px] tabular ink-soft leading-none">
-                            {new Date(rs.lastKickoff).toLocaleDateString("en-CA", { month: "short", day: "numeric" })}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <ScheduleSection roundStates={roundsWithMatches} />
         </section>
       )}
 
@@ -595,6 +529,220 @@ function SectionHeader({ kicker, title, right }: { kicker: string; title: string
         </h2>
       </div>
       {right}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Schedule Section — bracket-aware "Where we are" display
+// ─────────────────────────────────────────────────────────────────────────────
+
+type ScheduleStatus = 'open' | 'complete' | 'locked' | 'soon';
+
+function getScheduleStatus(rs: RoundState): ScheduleStatus {
+  if (rs.isComplete) return 'complete';
+  if (rs.isOpen) return 'open';
+  if (rs.isAvailable) return 'locked';
+  return 'soon';
+}
+
+function fmtScheduleDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+const KNOCKOUT_ROUND_ORDER = [
+  'ROUND_OF_32', 'ROUND_OF_16', 'QUARTER_FINALS', 'SEMI_FINALS', 'FINAL',
+] as const;
+
+const KO_SHORT: Record<string, string> = {
+  ROUND_OF_32:    'Ro32',
+  ROUND_OF_16:    'Ro16',
+  QUARTER_FINALS: 'QF',
+  SEMI_FINALS:    'SF',
+  FINAL:          'Final',
+};
+
+function ScheduleStatusChip({ status }: { status: ScheduleStatus }) {
+  if (status === 'open') return (
+    <span className="flex items-center gap-1.5 flex-shrink-0">
+      <span className="relative flex h-1.5 w-1.5">
+        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-70" />
+        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent" />
+      </span>
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">Open</span>
+    </span>
+  );
+  if (status === 'complete') return (
+    <span className="flex items-center gap-1.5 flex-shrink-0">
+      <span className="inline-flex rounded-full h-1.5 w-1.5 bg-green-deep" />
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-green-deep">Done</span>
+    </span>
+  );
+  if (status === 'locked') return (
+    <span className="flex items-center gap-1.5 flex-shrink-0">
+      <span className="inline-flex rounded-full h-1.5 w-1.5 bg-gold" />
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] text-gold">In play</span>
+    </span>
+  );
+  return (
+    <span className="flex items-center gap-1.5 flex-shrink-0">
+      <span className="inline-flex rounded-full h-1.5 w-1.5 bg-line" />
+      <span className="font-mono text-[10px] uppercase tracking-[0.18em] ink-faint">Soon</span>
+    </span>
+  );
+}
+
+function ScheduleSection({ roundStates }: { roundStates: RoundState[] }) {
+  const groupRound = roundStates.find(r => r.round === 'GROUP');
+  const knockoutRounds = KNOCKOUT_ROUND_ORDER
+    .map(id => roundStates.find(r => r.round === id))
+    .filter((r): r is RoundState => !!r);
+
+  return (
+    <div className="mt-5 flex flex-col sm:flex-row gap-3 items-stretch">
+      {/* Group Stage */}
+      {groupRound && <GroupStageScheduleCard rs={groupRound} />}
+
+      {/* Arrow connector — desktop only */}
+      {groupRound && knockoutRounds.length > 0 && (
+        <div className="hidden sm:flex items-center flex-shrink-0 self-center text-line">
+          <svg width="18" height="14" viewBox="0 0 18 14" fill="none">
+            <path d="M1 7h13M10 2l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </div>
+      )}
+
+      {/* Knockout bracket */}
+      {knockoutRounds.length > 0 && <KnockoutScheduleCard rounds={knockoutRounds} />}
+    </div>
+  );
+}
+
+function GroupStageScheduleCard({ rs }: { rs: RoundState }) {
+  const status = getScheduleStatus(rs);
+  return (
+    <div className={`flex-shrink-0 rounded-xl border bg-card shadow-paper p-4 w-full sm:w-[196px] transition-colors ${
+      status === 'open'     ? 'border-accent/40'     :
+      status === 'complete' ? 'border-green-deep/25' :
+                              'border-line'
+    }`}>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] ink-faint mb-1">Phase 1</p>
+          <h3 className="font-serif font-medium text-[17px] ink leading-tight" style={{fontVariationSettings: '"opsz" 60'}}>
+            Group Stage
+          </h3>
+        </div>
+        <ScheduleStatusChip status={status} />
+      </div>
+      <div className="space-y-1.5 mb-3">
+        <div className="flex items-center justify-between gap-2">
+          <span className="font-mono text-[10.5px] ink-faint">{rs.matchCount} matches</span>
+          <span className="font-mono text-[10.5px] ink-soft">{rs.pointsValue} pt each</span>
+        </div>
+        {rs.deadline && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10.5px] ink-faint">Starts</span>
+            <span className="font-mono text-[10.5px] ink-soft">{fmtScheduleDate(rs.deadline)}</span>
+          </div>
+        )}
+        {rs.lastKickoff && (
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[10.5px] ink-faint">Ends</span>
+            <span className="font-mono text-[10.5px] ink-soft">{fmtScheduleDate(rs.lastKickoff)}</span>
+          </div>
+        )}
+      </div>
+      <div className="rounded-md px-2.5 py-1.5 bg-paper-deep">
+        <p className="font-mono text-[9.5px] ink-faint uppercase tracking-[0.15em]">Pick every match</p>
+      </div>
+    </div>
+  );
+}
+
+function KnockoutScheduleCard({ rounds }: { rounds: RoundState[] }) {
+  const anyOpen     = rounds.some(r => r.isOpen);
+  const anyAvail    = rounds.some(r => r.isAvailable);
+  const allComplete = rounds.every(r => r.isComplete);
+  const overallStatus: ScheduleStatus =
+    allComplete ? 'complete' :
+    anyOpen     ? 'open'     :
+    anyAvail    ? 'locked'   : 'soon';
+
+  return (
+    <div className={`flex-1 min-w-0 rounded-xl border bg-card shadow-paper p-4 transition-colors ${
+      overallStatus === 'open'     ? 'border-accent/40'     :
+      overallStatus === 'complete' ? 'border-green-deep/25' :
+                                     'border-line'
+    }`}>
+      {/* Header */}
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.2em] ink-faint mb-1">Phase 2 · 5 rounds</p>
+          <h3 className="font-serif font-medium text-[17px] ink leading-tight" style={{fontVariationSettings: '"opsz" 60'}}>
+            Knockout Bracket
+          </h3>
+        </div>
+        <ScheduleStatusChip status={overallStatus} />
+      </div>
+
+      {/* Round pills connected by arrows */}
+      <div className="flex items-center overflow-x-auto no-scrollbar -mx-0.5 px-0.5 pb-0.5">
+        {rounds.map((rs, i) => {
+          const s = getScheduleStatus(rs);
+          const isLast = i === rounds.length - 1;
+          return (
+            <div key={rs.round} className="flex items-center flex-shrink-0">
+              <div className={`flex flex-col items-center px-3 py-2 rounded-lg min-w-[58px] transition-colors ${
+                s === 'open'     ? 'bg-accent-soft ring-1 ring-accent/25'       :
+                s === 'complete' ? 'bg-green-soft ring-1 ring-green-deep/20'    :
+                s === 'locked'   ? 'bg-gold-soft ring-1 ring-gold/20'           :
+                                   'bg-paper-deep'
+              }`}>
+                {s === 'open' ? (
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-70" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-accent" />
+                  </span>
+                ) : (
+                  <span className={`inline-flex rounded-full h-1.5 w-1.5 ${
+                    s === 'complete' ? 'bg-green-deep' :
+                    s === 'locked'   ? 'bg-gold'       :
+                                       'bg-line'
+                  }`} />
+                )}
+                <span className={`font-mono text-[10.5px] font-medium mt-1.5 ${
+                  s === 'open'     ? 'text-accent'     :
+                  s === 'complete' ? 'text-green-deep' :
+                  s === 'locked'   ? 'text-gold'       :
+                                     'ink-faint'
+                }`}>
+                  {KO_SHORT[rs.round] ?? rs.label}
+                </span>
+                <span className="font-mono text-[9.5px] ink-faint mt-0.5">{rs.pointsValue}pts</span>
+              </div>
+              {!isLast && (
+                <div className="flex items-center px-1.5 text-line flex-shrink-0">
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                    <path d="M0 4h7M5 1l3 3-3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Hint line */}
+      <p className="font-mono text-[10px] ink-faint mt-2.5">
+        {anyOpen
+          ? 'Fill out your bracket — picks lock at kickoff'
+          : anyAvail && !allComplete
+          ? 'Matches underway · bracket locked'
+          : allComplete
+          ? 'Tournament complete'
+          : 'Opens when Group Stage concludes'}
+      </p>
     </div>
   );
 }
