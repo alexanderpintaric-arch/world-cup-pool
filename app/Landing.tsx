@@ -100,9 +100,10 @@ export default function Landing({ matches, participantCount }: Props) {
 
         <div className="mt-8 sm:mt-10 max-w-2xl anim-fade-up" style={{animationDelay: '120ms'}}>
           <p className="text-[18px] sm:text-[19px] ink-soft leading-[1.55]">
-            A friendly prediction pool for the 2026 World Cup. Pick every match across all{" "}
-            <strong className="ink">{groupCount} groups</strong> and every knockout round.
-            Earn points as games end. Whoever ends with the most points wins the bragging rights for{" "}
+            A friendly prediction pool for the 2026 World Cup. Call every match across all{" "}
+            <strong className="ink">{groupCount} groups</strong>, then fill out one knockout
+            bracket all the way to the Final. Earn points as games end — whoever finishes on top
+            takes the bragging rights for{" "}
             <span className="italic font-serif text-accent">four entire years.</span>
           </p>
         </div>

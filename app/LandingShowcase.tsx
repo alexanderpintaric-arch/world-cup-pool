@@ -207,44 +207,79 @@ function ReceiptMock() {
   );
 }
 
-// ── 4. All-rounds timeline (pick every game; points climb) ──────────────────
-function RoundsMock() {
-  const rounds = [
-    { name: "Group Stage",   sub: "72 matches · ✓ all picked", pts: 1, done: true },
-    { name: "Round of 32",   sub: "16 matches",                pts: 2 },
-    { name: "Round of 16",   sub: "8 matches",                 pts: 3 },
-    { name: "Quarterfinals", sub: "4 matches",                 pts: 4 },
-    { name: "Semifinals",    sub: "2 matches",                 pts: 5 },
-    { name: "Final",         sub: "1 match",                   pts: 6, last: true },
-  ];
+// ── 4. Knockout bracket mock (one bracket; points climb) ────────────────────
+function BracketMock() {
+  // A small slice of the tree: 2 R32 matchups → 1 R16 → the advancing side.
+  const BCell = ({ team, picked, dim }: { team: string; picked?: boolean; dim?: boolean }) => (
+    <div
+      className={`flex items-center gap-1.5 rounded-md border px-2 py-1.5 ${dim ? "opacity-45" : ""}
+        ${picked ? "border-green-deep/40 bg-green-soft/50" : "border-line bg-paper"}`}
+    >
+      <Flag team={team} size={13} />
+      <span className={`text-[10.5px] truncate leading-none ${picked ? "font-semibold text-green-deep" : "ink"}`}>
+        {team}
+      </span>
+      {picked && (
+        <svg className="ml-auto h-2.5 w-2.5 flex-shrink-0 text-green-deep" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M2 6l3 3 5-6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      )}
+    </div>
+  );
+
+  const Col = ({ name, pts, children }: { name: string; pts: number; children: React.ReactNode }) => (
+    <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex items-baseline justify-between mb-2 px-0.5">
+        <span className="font-mono text-[8.5px] uppercase tracking-[0.12em] ink leading-none">{name}</span>
+        <span className="font-mono text-[8px] ink-faint leading-none">{pts}pt</span>
+      </div>
+      <div className="flex-1 flex flex-col justify-around gap-2.5">{children}</div>
+    </div>
+  );
+
   return (
-    <Frame label="My Picks · All rounds">
-      <div className="relative">
-        {/* connector line */}
-        <span className="absolute top-4 bottom-4 left-[4px] w-px bg-line" aria-hidden="true" />
-        {rounds.map((r, i) => (
-          <div key={i} className="relative flex items-center gap-3.5 py-2">
-            <span
-              className="relative z-10 h-2.5 w-2.5 rounded-full flex-shrink-0"
-              style={{
-                background: r.done ? "var(--color-green-deep)" : "var(--color-card)",
-                border: `1.5px solid ${r.done ? "var(--color-green-deep)" : "var(--color-line)"}`,
-              }}
-            />
-            <div className="flex-1 flex items-center justify-between gap-2 min-w-0">
-              <div className="min-w-0">
-                <div className="font-serif text-[15px] font-medium ink leading-tight" style={{ fontVariationSettings: '"opsz" 24' }}>{r.name}</div>
-                <div className="font-mono text-[10px] ink-faint mt-0.5">{r.sub}</div>
-              </div>
-              <span
-                className={`font-mono text-[11px] font-bold tabular px-2.5 py-1 rounded-md flex-shrink-0 border
-                  ${r.last ? "bg-ink text-paper border-ink" : "bg-paper-deep ink-soft border-line"}`}
-              >
-                {r.pts} pt
-              </span>
-            </div>
+    <Frame label="My Picks · Knockout Bracket">
+      <div className="flex items-stretch gap-1.5" style={{ minHeight: "188px" }}>
+        {/* Round of 32 — two matchups */}
+        <Col name="Ro32" pts={2}>
+          <div className="space-y-1">
+            <BCell team="Argentina" picked />
+            <BCell team="Australia" />
           </div>
-        ))}
+          <div className="space-y-1">
+            <BCell team="France" />
+            <BCell team="Brazil" picked />
+          </div>
+        </Col>
+
+        {/* connector */}
+        <div className="flex flex-col justify-around py-6 flex-shrink-0" aria-hidden="true">
+          <span className="block w-2 border-t border-r border-line h-7" style={{ borderTopRightRadius: 4 }} />
+          <span className="block w-2 border-b border-r border-line h-7" style={{ borderBottomRightRadius: 4 }} />
+        </div>
+
+        {/* Round of 16 — one matchup */}
+        <Col name="Ro16" pts={3}>
+          <div className="space-y-1">
+            <BCell team="Argentina" picked />
+            <BCell team="Brazil" />
+          </div>
+        </Col>
+
+        {/* connector */}
+        <div className="flex flex-col justify-center flex-shrink-0" aria-hidden="true">
+          <span className="block w-2 border-t border-line" />
+        </div>
+
+        {/* Advances */}
+        <Col name="QF" pts={4}>
+          <BCell team="Argentina" picked />
+        </Col>
+      </div>
+
+      <div className="mt-3 pt-3 border-t border-[color:var(--line-soft)] flex items-center justify-between">
+        <span className="font-mono text-[9.5px] ink-faint">One bracket · all 5 rounds</span>
+        <span className="font-mono text-[9.5px] font-semibold ink">2 → 6 pts</span>
       </div>
     </Frame>
   );
@@ -313,7 +348,7 @@ function PoolMock() {
 // ── 6. Notifications (deadline alerts) ──────────────────────────────────────
 function NotificationsMock() {
   const notes = [
-    { icon: "⏰", bg: "bg-accent-soft", title: "Round of 16 picks lock in 24 hours", sub: "Last call — review your slip before kickoff", time: "1h" },
+    { icon: "⏰", bg: "bg-accent-soft", title: "Your bracket locks in 24 hours", sub: "Last call — fill it out before the Round of 32 kicks off", time: "1h" },
     { icon: "🏆", bg: "bg-gold-soft",   title: "The Lads is live — here's the playbook", sub: "Your league code: 8MCGJ4", time: "2d" },
     { icon: "⚽", bg: "bg-green-soft",  title: "Brazil 2–0 Senegal — you won +1", sub: "You're up to 3rd in The Lads", time: "3d" },
   ];
@@ -379,10 +414,10 @@ export default function LandingShowcase() {
       />
 
       <FeatureRow
-        kicker="Every round"
-        title={<>From the opener <span className="italic text-accent">to the final.</span></>}
-        body="You don't just call the group stage — you pick every game in every round, all the way to the final. Each knockout round is worth more than the last, so the points (and the stakes) climb to the final whistle."
-        mock={<RoundsMock />}
+        kicker="The bracket"
+        title={<>One bracket <span className="italic text-accent">to the final.</span></>}
+        body="When the group stage wraps, fill out a single knockout bracket — every winner from the Round of 32 to the Final. Each team you correctly send through scores, and every round is worth more than the last, so the points climb to the final whistle."
+        mock={<BracketMock />}
         flip
       />
 
@@ -411,7 +446,7 @@ export default function LandingShowcase() {
       <FeatureRow
         kicker="Never miss a deadline"
         title={<>We&rsquo;ll tap you <span className="italic text-accent">on the shoulder.</span></>}
-        body="Get an email the moment each round opens, plus a 24-hour warning before picks lock. Make your calls, then let us keep you on schedule — no spreadsheets, no nagging the group chat."
+        body="Get an email when the group stage opens and again when your bracket unlocks, plus a 24-hour warning before anything locks. Make your calls, then let us keep you on schedule — no spreadsheets, no nagging the group chat."
         mock={<NotificationsMock />}
         flip
       />
