@@ -270,11 +270,25 @@ export default function BracketBoard({
                   ? "bg-ink text-paper border-ink shadow-paper"
                   : "bg-card border-line ink-soft hover:ink hover:border-[color:var(--ink-faint)]/40"}`}
             >
-              <span className="bkt-rail-bars h-4 w-3.5">
-                {Array.from({ length: RAIL_BARS[round] }).map((_, b) => (
-                  <span key={b} className="bkt-rail-bar" style={{ width: `${100 - b * 12}%` }} />
-                ))}
-              </span>
+              {round === "FINAL" ? (
+                // Trophy icon replaces the single-bar minimap for the Finals chip
+                <svg viewBox="0 0 12 14" fill="none" className="h-4 w-3.5 flex-shrink-0" aria-hidden="true">
+                  <path d="M2 1h8v4.5Q10 8 6 8Q2 8 2 5.5Z"
+                    stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+                  <path d="M2 2.5H1Q0 2.5 0 4Q0 5.5 1 5.5H2"
+                    stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 2.5H11Q12 2.5 12 4Q12 5.5 11 5.5H10"
+                    stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+                  <line x1="6" y1="8" x2="6" y2="10.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+                  <line x1="3" y1="11" x2="9" y2="11" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+                </svg>
+              ) : (
+                <span className="bkt-rail-bars h-4 w-3.5">
+                  {Array.from({ length: RAIL_BARS[round] }).map((_, b) => (
+                    <span key={b} className="bkt-rail-bar" style={{ width: `${100 - b * 12}%` }} />
+                  ))}
+                </span>
+              )}
               <span className="text-left leading-none">
                 <span className="block text-[12.5px] font-medium">{SHORT_LABEL[round]}</span>
                 <span className={`block font-mono text-[8.5px] mt-0.5 ${inWin ? "text-paper/55" : "ink-faint"}`}>
