@@ -101,6 +101,38 @@
   }
 }
 
+/* ── Bracket envelope animations ─────────────────────────────────────────── */
+
+/* Shake: escalating wobble that builds suspense over ~2s */
+@keyframes envelope-shake {
+  0%,100% { transform: rotate(0deg) translate(0,0) scale(1); }
+  8%  { transform: rotate(-2.5deg) translate(-6px,-3px) scale(1.01); }
+  16% { transform: rotate(3deg)   translate(7px, 2px) scale(1.015); }
+  24% { transform: rotate(-2deg)  translate(-5px,-2px) scale(1); }
+  32% { transform: rotate(3.5deg) translate(6px, 3px) scale(1.02); }
+  40% { transform: rotate(-3deg)  translate(-7px,-3px) scale(1.01); }
+  48% { transform: rotate(3deg)   translate(6px, 2px) scale(1); }
+  56% { transform: rotate(-3.5deg) translate(-6px,-3px) scale(1.02); }
+  64% { transform: rotate(4deg)   translate(7px, 3px) scale(1.01); }
+  72% { transform: rotate(-3deg)  translate(-5px,-2px) scale(1); }
+  80% { transform: rotate(3.5deg) translate(6px, 3px) scale(1.02); }
+  88% { transform: rotate(-2.5deg) translate(-6px,-2px) scale(1.01); }
+  95% { transform: rotate(2deg)   translate(4px, 2px) scale(1); }
+}
+
+/* Envelope flap opens by rotating backward around the top edge */
+@keyframes envelope-flap-open {
+  0%   { transform: perspective(700px) rotateX(0deg);    }
+  100% { transform: perspective(700px) rotateX(-165deg); }
+}
+
+/* Confetti particle burst: each piece flies to (--cx, --cy) then fades */
+@keyframes confetti-burst {
+  0%   { transform: translate(0,0) rotate(0deg) scale(1);           opacity: 1; }
+  65%  { opacity: 1; }
+  100% { transform: translate(var(--cx),var(--cy)) rotate(var(--cr)) scale(0.5); opacity: 0; }
+}
+
 /* Animations */
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(8px); }

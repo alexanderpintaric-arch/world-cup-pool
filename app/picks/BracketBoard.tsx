@@ -567,13 +567,52 @@ export default function BracketBoard({
 
 /* ─────────────────────────────────────────────────────────── */
 
+// ── Envelope CTA types + helpers ─────────────────────────────────────────────
+
+interface ConfettiPiece {
+  id: number;
+  cx: string; cy: string; cr: string;
+  color: string;
+  w: number; h: number; radius: string;
+  delay: string; duration: string;
+  startX: number; startY: number;
+}
+
+const CONFETTI_COLORS = [
+  "#C9302C","#A07820","#1B5E20","#3B82F6",
+  "#8B5CF6","#F59E0B","#EC4899","#F5F1E8","#60A5FA","#34D399",
+];
+
+function makeConfetti(n = 58): ConfettiPiece[] {
+  return Array.from({ length: n }, (_, id) => {
+    const angle = Math.random() * Math.PI * 2;
+    const dist  = 100 + Math.random() * 220;
+    const circ  = Math.random() > 0.5;
+    const sz    = 7 + Math.random() * 9;
+    return {
+      id,
+      cx:       `${Math.cos(angle) * dist}px`,
+      cy:       `${Math.sin(angle) * dist - 60}px`, // bias upward
+      cr:       `${Math.random() * 720 - 360}deg`,
+      color:    CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
+      w:        circ ? sz : sz * (0.7 + Math.random() * 0.9),
+      h:        circ ? sz : sz * 0.5,
+      radius:   circ ? "50%" : "2px",
+      delay:    `${Math.random() * 240}ms`,
+      duration: `${700 + Math.random() * 650}ms`,
+      startX:   37 + Math.random() * 26, // cluster around the flap center
+      startY:   14 + Math.random() * 22,
+    };
+  });
+}
+
+type EnvelopePhase = "idle" | "shaking" | "opening";
+
 /**
- * Desktop-only full-screen bracket CTA.
+ * Desktop-only bracket CTA — styled as a sealed envelope.
  *
- * Renders a large dark card — the bracket tree is drawn in faint SVG lines
- * across the background so the structure you're about to fill is already
- * visible. The entire surface is the click target; the expand icon on the
- * right is the unmistakable "this opens something" signal.
+ * Click → 2s escalating shake (suspense) → flap opens + confetti burst
+ * → fullscreen bracket modal opens.
  */
 function BracketDesktopCTA({
   onClick, filledCount, teamsSet, pct, champion, locked,
@@ -585,146 +624,209 @@ function BracketDesktopCTA({
   champion: string | null;
   locked: boolean;
 }) {
-  const TOTAL = 31;
+  const [phase, setPhase]     = useState<EnvelopePhase>("idle");
+  const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
+
+  const handleClick = useCallback(() => {
+    if (phase !== "idle") return;
+    setPhase("shaking");
+    setTimeout(() => {
+      setPhase("opening");
+      setConfetti(makeConfetti(58));
+      setTimeout(() => {
+        onClick();
+        setTimeout(() => { setPhase("idle"); setConfetti([]); }, 500);
+      }, 850);
+    }, 2000);
+  }, [phase, onClick]);
+
+  const isShaking = phase === "shaking";
+  const isOpening = phase === "opening";
   const done = pct === 100;
 
   return (
-    <button
-      onClick={onClick}
-      className="group relative w-full overflow-hidden rounded-2xl text-left transition-all duration-200 anim-fade-up"
-      style={{
-        background: "#0B1426",
-        minHeight: "172px",
-        animationDelay: "80ms",
-        boxShadow: "0 1px 0 rgba(11,20,38,0.06), 0 8px 32px -8px rgba(11,20,38,0.22)",
-      }}
-    >
-      {/* ── Bracket tree SVG — decorative background ───────────── */}
-      <svg
-        viewBox="0 0 480 148"
-        preserveAspectRatio="xMidYMid slice"
-        aria-hidden="true"
-        className="absolute inset-0 w-full h-full transition-opacity duration-300"
-        style={{ opacity: 0.07 }}
-        fill="none"
-      >
-        {/* R32 horizontal stubs — 8 lines */}
-        {[6, 25.4, 44.8, 64.2, 83.6, 103, 122.4, 141.8].map((y, i) => (
-          <line key={i} x1="0" y1={y} x2="52" y2={y} stroke="white" strokeWidth="1.6" />
-        ))}
-        {/* R32→R16 elbows (4 pairs) */}
-        {([
-          [6, 25.4, 15.7],
-          [44.8, 64.2, 54.5],
-          [83.6, 103, 93.3],
-          [122.4, 141.8, 132.1],
-        ] as [number, number, number][]).map(([y1, y2, mid], i) => (
-          <path key={i} d={`M52,${y1} H82 V${y2} M82,${mid} H112`} stroke="white" strokeWidth="1.6" strokeLinejoin="round" />
-        ))}
-        {/* R16 stubs (4 lines) */}
-        {[15.7, 54.5, 93.3, 132.1].map((y, i) => (
-          <line key={i} x1="112" y1={y} x2="170" y2={y} stroke="white" strokeWidth="1.6" />
-        ))}
-        {/* R16→QF elbows (2 pairs) */}
-        {([
-          [15.7, 54.5, 35.1],
-          [93.3, 132.1, 112.7],
-        ] as [number, number, number][]).map(([y1, y2, mid], i) => (
-          <path key={i} d={`M170,${y1} H200 V${y2} M200,${mid} H230`} stroke="white" strokeWidth="1.6" strokeLinejoin="round" />
-        ))}
-        {/* QF stubs (2 lines) */}
-        {[35.1, 112.7].map((y, i) => (
-          <line key={i} x1="230" y1={y} x2="288" y2={y} stroke="white" strokeWidth="1.6" />
-        ))}
-        {/* QF→SF elbow */}
-        <path d="M288,35.1 H318 V112.7 M318,73.9 H348" stroke="white" strokeWidth="1.6" strokeLinejoin="round" />
-        {/* SF + Final lines */}
-        <line x1="348" y1="73.9" x2="420" y2="73.9" stroke="white" strokeWidth="1.6" />
-        <path d="M420,68 H450 V80 M420,73.9 H480" stroke="white" strokeWidth="1.2" strokeLinejoin="round" />
-      </svg>
+    <div className="relative anim-fade-up" style={{ animationDelay: "80ms" }}>
 
-      {/* ── Hover glow ─────────────────────────────────────────── */}
+      {/* Shake wrapper — animates the whole envelope */}
       <div
-        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
-        style={{ background: "radial-gradient(ellipse at 80% 50%, rgba(201,48,44,0.12) 0%, transparent 65%)" }}
-      />
-
-      {/* ── Content ────────────────────────────────────────────── */}
-      <div className="relative z-10 flex items-center gap-6 px-8 py-7">
-
-        {/* Text block */}
-        <div className="flex-1 min-w-0">
-          <p className="font-mono text-[9.5px] uppercase tracking-[0.24em] mb-3" style={{ color: "rgba(245,241,232,0.38)" }}>
-            Knockout Bracket
-            {filledCount > 0 && (
-              <span style={{ color: "rgba(245,241,232,0.55)" }}> · {filledCount}/{TOTAL} filled</span>
-            )}
-          </p>
-
-          <h3
-            className="font-serif font-medium leading-[1.05] tracking-[-0.01em] mb-3"
-            style={{
-              fontSize: "clamp(1.6rem, 3vw, 2.2rem)",
-              color: "#F5F1E8",
-              fontVariationSettings: '"opsz" 80',
-            }}
-          >
-            {teamsSet
-              ? "Open your bracket."
-              : "Open the bracket."}
-          </h3>
-
-          <p className="font-mono text-[10.5px] leading-relaxed" style={{ color: "rgba(245,241,232,0.42)" }}>
-            {locked
-              ? "Picks are locked — watch it play out round by round."
-              : teamsSet
-                ? "Pick every winner from the Round of 32 to the Final."
-                : "Preview the official draw — teams are set after the group stage."}
-          </p>
-
-          {/* Champion callout */}
-          {champion && (
-            <p className="mt-3 font-serif italic text-[14px] leading-none" style={{ color: "#A07820" }}>
-              Your champion: {champion}
-            </p>
-          )}
-        </div>
-
-        {/* Expand icon — the unmistakable "this opens fullscreen" signal */}
+        role="button"
+        tabIndex={0}
+        aria-label="Open your knockout bracket"
+        onClick={handleClick}
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
+        className="relative rounded-2xl cursor-pointer select-none"
+        style={{
+          animationName:           isShaking ? "envelope-shake" : undefined,
+          animationDuration:       isShaking ? "2s" : undefined,
+          animationTimingFunction: "ease-in-out",
+          animationFillMode:       "both",
+        }}
+      >
+        {/* ── Envelope card ─────────────────────────────────────── */}
         <div
-          className="flex-shrink-0 flex items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-105"
+          className="relative rounded-2xl"
           style={{
-            width: "56px",
-            height: "56px",
-            background: done ? "#1B5E20" : "rgba(201,48,44,0.9)",
-            boxShadow: "0 4px 16px rgba(201,48,44,0.3)",
+            background:  "#FFFEFA",
+            border:      "2px solid #D8D2C4",
+            minHeight:   "230px",
+            boxShadow:   isShaking
+              ? "0 24px 64px -12px rgba(11,20,38,0.38)"
+              : "0 4px 28px -8px rgba(11,20,38,0.16), 0 1px 0 rgba(11,20,38,0.04)",
+            transition:  "box-shadow 0.4s ease",
+            overflow:    "hidden",
           }}
         >
-          <svg viewBox="0 0 20 20" fill="none" className="h-6 w-6" aria-hidden="true">
-            <path
-              d="M3 7.5V3h4.5M17 7.5V3h-4.5M3 12.5V17h4.5M17 12.5V17h-4.5"
-              stroke="white"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </div>
-      </div>
-
-      {/* ── Progress bar ───────────────────────────────────────── */}
-      <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: "rgba(245,241,232,0.06)" }}>
-        {pct > 0 && (
+          {/* ── Flap — the V triangle across the top ────────────── */}
           <div
-            className="h-full transition-all duration-700"
+            aria-hidden="true"
             style={{
-              width: `${pct}%`,
-              background: done ? "#1B5E20" : "#C9302C",
+              position:        "absolute",
+              top: "-1px", left: "-1px", right: "-1px",
+              height:          "56%",
+              clipPath:        "polygon(0 0, 100% 0, 50% 60%)",
+              background:      "#EBE5D4",
+              transformOrigin: "top center",
+              zIndex:          3,
+              animationName:           isOpening ? "envelope-flap-open" : undefined,
+              animationDuration:       "0.75s",
+              animationTimingFunction: "cubic-bezier(0.4,0,0.2,1)",
+              animationFillMode:       "forwards",
             }}
           />
+
+          {/* ── Bottom corner folds ──────────────────────────────── */}
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
+            <div style={{ position: "absolute", bottom: 0, left: "-1px", width: "51%", height: "46%", background: "#E8E1CE", clipPath: "polygon(0 100%, 0 0, 100% 100%)" }} />
+            <div style={{ position: "absolute", bottom: 0, right: "-1px", width: "51%", height: "46%", background: "#E8E1CE", clipPath: "polygon(100% 100%, 100% 0, 0 100%)" }} />
+          </div>
+
+          {/* ── Envelope body content ────────────────────────────── */}
+          <div
+            className="relative flex flex-col items-center justify-center text-center"
+            style={{ zIndex: 2, minHeight: "230px", padding: "2.5rem 3rem" }}
+          >
+            {/* Wax seal — notched dark circle with trophy */}
+            <div style={{ position: "relative", width: "100px", height: "100px", marginBottom: "1.25rem", flexShrink: 0 }}>
+              <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} aria-hidden="true">
+                {/* Notched outer ring — 18 teeth */}
+                <path
+                  fill="#0B1426"
+                  d={(() => {
+                    const pts: string[] = [];
+                    const n = 18;
+                    for (let i = 0; i < n; i++) {
+                      const a1 = (i / n) * Math.PI * 2 - Math.PI / 2;
+                      const a2 = ((i + 0.5) / n) * Math.PI * 2 - Math.PI / 2;
+                      pts.push(`${50 + Math.cos(a1) * 46},${50 + Math.sin(a1) * 46}`);
+                      pts.push(`${50 + Math.cos(a2) * 39},${50 + Math.sin(a2) * 39}`);
+                    }
+                    return `M${pts.join("L")}Z`;
+                  })()}
+                />
+                <circle cx="50" cy="50" r="34" fill="#0B1426" />
+                {/* Inner decorative ring */}
+                <circle cx="50" cy="50" r="29" fill="none" stroke="#F5F1E8" strokeWidth="0.7" opacity="0.25" />
+              </svg>
+              {/* Seal content — trophy + wordmark */}
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px" }}>
+                <svg viewBox="0 0 24 20" fill="none" style={{ width: "22px", height: "18px" }} aria-hidden="true">
+                  <path d="M4 1h16v7A8 8 0 0 1 4 8V1z"           stroke="#F5F1E8" strokeWidth="1.4" strokeLinejoin="round" />
+                  <path d="M4 3H2a2 2 0 0 0 0 4h2M20 3h2a2 2 0 0 0 0 4h-2" stroke="#F5F1E8" strokeWidth="1.4" strokeLinecap="round" />
+                  <path d="M12 8v5M8 13h8"                        stroke="#F5F1E8" strokeWidth="1.4" strokeLinecap="round" />
+                </svg>
+                <span style={{ fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "9px", color: "#F5F1E8", opacity: 0.85, letterSpacing: "0.04em", lineHeight: 1 }}>
+                  Nutmeg
+                </span>
+              </div>
+            </div>
+
+            {/* Headline */}
+            <h3
+              style={{
+                fontFamily: "var(--font-display, Georgia,serif)",
+                fontWeight: 500,
+                fontSize: "clamp(1.35rem, 2.6vw, 1.85rem)",
+                color: "#0B1426",
+                lineHeight: 1.1,
+                letterSpacing: "-0.01em",
+                marginBottom: "0.5rem",
+                fontVariationSettings: '"opsz" 72',
+              }}
+            >
+              {teamsSet ? "Your bracket awaits." : "The bracket awaits."}
+            </h3>
+
+            {/* Status line */}
+            <p
+              style={{
+                fontFamily: "var(--font-mono, monospace)",
+                fontSize: "10px",
+                textTransform: "uppercase",
+                letterSpacing: "0.2em",
+                color: "#8089A0",
+                marginTop: "0.25rem",
+                minHeight: "14px",
+                transition: "color 0.2s",
+              }}
+            >
+              {isShaking ? "Opening…" : isOpening ? "Here we go!" : "Click to open"}
+            </p>
+
+            {/* Progress + champion — shown only at idle */}
+            {phase === "idle" && (
+              <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
+                {filledCount > 0 && (
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#EBE5D4", borderRadius: "999px", padding: "5px 12px" }}>
+                    <div style={{ height: "4px", width: "64px", borderRadius: "999px", background: "#D8D2C4", overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${pct}%`, background: done ? "#1B5E20" : "#C9302C", borderRadius: "inherit", transition: "width 0.7s" }} />
+                    </div>
+                    <span style={{ fontFamily: "monospace", fontSize: "9.5px", color: "#475065", letterSpacing: "0.03em" }}>
+                      {filledCount}/31
+                    </span>
+                  </div>
+                )}
+                {champion && (
+                  <p style={{ fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "12px", color: "#A07820", lineHeight: 1 }}>
+                    Champion: {champion}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Confetti burst (positioned relative to shake wrapper) ── */}
+        {confetti.length > 0 && (
+          <div
+            aria-hidden="true"
+            style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 20, overflow: "visible" }}
+          >
+            {confetti.map(p => (
+              <div
+                key={p.id}
+                style={{
+                  position:  "absolute",
+                  left:      `${p.startX}%`,
+                  top:       `${p.startY}%`,
+                  width:     `${p.w}px`,
+                  height:    `${p.h}px`,
+                  borderRadius: p.radius,
+                  background: p.color,
+                  ["--cx" as string]: p.cx,
+                  ["--cy" as string]: p.cy,
+                  ["--cr" as string]: p.cr,
+                  animationName:           "confetti-burst",
+                  animationDuration:       p.duration,
+                  animationDelay:          p.delay,
+                  animationTimingFunction: "cubic-bezier(0.22, 1, 0.36, 1)",
+                  animationFillMode:       "both",
+                }}
+              />
+            ))}
+          </div>
         )}
       </div>
-    </button>
+    </div>
   );
 }
 
