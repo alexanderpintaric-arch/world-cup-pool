@@ -527,41 +527,16 @@ export default function BracketBoard({
         </p>
       </div>
 
-      {isMobile ? (
-        /* ── Mobile CTA ────────────────────────────────────────────────── */
-        <button
-          onClick={() => setFullscreen(true)}
-          className="w-full flex items-center justify-between gap-3 rounded-xl border border-ink bg-ink text-paper px-5 py-4 shadow-paper active:scale-[0.99] transition-transform"
-        >
-          <span className="flex items-center gap-3 min-w-0">
-            <span className="flex-shrink-0 flex h-10 w-10 items-center justify-center rounded-lg bg-paper/15">
-              <svg className="h-5 w-5" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                <path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-            <span className="text-left leading-tight min-w-0">
-              <span className="block font-serif font-medium text-[17px]" style={{ fontVariationSettings: '"opsz" 28' }}>
-                {teamsSet ? "Open your bracket" : "Open the bracket"}
-              </span>
-              <span className="block font-mono text-[9.5px] uppercase tracking-[0.14em] text-paper/60 mt-0.5 truncate">
-                Full screen · swipe between rounds
-              </span>
-            </span>
-          </span>
-          <span className="flex-shrink-0 font-mono text-[18px] leading-none">→</span>
-        </button>
-      ) : (
-        /* ── Desktop CTA ────────────────────────────────────────────────── */
-        <BracketDesktopCTA
-          onClick={() => setFullscreen(true)}
-          filledCount={filledCount}
-          teamsSet={teamsSet}
-          pct={pct}
-          champion={champion}
-          locked={locked}
-          deadline={deadline}
-        />
-      )}
+      {/* ── Envelope CTA — same on mobile and desktop ─────────────────── */}
+      <BracketEnvelopeCTA
+        onClick={() => setFullscreen(true)}
+        filledCount={filledCount}
+        teamsSet={teamsSet}
+        pct={pct}
+        champion={champion}
+        locked={locked}
+        deadline={deadline}
+      />
     </div>
   );
 }
@@ -670,7 +645,9 @@ function envelopeConfig(state: EnvelopeState, teamsSet: boolean, deadline: strin
 }
 
 /**
- * Desktop-only bracket CTA — a sealed envelope (centered, letter-proportioned).
+ * Bracket CTA — a sealed envelope (centered, letter-proportioned).
+ * Renders identically on mobile and desktop; tapping/clicking opens the
+ * full-screen bracket modal.
  *
  * Three visual states:
  *   • preview  — group stage still running; muted gold, read-only peek.
@@ -680,7 +657,7 @@ function envelopeConfig(state: EnvelopeState, teamsSet: boolean, deadline: strin
  * Only the "open" state plays the suspense animation; preview & closed open
  * the modal immediately (nothing to celebrate, so no theatrics).
  */
-function BracketDesktopCTA({
+function BracketEnvelopeCTA({
   onClick, filledCount, teamsSet, pct, champion, locked, deadline,
 }: {
   onClick: () => void;
@@ -744,8 +721,10 @@ function BracketDesktopCTA({
           style={{
             background:  cfg.cardBg,
             border:      `2px solid ${cfg.border}`,
-            aspectRatio: "1.78 / 1",
-            minHeight:   "280px",
+            width:       "100%",
+            // Responsive height — NOT aspect-ratio, which (combined with a
+            // min-height) would force the WIDTH to overflow narrow viewports.
+            minHeight:   "clamp(264px, 56vw, 310px)",
             boxShadow:   isShaking
               ? "0 28px 70px -12px rgba(11,20,38,0.42)"
               : "0 6px 30px -10px rgba(11,20,38,0.18), 0 1px 0 rgba(11,20,38,0.04)",
@@ -790,7 +769,7 @@ function BracketDesktopCTA({
               hidden when the flap is closed. */}
           <div
             className="relative flex flex-col items-center justify-center text-center h-full"
-            style={{ zIndex: 7, padding: "1.75rem 2.5rem" }}
+            style={{ zIndex: 7, padding: "1.5rem clamp(1rem, 5vw, 2.5rem)" }}
           >
             {/* Wax seal */}
             <div style={{ position: "relative", width: "84px", height: "84px", marginBottom: "1.1rem", flexShrink: 0 }}>
@@ -834,9 +813,10 @@ function BracketDesktopCTA({
             {/* Status badge */}
             <div
               style={{
-                display: "inline-flex", alignItems: "center", gap: "7px",
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                flexWrap: "wrap", gap: "7px",
                 background: cfg.badgeBg, borderRadius: "999px",
-                padding: "4px 11px 4px 9px", marginBottom: "0.85rem",
+                padding: "4px 11px 4px 9px", marginBottom: "0.85rem", maxWidth: "100%",
               }}
             >
               <span style={{ position: "relative", display: "inline-flex", width: "7px", height: "7px" }}>
