@@ -46,6 +46,18 @@ function fmtKick(iso: string | undefined): string | null {
   return `${day} · ${time}`;
 }
 
+/**
+ * Convert a 2-way implied probability (0–100) to American (moneyline) odds.
+ * Favorites (p > 50%) → negative (stake to win 100); underdogs → positive
+ * (profit on a 100 stake). e.g. 56% → "-127", 44% → "+127", 70% → "-233".
+ */
+function probToAmericanOdds(prob: number): string {
+  const p = Math.min(Math.max(prob / 100, 0.01), 0.99); // clamp to avoid div-by-0 blowups
+  return p >= 0.5
+    ? `-${Math.round((100 * p) / (1 - p))}`
+    : `+${Math.round((100 * (1 - p)) / p)}`;
+}
+
 export default function BracketBoard({
   matches, odds, userBracketPicks, locked, deadline, sandbox = false,
 }: Props) {
@@ -1106,7 +1118,7 @@ function TeamSlot({
           {rightCall && <span className="font-mono text-[10px]">✓</span>}
           {prob !== null && !decided && (
             <span className={`font-mono text-[10px] tabular ${chosen ? "text-green-deep/70" : "ink-faint/70"}`}>
-              {prob}%
+              {probToAmericanOdds(prob)}
             </span>
           )}
         </>
