@@ -77,7 +77,7 @@ export default function BracketBoard({
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Full-screen bracket is a mobile-only affordance.
+  // Track mobile breakpoint — used to switch between CTA button and inline pane.
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 640px)");
     const update = () => setIsMobile(mq.matches);
@@ -85,8 +85,6 @@ export default function BracketBoard({
     mq.addEventListener("change", update);
     return () => mq.removeEventListener("change", update);
   }, []);
-  // If the viewport grows past mobile while the modal is open, drop out of it.
-  useEffect(() => { if (!isMobile && fullscreen) setFullscreen(false); }, [isMobile, fullscreen]);
   // The modal's width differs from the inline pane — let it re-auto-fit.
   useEffect(() => { setManualSel(false); }, [fullscreen]);
 
@@ -344,48 +342,63 @@ export default function BracketBoard({
   };
 
   const pane = (
-    <div
-      ref={scrollRef}
-      onTouchStart={onTouchStart}
-      onTouchEnd={onTouchEnd}
-      className={`overflow-auto rounded-xl border border-line bg-paper/40 ${fullscreen ? "flex-1 min-h-0" : ""}`}
-      style={fullscreen ? undefined : { maxHeight: "min(64vh, 600px)" }}
-    >
-      <div className="bkt-tree pr-2">
-        {/* Left stub — lines in from the previous (hidden) round */}
-        {clampedStart > 0 && (
-          <Connectors
-            destRound={KNOCKOUT_ROUNDS[clampedStart]}
-            feederRound={KNOCKOUT_ROUNDS[clampedStart - 1]}
-            bracket={bracket}
-            decided={decided[KNOCKOUT_ROUNDS[clampedStart - 1]]}
-            advanced={advancers[KNOCKOUT_ROUNDS[clampedStart - 1]]}
-          />
-        )}
-        {visibleRounds.map((round, ri) => (
-          <div key={round} className="contents">
-            {renderColumn(round)}
-            {ri < visibleRounds.length - 1 && (
-              <Connectors
-                destRound={visibleRounds[ri + 1]}
-                feederRound={round}
-                bracket={bracket}
-                decided={decided[round]}
-                advanced={advancers[round]}
-              />
-            )}
-          </div>
-        ))}
-        {/* Right stub — winners advance toward the next (hidden) round */}
-        {endIdx < TOTAL_ROUNDS - 1 && (
-          <Connectors
-            destRound={KNOCKOUT_ROUNDS[endIdx + 1]}
-            feederRound={KNOCKOUT_ROUNDS[endIdx]}
-            bracket={bracket}
-            decided={decided[KNOCKOUT_ROUNDS[endIdx]]}
-            advanced={advancers[KNOCKOUT_ROUNDS[endIdx]]}
-          />
-        )}
+    <div className={`relative ${fullscreen ? "flex flex-col flex-1 min-h-0" : ""}`}>
+      {/* Expand to fullscreen — shown on desktop when not already fullscreen */}
+      {!fullscreen && (
+        <button
+          onClick={() => setFullscreen(true)}
+          title="Expand to full screen (Esc to close)"
+          aria-label="Expand bracket to full screen"
+          className="absolute top-2 right-2 z-10 hidden sm:flex h-7 w-7 items-center justify-center rounded-md bg-card/90 backdrop-blur border border-line ink-faint hover:ink hover:bg-paper-deep transition-colors shadow-paper"
+        >
+          <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+            <path d="M1 5V1h4M13 5V1h-4M1 9v4h4M13 9v4h-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+      )}
+      <div
+        ref={scrollRef}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        className={`overflow-auto rounded-xl border border-line bg-paper/40 ${fullscreen ? "flex-1 min-h-0" : ""}`}
+        style={fullscreen ? undefined : { maxHeight: "min(64vh, 600px)" }}
+      >
+        <div className="bkt-tree pr-2">
+          {/* Left stub — lines in from the previous (hidden) round */}
+          {clampedStart > 0 && (
+            <Connectors
+              destRound={KNOCKOUT_ROUNDS[clampedStart]}
+              feederRound={KNOCKOUT_ROUNDS[clampedStart - 1]}
+              bracket={bracket}
+              decided={decided[KNOCKOUT_ROUNDS[clampedStart - 1]]}
+              advanced={advancers[KNOCKOUT_ROUNDS[clampedStart - 1]]}
+            />
+          )}
+          {visibleRounds.map((round, ri) => (
+            <div key={round} className="contents">
+              {renderColumn(round)}
+              {ri < visibleRounds.length - 1 && (
+                <Connectors
+                  destRound={visibleRounds[ri + 1]}
+                  feederRound={round}
+                  bracket={bracket}
+                  decided={decided[round]}
+                  advanced={advancers[round]}
+                />
+              )}
+            </div>
+          ))}
+          {/* Right stub — winners advance toward the next (hidden) round */}
+          {endIdx < TOTAL_ROUNDS - 1 && (
+            <Connectors
+              destRound={KNOCKOUT_ROUNDS[endIdx + 1]}
+              feederRound={KNOCKOUT_ROUNDS[endIdx]}
+              bracket={bracket}
+              decided={decided[KNOCKOUT_ROUNDS[endIdx]]}
+              advanced={advancers[KNOCKOUT_ROUNDS[endIdx]]}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
@@ -421,7 +434,9 @@ export default function BracketBoard({
         <div className="flex-1 min-h-0 overflow-hidden px-4 sm:px-6 py-4 flex flex-col gap-3">
           {error && <BoardError msg={error} />}
           <p className="font-mono text-[10px] uppercase tracking-[0.1em] ink-faint text-center">
-            Tap rounds to add or remove · swipe ← → to move
+            {isMobile
+              ? "Tap rounds to add or remove · swipe ← → to move"
+              : "Click rounds to add or remove · press Esc to close"}
           </p>
           {boardInner}
         </div>
