@@ -139,6 +139,14 @@ export default function LeaderboardClient({
 
   const roundsWithMatches = roundStates.filter(r => r.matchCount > 0);
 
+  // Once the group stage wraps, the active round becomes a knockout round and
+  // the "picks are open" CTA should point to the bracket instead. The bracket
+  // is only *fillable* during the Round-of-32 window (getActiveRound guarantees
+  // the round is open, i.e. its first kickoff hasn't passed); for later knockout
+  // rounds the bracket has already locked, so the CTA switches to "view".
+  const activeIsKnockout    = !!activeRound && activeRound.round !== "GROUP";
+  const activeBracketFillable = activeRound?.round === "ROUND_OF_32";
+
   function handleRowClick(email: string) {
     if (!compareA) { setCompareA(email); return; }
     if (email === compareA) { setCompareA(null); return; }
@@ -249,33 +257,41 @@ export default function LeaderboardClient({
         </section>
       )}
 
-      {/* ── ACTIVE ROUND CTA ─────────────────────────────────── */}
+      {/* ── ACTIVE ROUND / BRACKET CTA ───────────────────────── */}
       {activeRound && (
         <section className="anim-fade-up bg-card border border-line rounded-lg overflow-hidden shadow-paper">
           <div className="p-5 sm:p-6 flex items-center justify-between gap-4 flex-wrap">
             <div>
               <p className="font-mono text-[11px] uppercase tracking-[0.22em] text-accent mb-2">
-                Picks are open
+                {activeIsKnockout
+                  ? (activeBracketFillable ? "Your bracket is open" : "Knockout bracket")
+                  : "Picks are open"}
               </p>
               <h2 className="font-serif text-[24px] sm:text-[28px] font-medium leading-tight tracking-[-0.01em] ink" style={{fontVariationSettings: '"opsz" 60'}}>
-                {activeRound.label}
+                {activeIsKnockout ? "Knockout Bracket" : activeRound.label}
               </h2>
-              {activeRound.deadline && (
+              {activeIsKnockout && !activeBracketFillable ? (
                 <p className="mt-1.5 text-[13.5px] ink-soft">
-                  Picks close{" "}
+                  Your picks are locked — follow your bracket as it plays out.
+                </p>
+              ) : activeRound.deadline ? (
+                <p className="mt-1.5 text-[13.5px] ink-soft">
+                  {activeIsKnockout ? "Bracket locks" : "Picks close"}{" "}
                   <span className="font-mono ink tabular">
                     {new Date(activeRound.deadline).toLocaleString("en-CA", {
                       weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
                     })}
                   </span>
                 </p>
-              )}
+              ) : null}
             </div>
             <a
               href="/picks"
               className="group inline-flex items-center gap-2 px-5 py-2.5 rounded-md bg-ink text-paper text-[13.5px] font-semibold hover:bg-accent transition-colors"
             >
-              Make your picks
+              {activeIsKnockout
+                ? (activeBracketFillable ? "Fill out your bracket" : "View your bracket")
+                : "Make your picks"}
               <span className="font-mono transition-transform group-hover:translate-x-0.5">&rarr;</span>
             </a>
           </div>
