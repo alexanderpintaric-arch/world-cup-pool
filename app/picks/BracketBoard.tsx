@@ -559,6 +559,7 @@ export default function BracketBoard({
           pct={pct}
           champion={champion}
           locked={locked}
+          deadline={deadline}
         />
       )}
     </div>
@@ -583,39 +584,104 @@ const CONFETTI_COLORS = [
   "#8B5CF6","#F59E0B","#EC4899","#F5F1E8","#60A5FA","#34D399",
 ];
 
-function makeConfetti(n = 58): ConfettiPiece[] {
+function makeConfetti(n = 64): ConfettiPiece[] {
   return Array.from({ length: n }, (_, id) => {
     const angle = Math.random() * Math.PI * 2;
-    const dist  = 100 + Math.random() * 220;
-    const circ  = Math.random() > 0.5;
+    const dist  = 120 + Math.random() * 260;
+    const circ  = Math.random() > 0.55;
     const sz    = 7 + Math.random() * 9;
     return {
       id,
       cx:       `${Math.cos(angle) * dist}px`,
-      cy:       `${Math.sin(angle) * dist - 60}px`, // bias upward
+      cy:       `${Math.sin(angle) * dist - 70}px`, // bias upward
       cr:       `${Math.random() * 720 - 360}deg`,
       color:    CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)],
       w:        circ ? sz : sz * (0.7 + Math.random() * 0.9),
       h:        circ ? sz : sz * 0.5,
       radius:   circ ? "50%" : "2px",
       delay:    `${Math.random() * 240}ms`,
-      duration: `${700 + Math.random() * 650}ms`,
-      startX:   37 + Math.random() * 26, // cluster around the flap center
-      startY:   14 + Math.random() * 22,
+      duration: `${750 + Math.random() * 650}ms`,
+      startX:   44 + Math.random() * 12, // cluster around the seal
+      startY:   34 + Math.random() * 18,
     };
   });
 }
 
 type EnvelopePhase = "idle" | "shaking" | "opening";
+type EnvelopeState = "preview" | "open" | "closed";
 
 /**
- * Desktop-only bracket CTA — styled as a sealed envelope.
+ * Wax-seal notched ring path (20 teeth), precomputed once at module load.
+ * Coordinates are rounded to 2 dp so the string is byte-identical on the
+ * server and client — otherwise full-precision Math.cos/sin output can
+ * differ in the last digit and trip a React hydration mismatch.
+ */
+const SEAL_NOTCH_PATH = (() => {
+  const pts: string[] = [];
+  const n = 20;
+  const r = (v: number) => v.toFixed(2);
+  for (let i = 0; i < n; i++) {
+    const a1 = (i / n) * Math.PI * 2 - Math.PI / 2;
+    const a2 = ((i + 0.5) / n) * Math.PI * 2 - Math.PI / 2;
+    pts.push(`${r(50 + Math.cos(a1) * 47)},${r(50 + Math.sin(a1) * 47)}`);
+    pts.push(`${r(50 + Math.cos(a2) * 40)},${r(50 + Math.sin(a2) * 40)}`);
+  }
+  return `M${pts.join("L")}Z`;
+})();
+
+/** Per-state visual tokens for the envelope CTA. */
+function envelopeConfig(state: EnvelopeState, teamsSet: boolean, deadline: string | null) {
+  const deadlineStr = deadline
+    ? new Date(deadline).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })
+    : null;
+
+  switch (state) {
+    case "preview":
+      return {
+        cardBg: "#F8F5EC", flap: "#ECE6D4", fold: "#E4DCC8", border: "#DDD6C5",
+        sealRing: "#0B1426", sealAccent: "#A07820",
+        headline: "Preview the draw.",
+        hint: "Click to preview",
+        badgeDot: "#A07820", badgeLabel: "Preview",
+        badgeSub: "Opens when the group stage ends",
+        badgeBg: "#F4E9CB", badgeText: "#6E5414",
+      };
+    case "closed":
+      return {
+        cardBg: "#F1ECDF", flap: "#E0D8C4", fold: "#D8CFB8", border: "#D2C9B3",
+        sealRing: "#0B1426", sealAccent: "#C9302C",
+        headline: "Bracket locked.",
+        hint: "Click to view",
+        badgeDot: "#C9302C", badgeLabel: "Locked",
+        badgeSub: "Round of 32 is underway",
+        badgeBg: "#FBEAE9", badgeText: "#8E211D",
+      };
+    default: // open
+      return {
+        cardBg: "#FFFEFA", flap: "#EBE5D4", fold: "#E6DECB", border: "#D8D2C4",
+        sealRing: "#0B1426", sealAccent: "#C9302C",
+        headline: teamsSet ? "Your bracket awaits." : "The bracket awaits.",
+        hint: "Click to open",
+        badgeDot: "#C9302C", badgeLabel: "Open",
+        badgeSub: deadlineStr ? `Locks ${deadlineStr}` : "Fill out your whole bracket",
+        badgeBg: "#FBEAE9", badgeText: "#8E211D",
+      };
+  }
+}
+
+/**
+ * Desktop-only bracket CTA — a sealed envelope (centered, letter-proportioned).
  *
- * Click → 2s escalating shake (suspense) → flap opens + confetti burst
- * → fullscreen bracket modal opens.
+ * Three visual states:
+ *   • preview  — group stage still running; muted gold, read-only peek.
+ *   • open     — bracket live; warm paper, accent seal, full shake + confetti.
+ *   • closed   — picks locked; darker/sealed, opens straight through.
+ *
+ * Only the "open" state plays the suspense animation; preview & closed open
+ * the modal immediately (nothing to celebrate, so no theatrics).
  */
 function BracketDesktopCTA({
-  onClick, filledCount, teamsSet, pct, champion, locked,
+  onClick, filledCount, teamsSet, pct, champion, locked, deadline,
 }: {
   onClick: () => void;
   filledCount: number;
@@ -623,38 +689,48 @@ function BracketDesktopCTA({
   pct: number;
   champion: string | null;
   locked: boolean;
+  deadline: string | null;
 }) {
-  const [phase, setPhase]     = useState<EnvelopePhase>("idle");
+  const [phase, setPhase]       = useState<EnvelopePhase>("idle");
   const [confetti, setConfetti] = useState<ConfettiPiece[]>([]);
 
+  const state: EnvelopeState = locked ? "closed" : teamsSet ? "open" : "preview";
+  const animated = state === "open";
+  const cfg = envelopeConfig(state, teamsSet, deadline);
+
   const handleClick = useCallback(() => {
+    // Preview & closed: no theatrics — open the modal immediately.
+    if (!animated) { onClick(); return; }
     if (phase !== "idle") return;
     setPhase("shaking");
     setTimeout(() => {
       setPhase("opening");
-      setConfetti(makeConfetti(58));
+      setConfetti(makeConfetti(64));
       setTimeout(() => {
         onClick();
         setTimeout(() => { setPhase("idle"); setConfetti([]); }, 500);
       }, 850);
     }, 2000);
-  }, [phase, onClick]);
+  }, [animated, phase, onClick]);
 
   const isShaking = phase === "shaking";
   const isOpening = phase === "opening";
   const done = pct === 100;
+  const busy = phase !== "idle";
 
   return (
-    <div className="relative anim-fade-up" style={{ animationDelay: "80ms" }}>
-
-      {/* Shake wrapper — animates the whole envelope */}
+    <div
+      className="relative anim-fade-up mx-auto w-full"
+      style={{ maxWidth: "560px", animationDelay: "80ms" }}
+    >
+      {/* Shake wrapper — animates the whole envelope + confetti together */}
       <div
         role="button"
         tabIndex={0}
-        aria-label="Open your knockout bracket"
+        aria-label={`${cfg.badgeLabel} — open the knockout bracket`}
         onClick={handleClick}
-        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") handleClick(); }}
-        className="relative rounded-2xl cursor-pointer select-none"
+        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleClick(); } }}
+        className="group/env relative rounded-[20px] cursor-pointer select-none outline-none"
         style={{
           animationName:           isShaking ? "envelope-shake" : undefined,
           animationDuration:       isShaking ? "2s" : undefined,
@@ -664,29 +740,43 @@ function BracketDesktopCTA({
       >
         {/* ── Envelope card ─────────────────────────────────────── */}
         <div
-          className="relative rounded-2xl"
+          className="relative rounded-[20px] transition-all duration-300 group-hover/env:-translate-y-0.5"
           style={{
-            background:  "#FFFEFA",
-            border:      "2px solid #D8D2C4",
-            minHeight:   "230px",
+            background:  cfg.cardBg,
+            border:      `2px solid ${cfg.border}`,
+            aspectRatio: "1.78 / 1",
+            minHeight:   "280px",
             boxShadow:   isShaking
-              ? "0 24px 64px -12px rgba(11,20,38,0.38)"
-              : "0 4px 28px -8px rgba(11,20,38,0.16), 0 1px 0 rgba(11,20,38,0.04)",
-            transition:  "box-shadow 0.4s ease",
+              ? "0 28px 70px -12px rgba(11,20,38,0.42)"
+              : "0 6px 30px -10px rgba(11,20,38,0.18), 0 1px 0 rgba(11,20,38,0.04)",
             overflow:    "hidden",
           }}
         >
-          {/* ── Flap — the V triangle across the top ────────────── */}
+          {/* Faint paper grain / inner edge */}
+          <div aria-hidden="true" style={{ position: "absolute", inset: "6px", borderRadius: "14px", border: `1px solid ${cfg.border}`, opacity: 0.5, zIndex: 4, pointerEvents: "none" }} />
+
+          {/* ── Side + bottom folds — classic envelope back seams ─── */}
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
+            {/* left fold */}
+            <div style={{ position: "absolute", top: "-1px", bottom: "-1px", left: "-1px", width: "52%", background: cfg.fold, clipPath: "polygon(0 0, 100% 50%, 0 100%)" }} />
+            {/* right fold */}
+            <div style={{ position: "absolute", top: "-1px", bottom: "-1px", right: "-1px", width: "52%", background: cfg.fold, clipPath: "polygon(100% 0, 0 50%, 100% 100%)" }} />
+            {/* bottom fold (slightly lighter, sits over the side folds) */}
+            <div style={{ position: "absolute", bottom: "-1px", left: "-1px", right: "-1px", height: "52%", background: cfg.cardBg, clipPath: "polygon(0 100%, 50% 0, 100% 100%)" }} />
+          </div>
+
+          {/* ── Flap — V triangle hinged at the top, opens on reveal ─ */}
           <div
             aria-hidden="true"
             style={{
               position:        "absolute",
               top: "-1px", left: "-1px", right: "-1px",
-              height:          "56%",
-              clipPath:        "polygon(0 0, 100% 0, 50% 60%)",
-              background:      "#EBE5D4",
+              height:          "54%",
+              clipPath:        "polygon(0 0, 100% 0, 50% 100%)",
+              background:      cfg.flap,
+              borderBottom:    `1px solid ${cfg.border}`,
               transformOrigin: "top center",
-              zIndex:          3,
+              zIndex:          6,
               animationName:           isOpening ? "envelope-flap-open" : undefined,
               animationDuration:       "0.75s",
               animationTimingFunction: "cubic-bezier(0.4,0,0.2,1)",
@@ -694,50 +784,74 @@ function BracketDesktopCTA({
             }}
           />
 
-          {/* ── Bottom corner folds ──────────────────────────────── */}
-          <div aria-hidden="true" style={{ position: "absolute", inset: 0, zIndex: 1, pointerEvents: "none" }}>
-            <div style={{ position: "absolute", bottom: 0, left: "-1px", width: "51%", height: "46%", background: "#E8E1CE", clipPath: "polygon(0 100%, 0 0, 100% 100%)" }} />
-            <div style={{ position: "absolute", bottom: 0, right: "-1px", width: "51%", height: "46%", background: "#E8E1CE", clipPath: "polygon(100% 100%, 100% 0, 0 100%)" }} />
-          </div>
-
-          {/* ── Envelope body content ────────────────────────────── */}
+          {/* ── Centerpiece: seal + headline + status ───────────────
+              zIndex above the flap so the wax seal renders over the flap
+              tip (as a real seal holds the envelope shut) and nothing is
+              hidden when the flap is closed. */}
           <div
-            className="relative flex flex-col items-center justify-center text-center"
-            style={{ zIndex: 2, minHeight: "230px", padding: "2.5rem 3rem" }}
+            className="relative flex flex-col items-center justify-center text-center h-full"
+            style={{ zIndex: 7, padding: "1.75rem 2.5rem" }}
           >
-            {/* Wax seal — notched dark circle with trophy */}
-            <div style={{ position: "relative", width: "100px", height: "100px", marginBottom: "1.25rem", flexShrink: 0 }}>
-              <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }} aria-hidden="true">
-                {/* Notched outer ring — 18 teeth */}
-                <path
-                  fill="#0B1426"
-                  d={(() => {
-                    const pts: string[] = [];
-                    const n = 18;
-                    for (let i = 0; i < n; i++) {
-                      const a1 = (i / n) * Math.PI * 2 - Math.PI / 2;
-                      const a2 = ((i + 0.5) / n) * Math.PI * 2 - Math.PI / 2;
-                      pts.push(`${50 + Math.cos(a1) * 46},${50 + Math.sin(a1) * 46}`);
-                      pts.push(`${50 + Math.cos(a2) * 39},${50 + Math.sin(a2) * 39}`);
-                    }
-                    return `M${pts.join("L")}Z`;
-                  })()}
-                />
-                <circle cx="50" cy="50" r="34" fill="#0B1426" />
-                {/* Inner decorative ring */}
-                <circle cx="50" cy="50" r="29" fill="none" stroke="#F5F1E8" strokeWidth="0.7" opacity="0.25" />
+            {/* Wax seal */}
+            <div style={{ position: "relative", width: "84px", height: "84px", marginBottom: "1.1rem", flexShrink: 0 }}>
+              <svg viewBox="0 0 100 100" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", filter: "drop-shadow(0 2px 4px rgba(11,20,38,0.22))" }} aria-hidden="true">
+                {/* Notched outer ring — 20 teeth (precomputed, hydration-safe) */}
+                <path fill={cfg.sealRing} d={SEAL_NOTCH_PATH} />
+                <circle cx="50" cy="50" r="36" fill={cfg.sealRing} />
+                <circle cx="50" cy="50" r="31" fill="none" stroke={cfg.sealAccent} strokeWidth="1.4" opacity="0.85" />
               </svg>
               {/* Seal content — trophy + wordmark */}
-              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "3px" }}>
-                <svg viewBox="0 0 24 20" fill="none" style={{ width: "22px", height: "18px" }} aria-hidden="true">
-                  <path d="M4 1h16v7A8 8 0 0 1 4 8V1z"           stroke="#F5F1E8" strokeWidth="1.4" strokeLinejoin="round" />
-                  <path d="M4 3H2a2 2 0 0 0 0 4h2M20 3h2a2 2 0 0 0 0 4h-2" stroke="#F5F1E8" strokeWidth="1.4" strokeLinecap="round" />
-                  <path d="M12 8v5M8 13h8"                        stroke="#F5F1E8" strokeWidth="1.4" strokeLinecap="round" />
+              <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: "2px" }}>
+                <svg viewBox="0 0 24 22" fill="none" style={{ width: "26px", height: "24px" }} aria-hidden="true">
+                  <path d="M5 2h14v6.5A7 7 0 0 1 5 8.5V2z" stroke="#F5F1E8" strokeWidth="1.5" strokeLinejoin="round" />
+                  <path d="M5 4H3a2 2 0 0 0 0 4h2.4M19 4h2a2 2 0 0 1 0 4h-2.4" stroke="#F5F1E8" strokeWidth="1.5" strokeLinecap="round" />
+                  <path d="M12 9v5M8.5 14h7M9 17.5h6" stroke="#F5F1E8" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
-                <span style={{ fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "9px", color: "#F5F1E8", opacity: 0.85, letterSpacing: "0.04em", lineHeight: 1 }}>
+                <span style={{ fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "9px", color: "#F5F1E8", opacity: 0.9, letterSpacing: "0.04em", lineHeight: 1 }}>
                   Nutmeg
                 </span>
               </div>
+
+              {/* State emblem clipped onto the seal: lock (closed) / eye (preview) */}
+              {state === "closed" && (
+                <div style={{ position: "absolute", right: "-5px", bottom: "-5px", width: "30px", height: "30px", borderRadius: "50%", background: cfg.sealAccent, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(11,20,38,0.3)", border: "2px solid " + cfg.cardBg }}>
+                  <svg viewBox="0 0 16 16" fill="none" style={{ width: "14px", height: "14px" }} aria-hidden="true">
+                    <rect x="3.5" y="7" width="9" height="6.5" rx="1.4" stroke="#F5F1E8" strokeWidth="1.5" />
+                    <path d="M5.5 7V5.2a2.5 2.5 0 0 1 5 0V7" stroke="#F5F1E8" strokeWidth="1.5" />
+                  </svg>
+                </div>
+              )}
+              {state === "preview" && (
+                <div style={{ position: "absolute", right: "-5px", bottom: "-5px", width: "30px", height: "30px", borderRadius: "50%", background: cfg.sealAccent, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 6px rgba(11,20,38,0.3)", border: "2px solid " + cfg.cardBg }}>
+                  <svg viewBox="0 0 16 16" fill="none" style={{ width: "14px", height: "14px" }} aria-hidden="true">
+                    <path d="M1.5 8s2.4-4 6.5-4 6.5 4 6.5 4-2.4 4-6.5 4-6.5-4-6.5-4z" stroke="#F5F1E8" strokeWidth="1.4" strokeLinejoin="round" />
+                    <circle cx="8" cy="8" r="1.8" stroke="#F5F1E8" strokeWidth="1.4" />
+                  </svg>
+                </div>
+              )}
+            </div>
+
+            {/* Status badge */}
+            <div
+              style={{
+                display: "inline-flex", alignItems: "center", gap: "7px",
+                background: cfg.badgeBg, borderRadius: "999px",
+                padding: "4px 11px 4px 9px", marginBottom: "0.85rem",
+              }}
+            >
+              <span style={{ position: "relative", display: "inline-flex", width: "7px", height: "7px" }}>
+                {animated && (
+                  <span style={{ position: "absolute", inset: 0, borderRadius: "50%", background: cfg.badgeDot, opacity: 0.65, animation: "ringPulse 1.8s ease-out infinite" }} />
+                )}
+                <span style={{ position: "relative", width: "7px", height: "7px", borderRadius: "50%", background: cfg.badgeDot }} />
+              </span>
+              <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "9.5px", fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.16em", color: cfg.badgeText }}>
+                {cfg.badgeLabel}
+              </span>
+              <span style={{ width: "1px", height: "10px", background: cfg.badgeText, opacity: 0.25 }} />
+              <span style={{ fontFamily: "var(--font-mono, monospace)", fontSize: "9.5px", color: cfg.badgeText, opacity: 0.8, letterSpacing: "0.02em" }}>
+                {cfg.badgeSub}
+              </span>
             </div>
 
             {/* Headline */}
@@ -745,57 +859,56 @@ function BracketDesktopCTA({
               style={{
                 fontFamily: "var(--font-display, Georgia,serif)",
                 fontWeight: 500,
-                fontSize: "clamp(1.35rem, 2.6vw, 1.85rem)",
+                fontSize: "clamp(1.5rem, 3vw, 2rem)",
                 color: "#0B1426",
-                lineHeight: 1.1,
-                letterSpacing: "-0.01em",
-                marginBottom: "0.5rem",
-                fontVariationSettings: '"opsz" 72',
+                lineHeight: 1.08,
+                letterSpacing: "-0.015em",
+                marginBottom: "0.6rem",
+                fontVariationSettings: '"opsz" 80',
               }}
             >
-              {teamsSet ? "Your bracket awaits." : "The bracket awaits."}
+              {isShaking ? "Opening…" : isOpening ? "🎉 Here we go!" : cfg.headline}
             </h3>
 
-            {/* Status line */}
-            <p
-              style={{
-                fontFamily: "var(--font-mono, monospace)",
-                fontSize: "10px",
-                textTransform: "uppercase",
-                letterSpacing: "0.2em",
-                color: "#8089A0",
-                marginTop: "0.25rem",
-                minHeight: "14px",
-                transition: "color 0.2s",
-              }}
-            >
-              {isShaking ? "Opening…" : isOpening ? "Here we go!" : "Click to open"}
-            </p>
+            {/* Action hint + progress / champion */}
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "9px", minHeight: "20px" }}>
+              {!busy && (
+                <span
+                  className="transition-colors"
+                  style={{
+                    fontFamily: "var(--font-mono, monospace)", fontSize: "10px",
+                    textTransform: "uppercase", letterSpacing: "0.22em", color: "#8089A0",
+                  }}
+                >
+                  <span className="group-hover/env:hidden">{cfg.hint}</span>
+                  <span className="hidden group-hover/env:inline" style={{ color: cfg.sealAccent }}>{cfg.hint} →</span>
+                </span>
+              )}
 
-            {/* Progress + champion — shown only at idle */}
-            {phase === "idle" && (
-              <div style={{ marginTop: "1rem", display: "flex", flexDirection: "column", alignItems: "center", gap: "6px" }}>
-                {filledCount > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", background: "#EBE5D4", borderRadius: "999px", padding: "5px 12px" }}>
-                    <div style={{ height: "4px", width: "64px", borderRadius: "999px", background: "#D8D2C4", overflow: "hidden" }}>
-                      <div style={{ height: "100%", width: `${pct}%`, background: done ? "#1B5E20" : "#C9302C", borderRadius: "inherit", transition: "width 0.7s" }} />
+              {!busy && (filledCount > 0 || champion) && (
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  {filledCount > 0 && (
+                    <div style={{ display: "flex", alignItems: "center", gap: "7px" }}>
+                      <div style={{ height: "4px", width: "70px", borderRadius: "999px", background: cfg.border, overflow: "hidden" }}>
+                        <div style={{ height: "100%", width: `${pct}%`, background: done ? "#1B5E20" : cfg.sealAccent, borderRadius: "inherit", transition: "width 0.7s" }} />
+                      </div>
+                      <span style={{ fontFamily: "monospace", fontSize: "9.5px", color: "#475065", letterSpacing: "0.03em" }}>
+                        {filledCount}/31
+                      </span>
                     </div>
-                    <span style={{ fontFamily: "monospace", fontSize: "9.5px", color: "#475065", letterSpacing: "0.03em" }}>
-                      {filledCount}/31
+                  )}
+                  {champion && (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: "4px", fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "12px", color: "#A07820", lineHeight: 1 }}>
+                      🏆 {champion}
                     </span>
-                  </div>
-                )}
-                {champion && (
-                  <p style={{ fontFamily: "Georgia,serif", fontStyle: "italic", fontSize: "12px", color: "#A07820", lineHeight: 1 }}>
-                    Champion: {champion}
-                  </p>
-                )}
-              </div>
-            )}
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        {/* ── Confetti burst (positioned relative to shake wrapper) ── */}
+        {/* ── Confetti burst (sibling of card so it isn't clipped) ── */}
         {confetti.length > 0 && (
           <div
             aria-hidden="true"
