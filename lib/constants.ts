@@ -35,12 +35,12 @@ export const SHEET_NAMES = {
 // Max points a user can earn if they get everything right from here.
 // Group stage: 12 groups × 6 matches = 72 matches × 1 pt = 72
 // R32: 16 × 2 = 32 | R16: 8 × 3 = 24 | QF: 4 × 4 = 16
-// SF: 2 × 5 = 10   | Final + 3rd place: 2 × 6 = 12
-// Total: 72+32+24+16+10+12 = 166
+// SF: 2 × 5 = 10   | Final: 1 × 6 = 6  (the 3rd-place playoff is NOT picked)
+// Total: 72+32+24+16+10+6 = 160
 export const MAX_TOTAL_POINTS =
   72 * 1 +  // group stage  (12 groups × 6 matches)
   16 * 2 +  // R32
    8 * 3 +  // R16
    4 * 4 +  // QF
    2 * 5 +  // SF
-   2 * 6;   // Final + 3rd-place playoff
+   1 * 6;   // Final (champion) — no 3rd-place playoff pick

@@ -341,7 +341,7 @@ export default function Landing({ matches, participantCount }: Props) {
                 ["Round of 16",      8, 3, 24],
                 ["Quarterfinals",    4, 4, 16],
                 ["Semifinals",       2, 5, 10],
-                ["Final + 3rd place", 2, 6, 12],
+                ["Final",            1, 6,  6],
               ].map(([round, count, per, total]) => (
                 <tr key={String(round)} className="hover:bg-paper-deep/40 transition-colors">
                   <td className="px-5 sm:px-7 py-3.5 ink font-medium">{round}</td>
@@ -352,7 +352,7 @@ export default function Landing({ matches, participantCount }: Props) {
               ))}
               <tr className="bg-paper-deep/60">
                 <td className="px-5 sm:px-7 py-3.5 ink font-serif italic">Maximum possible</td>
-                <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink-soft">104</td>
+                <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink-soft">103</td>
                 <td className="px-5 sm:px-7 py-3.5 text-right ink-faint">&mdash;</td>
                 <td className="px-5 sm:px-7 py-3.5 text-right font-mono tabular ink font-bold">{MAX_TOTAL_POINTS}</td>
               </tr>

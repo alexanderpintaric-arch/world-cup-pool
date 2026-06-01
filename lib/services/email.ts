@@ -110,7 +110,7 @@ export async function sendLeagueWelcomeEmail(
     ["Round of 16", "3 pts"],
     ["Quarterfinals", "4 pts"],
     ["Semifinals", "5 pts"],
-    ["Final + 3rd place", "6 pts"],
+    ["Final", "6 pts"],
   ].map(([r, v], i) => `
     <tr>
       <td style="padding:7px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};${i > 0 ? `border-top:1px solid ${C.line};` : ""}">${r}</td>
