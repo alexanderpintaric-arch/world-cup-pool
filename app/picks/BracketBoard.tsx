@@ -156,18 +156,22 @@ export default function BracketBoard({
   };
 
   // Scroll the pane to a round's column — horizontally, and vertically to its
-  // first match (later rounds sit centered far down the tall tree).
+  // first match. We target the .bkt-cell (not .bkt-card) and subtract the
+  // sticky column-title height (34 px) so the meta line + both team slots
+  // land fully below the header rather than being obscured by it.
   const scrollToRound = useCallback((round: KnockoutRound) => {
     const cont = scrollRef.current;
     const col = colRefs.current[round];
     if (!cont || !col) return;
     const cr = cont.getBoundingClientRect();
-    const card = col.querySelector(".bkt-card");
     const left = col.getBoundingClientRect().left - cr.left + cont.scrollLeft;
-    const top = card
-      ? card.getBoundingClientRect().top - cr.top + cont.scrollTop
+    // Target the first full .bkt-cell (match header + both team slots), then
+    // pull up by the sticky column title height (34 px) so nothing hides behind it.
+    const cell = col.querySelector(".bkt-cell");
+    const top = cell
+      ? cell.getBoundingClientRect().top - cr.top + cont.scrollTop - 34 - 6
       : cont.scrollTop;
-    cont.scrollTo({ left: Math.max(0, left - 10), top: Math.max(0, top - 8), behavior: "smooth" });
+    cont.scrollTo({ left: Math.max(0, left - 10), top: Math.max(0, top), behavior: "smooth" });
   }, []);
 
   // Tap a round chip to grow/shrink the contiguous selection (1–5 rounds):
