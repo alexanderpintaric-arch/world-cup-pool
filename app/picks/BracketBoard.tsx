@@ -343,19 +343,6 @@ export default function BracketBoard({
 
   const pane = (
     <div className={`relative ${fullscreen ? "flex flex-col flex-1 min-h-0" : ""}`}>
-      {/* Expand to fullscreen — shown on desktop when not already fullscreen */}
-      {!fullscreen && (
-        <button
-          onClick={() => setFullscreen(true)}
-          title="Expand to full screen (Esc to close)"
-          aria-label="Expand bracket to full screen"
-          className="absolute top-2 right-2 z-10 hidden sm:flex h-7 w-7 items-center justify-center rounded-md bg-card/90 backdrop-blur border border-line ink-faint hover:ink hover:bg-paper-deep transition-colors shadow-paper"
-        >
-          <svg className="h-3.5 w-3.5" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-            <path d="M1 5V1h4M13 5V1h-4M1 9v4h4M13 9v4h-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </button>
-      )}
       <div
         ref={scrollRef}
         onTouchStart={onTouchStart}
@@ -527,6 +514,7 @@ export default function BracketBoard({
       </div>
 
       {isMobile ? (
+        /* ── Mobile CTA ────────────────────────────────────────────────── */
         <button
           onClick={() => setFullscreen(true)}
           className="w-full flex items-center justify-between gap-3 rounded-xl border border-ink bg-ink text-paper px-5 py-4 shadow-paper active:scale-[0.99] transition-transform"
@@ -549,13 +537,182 @@ export default function BracketBoard({
           <span className="flex-shrink-0 font-mono text-[18px] leading-none">→</span>
         </button>
       ) : (
-        boardInner
+        /* ── Desktop CTA ────────────────────────────────────────────────── */
+        <BracketDesktopCTA
+          onClick={() => setFullscreen(true)}
+          filledCount={filledCount}
+          teamsSet={teamsSet}
+          pct={pct}
+          champion={champion}
+          locked={locked}
+        />
       )}
     </div>
   );
 }
 
 /* ─────────────────────────────────────────────────────────── */
+
+/**
+ * Desktop-only full-screen bracket CTA.
+ *
+ * Renders a large dark card — the bracket tree is drawn in faint SVG lines
+ * across the background so the structure you're about to fill is already
+ * visible. The entire surface is the click target; the expand icon on the
+ * right is the unmistakable "this opens something" signal.
+ */
+function BracketDesktopCTA({
+  onClick, filledCount, teamsSet, pct, champion, locked,
+}: {
+  onClick: () => void;
+  filledCount: number;
+  teamsSet: boolean;
+  pct: number;
+  champion: string | null;
+  locked: boolean;
+}) {
+  const TOTAL = 31;
+  const done = pct === 100;
+
+  return (
+    <button
+      onClick={onClick}
+      className="group relative w-full overflow-hidden rounded-2xl text-left transition-all duration-200 anim-fade-up"
+      style={{
+        background: "#0B1426",
+        minHeight: "172px",
+        animationDelay: "80ms",
+        boxShadow: "0 1px 0 rgba(11,20,38,0.06), 0 8px 32px -8px rgba(11,20,38,0.22)",
+      }}
+    >
+      {/* ── Bracket tree SVG — decorative background ───────────── */}
+      <svg
+        viewBox="0 0 480 148"
+        preserveAspectRatio="xMidYMid slice"
+        aria-hidden="true"
+        className="absolute inset-0 w-full h-full transition-opacity duration-300"
+        style={{ opacity: 0.07 }}
+        fill="none"
+      >
+        {/* R32 horizontal stubs — 8 lines */}
+        {[6, 25.4, 44.8, 64.2, 83.6, 103, 122.4, 141.8].map((y, i) => (
+          <line key={i} x1="0" y1={y} x2="52" y2={y} stroke="white" strokeWidth="1.6" />
+        ))}
+        {/* R32→R16 elbows (4 pairs) */}
+        {([
+          [6, 25.4, 15.7],
+          [44.8, 64.2, 54.5],
+          [83.6, 103, 93.3],
+          [122.4, 141.8, 132.1],
+        ] as [number, number, number][]).map(([y1, y2, mid], i) => (
+          <path key={i} d={`M52,${y1} H82 V${y2} M82,${mid} H112`} stroke="white" strokeWidth="1.6" strokeLinejoin="round" />
+        ))}
+        {/* R16 stubs (4 lines) */}
+        {[15.7, 54.5, 93.3, 132.1].map((y, i) => (
+          <line key={i} x1="112" y1={y} x2="170" y2={y} stroke="white" strokeWidth="1.6" />
+        ))}
+        {/* R16→QF elbows (2 pairs) */}
+        {([
+          [15.7, 54.5, 35.1],
+          [93.3, 132.1, 112.7],
+        ] as [number, number, number][]).map(([y1, y2, mid], i) => (
+          <path key={i} d={`M170,${y1} H200 V${y2} M200,${mid} H230`} stroke="white" strokeWidth="1.6" strokeLinejoin="round" />
+        ))}
+        {/* QF stubs (2 lines) */}
+        {[35.1, 112.7].map((y, i) => (
+          <line key={i} x1="230" y1={y} x2="288" y2={y} stroke="white" strokeWidth="1.6" />
+        ))}
+        {/* QF→SF elbow */}
+        <path d="M288,35.1 H318 V112.7 M318,73.9 H348" stroke="white" strokeWidth="1.6" strokeLinejoin="round" />
+        {/* SF + Final lines */}
+        <line x1="348" y1="73.9" x2="420" y2="73.9" stroke="white" strokeWidth="1.6" />
+        <path d="M420,68 H450 V80 M420,73.9 H480" stroke="white" strokeWidth="1.2" strokeLinejoin="round" />
+      </svg>
+
+      {/* ── Hover glow ─────────────────────────────────────────── */}
+      <div
+        className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+        style={{ background: "radial-gradient(ellipse at 80% 50%, rgba(201,48,44,0.12) 0%, transparent 65%)" }}
+      />
+
+      {/* ── Content ────────────────────────────────────────────── */}
+      <div className="relative z-10 flex items-center gap-6 px-8 py-7">
+
+        {/* Text block */}
+        <div className="flex-1 min-w-0">
+          <p className="font-mono text-[9.5px] uppercase tracking-[0.24em] mb-3" style={{ color: "rgba(245,241,232,0.38)" }}>
+            Knockout Bracket
+            {filledCount > 0 && (
+              <span style={{ color: "rgba(245,241,232,0.55)" }}> · {filledCount}/{TOTAL} filled</span>
+            )}
+          </p>
+
+          <h3
+            className="font-serif font-medium leading-[1.05] tracking-[-0.01em] mb-3"
+            style={{
+              fontSize: "clamp(1.6rem, 3vw, 2.2rem)",
+              color: "#F5F1E8",
+              fontVariationSettings: '"opsz" 80',
+            }}
+          >
+            {teamsSet
+              ? "Open your bracket."
+              : "Open the bracket."}
+          </h3>
+
+          <p className="font-mono text-[10.5px] leading-relaxed" style={{ color: "rgba(245,241,232,0.42)" }}>
+            {locked
+              ? "Picks are locked — watch it play out round by round."
+              : teamsSet
+                ? "Pick every winner from the Round of 32 to the Final."
+                : "Preview the official draw — teams are set after the group stage."}
+          </p>
+
+          {/* Champion callout */}
+          {champion && (
+            <p className="mt-3 font-serif italic text-[14px] leading-none" style={{ color: "#A07820" }}>
+              Your champion: {champion}
+            </p>
+          )}
+        </div>
+
+        {/* Expand icon — the unmistakable "this opens fullscreen" signal */}
+        <div
+          className="flex-shrink-0 flex items-center justify-center rounded-xl transition-all duration-200 group-hover:scale-105"
+          style={{
+            width: "56px",
+            height: "56px",
+            background: done ? "#1B5E20" : "rgba(201,48,44,0.9)",
+            boxShadow: "0 4px 16px rgba(201,48,44,0.3)",
+          }}
+        >
+          <svg viewBox="0 0 20 20" fill="none" className="h-6 w-6" aria-hidden="true">
+            <path
+              d="M3 7.5V3h4.5M17 7.5V3h-4.5M3 12.5V17h4.5M17 12.5V17h-4.5"
+              stroke="white"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      </div>
+
+      {/* ── Progress bar ───────────────────────────────────────── */}
+      <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{ background: "rgba(245,241,232,0.06)" }}>
+        {pct > 0 && (
+          <div
+            className="h-full transition-all duration-700"
+            style={{
+              width: `${pct}%`,
+              background: done ? "#1B5E20" : "#C9302C",
+            }}
+          />
+        )}
+      </div>
+    </button>
+  );
+}
 
 function BoardError({ msg }: { msg: string }) {
   return (
