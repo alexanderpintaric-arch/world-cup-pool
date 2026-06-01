@@ -472,7 +472,7 @@ export default function BracketBoard({
           </div>
         </div>
 
-        {/* Progress */}
+        {/* Progress + print */}
         <div className="mt-4 flex items-center gap-3">
           <div className="h-1.5 flex-1 rounded-full bg-paper-deep overflow-hidden">
             <div
@@ -483,6 +483,21 @@ export default function BracketBoard({
           <span className="font-serif font-medium ink leading-none tabular flex-shrink-0" style={{ fontSize: "15px", fontVariationSettings: '"opsz" 24' }}>
             {filledCount}<span className="ink-faint">/{TOTAL_NODES}</span>
           </span>
+          <a
+            href="/bracket/print"
+            target="_blank"
+            rel="noopener noreferrer"
+            title="Print bracket"
+            className="flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-line bg-paper-deep ink-faint hover:ink hover:border-ink/30 transition-colors text-[11px] font-mono uppercase tracking-[0.1em]"
+          >
+            <svg viewBox="0 0 14 14" fill="none" className="h-3 w-3" aria-hidden="true">
+              <rect x="2" y="4" width="10" height="7" rx="1.2" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M4 4V2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5V4" stroke="currentColor" strokeWidth="1.2" />
+              <path d="M4 10.5v1a.5.5 0 0 0 .5.5h5a.5.5 0 0 0 .5-.5v-1" stroke="currentColor" strokeWidth="1.2" />
+              <circle cx="10.5" cy="7" r="0.6" fill="currentColor" />
+            </svg>
+            Print
+          </a>
         </div>
 
         <p className="mt-2.5 text-[11.5px] ink-faint">
