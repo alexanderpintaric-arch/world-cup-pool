@@ -342,3 +342,93 @@ export async function sendScoreUpdateEmail(
     }),
   });
 }
+
+// ── 5. Round recap (when a round fully completes) — superlatives + standings ──
+
+export interface RecapAward { emoji: string; title: string; name: string; blurb: string }
+export interface RecapStanding { name: string; score: number; isYou: boolean }
+
+export async function sendRoundRecapEmail(
+  to: string,
+  name: string,
+  opts: {
+    roundLabel: string;
+    leagueName: string;
+    rank: number;
+    totalParticipants: number;
+    totalScore: number;
+    top: RecapStanding[];   // top 3 (pre-sorted)
+    youInTop: boolean;      // is the recipient already shown in `top`?
+    awards: RecapAward[];
+  },
+): Promise<void> {
+  const { roundLabel, leagueName, rank, totalParticipants, totalScore, top, youInTop, awards } = opts;
+  const appUrl = APP_URL();
+
+  const medal = (i: number) => (i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : "·");
+
+  const standingRow = (label: string, score: number, mark: string, you: boolean) => `
+    <tr>
+      <td style="padding:9px 0;font-family:${SANS};font-size:14px;color:${you ? C.ink : C.inkSoft};font-weight:${you ? 700 : 400};border-top:1px solid ${C.line};">
+        <span style="display:inline-block;width:22px;">${mark}</span>${label}${you ? ` <span style="font-family:${MONO};font-size:9px;letter-spacing:0.14em;color:${C.green};text-transform:uppercase;">you</span>` : ""}
+      </td>
+      <td style="padding:9px 0;font-family:${MONO};font-size:14px;font-weight:bold;color:${C.ink};text-align:right;border-top:1px solid ${C.line};">${score}</td>
+    </tr>`;
+
+  const standingsRows = top.map((s, i) => standingRow(s.name, s.score, medal(i), s.isYou)).join("");
+  const youRow = youInTop ? "" : standingRow(name, totalScore, `${rank}`, true);
+
+  const awardsHtml = awards.length === 0 ? "" : `
+    <div style="font-family:${MONO};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:${C.accent};margin:26px 0 12px;">This round's honours</div>
+    ${awards.map(a => `
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;margin:0 0 10px;">
+        <tr>
+          <td style="padding:13px 14px;vertical-align:top;width:40px;font-size:24px;line-height:1;">${a.emoji}</td>
+          <td style="padding:13px 14px 13px 0;">
+            <div style="font-family:${SERIF};font-weight:700;font-size:16px;color:${C.ink};line-height:1.1;">${a.title} <span style="font-weight:400;color:${C.inkSoft};">— ${a.name}</span></div>
+            <div style="font-family:${SANS};font-size:13px;color:${C.inkSoft};margin-top:4px;line-height:1.5;">${a.blurb}</div>
+          </td>
+        </tr>
+      </table>`).join("")}`;
+
+  const body = `
+    ${p(`Hey ${firstName(name)},`)}
+    ${p(`The <strong style="color:${C.ink};">${roundLabel}</strong> is in the books. Here's how <strong style="color:${C.ink};">${leagueName}</strong> shook out.`)}
+
+    <div style="font-family:${MONO};font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:${C.accent};margin:24px 0 6px;">Standings</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;">
+      ${standingsRows}
+      ${youRow}
+    </table>
+    ${p(rank === 1
+        ? `You're <strong style="color:${C.ink};">top of the table</strong> with ${totalScore} pts. Stay there. 👑`
+        : `You're <strong style="color:${C.ink};">${rank}${ordinalSuffix(rank)}</strong> of ${totalParticipants} on ${totalScore} pts.`,
+      `margin-top:14px;`)}
+
+    ${awardsHtml}
+
+    <div style="text-align:center;margin:24px 0 4px;">
+      ${button(`${appUrl}/stats`, "See your dossier")}
+    </div>
+    <div style="text-align:center;margin-top:12px;">
+      <a href="${appUrl}/" style="font-family:${MONO};font-size:12px;color:${C.inkSoft};text-decoration:none;letter-spacing:0.06em;">View full standings &rarr;</a>
+    </div>
+  `;
+
+  await deliver({
+    from: FROM(),
+    to,
+    subject: `🏁 ${roundLabel} recap — ${leagueName}`,
+    html: shell({
+      preview: `How ${leagueName} shook out after the ${roundLabel}, plus this round's honours.`,
+      kicker: "Round recap",
+      heading: `${roundLabel}: the verdict.`,
+      bodyHtml: body,
+    }),
+  });
+}
+
+function ordinalSuffix(n: number): string {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return s[(v - 20) % 10] ?? s[v] ?? s[0];
+}

@@ -5,6 +5,7 @@ import { useRef, useState, useEffect, useLayoutEffect, useCallback } from "react
 const LINKS = [
   { href: "/",          label: "Standings" },
   { href: "/picks",     label: "My Picks" },
+  { href: "/stats",     label: "My Stats" },
   { href: "/receipts",  label: "Receipts" },
   { href: "/community", label: "The Pool" },
 ];

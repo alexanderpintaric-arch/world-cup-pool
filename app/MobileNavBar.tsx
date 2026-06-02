@@ -34,6 +34,18 @@ const TABS: Tab[] = [
     ),
   },
   {
+    href: "/stats",
+    label: "Stats",
+    exact: false,
+    icon: (active) => (
+      <svg viewBox="0 0 20 20" fill="none" className="h-[22px] w-[22px]" aria-hidden="true">
+        <circle cx="10" cy="8" r="5" stroke="currentColor" strokeWidth="1.5" opacity={active ? 1 : 0.6}/>
+        <path d="M10 6.2l.9 1.5 1.7.3-1.2 1.2.3 1.7-1.5-.8-1.5.8.3-1.7-1.2-1.2 1.7-.3.8-1.5z" fill="currentColor" opacity={active ? 1 : 0.7}/>
+        <path d="M7 12.5L6 18l4-2 4 2-1-5.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" opacity={active ? 1 : 0.5}/>
+      </svg>
+    ),
+  },
+  {
     href: "/receipts",
     label: "Receipts",
     exact: false,

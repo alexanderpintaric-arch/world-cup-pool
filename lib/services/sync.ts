@@ -5,9 +5,11 @@ import {
   upsertOdds, logSync, getLastSync,
   getRemindedRounds, markRoundReminded, getAllBracketPicks,
 } from "./supabase";
-import { getAllMemberEmails } from "./leagues";
+import { getAllMemberEmails, getAllLeaguesWithMembers } from "./leagues";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "./scoring";
-import { sendScoreUpdateEmail, sendRoundOpenEmail, sendDeadlineReminderEmail } from "./email";
+import { computeRoundAwards, computeKnockoutAwards } from "./superlatives";
+import { sendScoreUpdateEmail, sendRoundOpenEmail, sendDeadlineReminderEmail, sendRoundRecapEmail } from "./email";
+import type { KnockoutRound } from "./bracket";
 import type { SyncResult, Match } from "../types";
 
 const REMIND_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h
@@ -167,6 +169,67 @@ export async function runSync(): Promise<SyncResult> {
       }
     } catch (e) {
       console.error("Deadline reminders failed (non-fatal):", e);
+    }
+
+    // 9. Round recaps — when a round fully completes, email each league a recap
+    //    with the standings + this round's funny superlatives. Deduped per
+    //    (league, round) via the round_reminders table using a "recap:" prefix.
+    try {
+      const newlyCompleted = newRoundStates.filter(rs => {
+        const prev = prevRoundStates.find(p => p.round === rs.round);
+        return rs.matchCount > 0 && rs.isComplete && !prev?.isComplete;
+      });
+
+      if (newlyCompleted.length > 0) {
+        const [allPicks, allBracketPicks, allUsers, leagues, reminded] = await Promise.all([
+          getAllPicks(), getAllBracketPicks(), getAllUsers(), getAllLeaguesWithMembers(), getRemindedRounds(),
+        ]);
+
+        for (const rs of newlyCompleted) {
+          for (const league of leagues) {
+            const dedupKey = `recap:${league.id}:${rs.round}`;
+            if (reminded.has(dedupKey)) continue;
+
+            const memberSet = new Set(league.memberEmails);
+            const leagueUsers = allUsers.filter(u => memberSet.has(u.email));
+            if (leagueUsers.length === 0) continue;
+
+            const leaguePicks   = allPicks.filter(p => p.leagueId === league.id);
+            const leagueBracket = allBracketPicks.filter(b => b.leagueId === league.id);
+            const entries = computeLeaderboard(leagueUsers, leaguePicks, freshMatches, leagueBracket);
+            if (entries.length === 0) continue;
+
+            const awards = rs.round === "GROUP"
+              ? computeRoundAwards("GROUP", leagueUsers, leaguePicks, freshMatches)
+              : computeKnockoutAwards(rs.round as KnockoutRound, leagueUsers, leagueBracket, freshMatches);
+            const awardPayload = awards.map(a => ({ emoji: a.emoji, title: a.title, name: a.name, blurb: a.blurb }));
+
+            let sentForLeague = 0;
+            for (let i = 0; i < entries.length; i++) {
+              const entry = entries[i];
+              const top = entries.slice(0, 3).map(e => ({ name: e.name, score: e.totalScore, isYou: e.email === entry.email }));
+              try {
+                await sendRoundRecapEmail(entry.email, entry.name, {
+                  roundLabel: rs.label,
+                  leagueName: league.name,
+                  rank: i + 1,
+                  totalParticipants: entries.length,
+                  totalScore: entry.totalScore,
+                  top,
+                  youInTop: i < 3,
+                  awards: awardPayload,
+                });
+                emailsSent++; sentForLeague++;
+              } catch (e) {
+                console.error(`Recap email failed for ${entry.email}:`, e);
+              }
+            }
+            if (sentForLeague > 0) await markRoundReminded(dedupKey);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Round recaps failed (non-fatal):", e);
     }
   } catch (e) {
     error = e instanceof Error ? e.message : ((e as any)?.message ?? JSON.stringify(e));

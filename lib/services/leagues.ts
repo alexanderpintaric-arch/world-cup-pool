@@ -80,6 +80,29 @@ export async function joinLeagueByCode(
   return { success: true, league: rowToLeague(league), alreadyMember: false };
 }
 
+/** Every league with its member emails — used for per-league recap emails. */
+export async function getAllLeaguesWithMembers(): Promise<{ id: string; name: string; memberEmails: string[] }[]> {
+  const client = getClient();
+  const [{ data: leagues, error: lErr }, { data: members, error: mErr }] = await Promise.all([
+    client.from("leagues").select("id, name"),
+    client.from("league_members").select("league_id, email"),
+  ]);
+  if (lErr) throw lErr;
+  if (mErr) throw mErr;
+
+  const byLeague = new Map<string, string[]>();
+  for (const m of members ?? []) {
+    const lid = m.league_id as string;
+    if (!byLeague.has(lid)) byLeague.set(lid, []);
+    byLeague.get(lid)!.push(m.email as string);
+  }
+  return (leagues ?? []).map(l => ({
+    id: l.id as string,
+    name: l.name as string,
+    memberEmails: byLeague.get(l.id as string) ?? [],
+  }));
+}
+
 /** Distinct emails of everyone who belongs to at least one league. */
 export async function getAllMemberEmails(): Promise<Set<string>> {
   const { data, error } = await getClient()
