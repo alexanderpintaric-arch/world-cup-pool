@@ -261,6 +261,24 @@ export default function BracketBoard({
   const championDecided = decided.FINAL && champion ? advancers.FINAL.has(champion) : false;
   const pct = (filledCount / TOTAL_NODES) * 100;
 
+  // ── Coronation: fire a celebration the instant the LAST pick lands ──────────
+  // Tracks the fill count across renders; when it crosses 30→31 (only possible
+  // via a user pick, since the board is read-only otherwise) we crown the
+  // champion and trace their whole road to glory.
+  const [celebrate, setCelebrate] = useState<CoronationData | null>(null);
+  const prevFilledRef = useRef(filledCount);
+  useEffect(() => {
+    const prev = prevFilledRef.current;
+    prevFilledRef.current = filledCount;
+    if (!celebrate && prev < TOTAL_NODES && filledCount === TOTAL_NODES && champion) {
+      setCelebrate(buildCoronation(champion, bracket, r32Slots));
+    }
+  }, [filledCount, champion, bracket, r32Slots, celebrate]);
+
+  const coronation = celebrate && mounted
+    ? createPortal(<ChampionCoronation data={celebrate} onClose={() => setCelebrate(null)} />, document.body)
+    : null;
+
   // ── Round rail ──────────────────────────────────────────────────────────────
   // Chips jump to a round; chevrons only appear when not every round fits.
   const rail = (
@@ -453,6 +471,7 @@ export default function BracketBoard({
           </p>
           {boardInner}
         </div>
+        {coronation}
       </div>,
       document.body
     );
@@ -549,6 +568,7 @@ export default function BracketBoard({
         locked={locked}
         deadline={deadline}
       />
+      {coronation}
     </div>
   );
 }
@@ -592,6 +612,240 @@ function makeConfetti(n = 64): ConfettiPiece[] {
       startY:   34 + Math.random() * 18,
     };
   });
+}
+
+/* ─── Champion Coronation ─────────────────────────────────────────────────────
+   A ceremonial full-screen takeover the instant the 31st pick lands. It crowns
+   the predicted winner and replays their whole road to the trophy. ──────────── */
+
+interface RoadStep { round: KnockoutRound; opponent: string; }
+interface CoronationData { champion: string; runnerUp: string | null; road: RoadStep[]; }
+
+const ROAD_LABEL: Record<KnockoutRound, string> = {
+  ROUND_OF_32:    "Round of 32",
+  ROUND_OF_16:    "Round of 16",
+  QUARTER_FINALS: "Quarter-final",
+  SEMI_FINALS:    "Semi-final",
+  FINAL:          "Final",
+};
+const ROAD_SHORT: Record<KnockoutRound, string> = {
+  ROUND_OF_32: "R32", ROUND_OF_16: "R16", QUARTER_FINALS: "QF", SEMI_FINALS: "SF", FINAL: "FINAL",
+};
+
+/**
+ * Trace the champion's predicted run: descend the tree from the Final, following
+ * the child the champion was advanced from at each step, collecting the team they
+ * beat in each round. Returns the steps in chronological order (R32 → Final).
+ */
+function buildCoronation(
+  champion: string,
+  bracket: Record<string, string>,
+  r32Slots: (Match | null)[],
+): CoronationData {
+  const road: RoadStep[] = [];
+  let runnerUp: string | null = null;
+  let node: string | null = "F-1";
+  while (node) {
+    const [a, b] = participantsOf(node, bracket, r32Slots);
+    const opp = a === champion ? b : a;
+    const nd = BRACKET_NODE_MAP.get(node);
+    if (nd && opp) {
+      if (node === "F-1") runnerUp = opp;
+      road.push({ round: nd.round as KnockoutRound, opponent: opp });
+    }
+    const children = nd?.children ?? [];
+    node = children.find(c => bracket[c] === champion) ?? null;
+  }
+  return { champion, runnerUp, road: road.reverse() };
+}
+
+interface TickerPiece {
+  id: number; left: number; tx: string; tr: string;
+  delay: string; duration: string; color: string;
+  w: number; h: number; radius: string;
+}
+const CORONATION_COLORS = ["#F0C04A", "#E3B341", "#C9302C", "#F5F1E8", "#A07820", "#FFFFFF", "#E8C56B"];
+
+function makeTicker(n = 70): TickerPiece[] {
+  return Array.from({ length: n }, (_, id) => {
+    const circ = Math.random() > 0.7;
+    const sz = 7 + Math.random() * 10;
+    return {
+      id,
+      left:     Math.random() * 100,
+      tx:       `${Math.random() * 160 - 80}px`,
+      tr:       `${Math.random() * 1080 - 540}deg`,
+      delay:    `${Math.random() * 2600}ms`,
+      duration: `${2600 + Math.random() * 2600}ms`,
+      color:    CORONATION_COLORS[Math.floor(Math.random() * CORONATION_COLORS.length)],
+      w:        circ ? sz : sz * (0.5 + Math.random() * 0.7),
+      h:        circ ? sz : sz * (1.4 + Math.random() * 1.2),
+      radius:   circ ? "50%" : "1.5px",
+    };
+  });
+}
+
+function ChampionCoronation({ data, onClose }: { data: CoronationData; onClose: () => void }) {
+  const { champion, runnerUp, road } = data;
+  const ticker = useMemo(() => makeTicker(70), []);
+
+  // Esc to dismiss + lock background scroll while open.
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  const CREAM = "#F5F1E8", GOLD = "#F0C04A";
+
+  return (
+    <div
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Bracket complete — your champion is ${champion}`}
+      className="fixed inset-0 z-[80] flex items-center justify-center overflow-hidden anim-fade-in"
+      style={{ background: "radial-gradient(120% 90% at 50% 32%, #16263F 0%, #0B1426 48%, #05080F 100%)" }}
+    >
+      {/* grain */}
+      <div aria-hidden className="absolute inset-0 pointer-events-none" style={{ backgroundImage: "radial-gradient(rgba(245,241,232,0.05) 1px, transparent 0)", backgroundSize: "5px 5px" }} />
+
+      {/* rotating golden rays behind the champion */}
+      <div aria-hidden className="absolute left-1/2 top-[34%] -translate-x-1/2 -translate-y-1/2 pointer-events-none anim-corona-rays"
+        style={{
+          width: "150vmax", height: "150vmax",
+          background: "repeating-conic-gradient(from 0deg, rgba(240,192,74,0.10) 0deg 7deg, transparent 7deg 18deg)",
+          maskImage: "radial-gradient(circle, #000 0%, transparent 42%)",
+          WebkitMaskImage: "radial-gradient(circle, #000 0%, transparent 42%)",
+        }}
+      />
+
+      {/* ticker-tape */}
+      <div aria-hidden className="absolute inset-0 pointer-events-none overflow-hidden">
+        {ticker.map(p => (
+          <span key={p.id} style={{
+            position: "absolute", top: 0, left: `${p.left}%`,
+            width: `${p.w}px`, height: `${p.h}px`, background: p.color, borderRadius: p.radius,
+            ["--tx" as string]: p.tx, ["--tr" as string]: p.tr,
+            animationName: "tickerFall", animationDuration: p.duration, animationDelay: p.delay,
+            animationTimingFunction: "linear", animationFillMode: "both", animationIterationCount: "infinite",
+          }} />
+        ))}
+      </div>
+
+      {/* ── content ── */}
+      <div className="relative z-10 w-full max-w-[560px] px-6 text-center flex flex-col items-center max-h-[100dvh] overflow-y-auto no-scrollbar py-10">
+        {/* kicker */}
+        <p className="anim-fade-up font-mono text-[11px] uppercase tracking-[0.32em]" style={{ color: GOLD, animationDelay: "60ms" }}>
+          Bracket complete · 31 / 31
+        </p>
+
+        {/* trophy */}
+        <div className="anim-trophy-pop emoji my-4" style={{ fontSize: "58px", lineHeight: 1, filter: "drop-shadow(0 6px 22px rgba(240,192,74,0.45))" }}>
+          🏆
+        </div>
+
+        <p className="anim-fade-up font-mono text-[10.5px] uppercase tracking-[0.28em]" style={{ color: "rgba(245,241,232,0.55)", animationDelay: "120ms" }}>
+          Your pick to lift it all
+        </p>
+
+        {/* champion flag + crown */}
+        <div className="anim-fade-up relative mt-5 mb-1" style={{ animationDelay: "180ms" }}>
+          <span className="anim-crown-float emoji absolute -top-6 left-1/2 -translate-x-1/2" style={{ fontSize: "26px" }}>👑</span>
+          <span className="anim-halo-pulse inline-flex rounded-[5px] overflow-hidden">
+            <Flag team={champion} size={76} className="block rounded-[5px]" />
+          </span>
+        </div>
+
+        {/* champion name */}
+        <h2 className="anim-fade-up font-serif italic font-medium leading-[1.02] tracking-[-0.02em] mt-4"
+          style={{ color: CREAM, fontSize: "clamp(2.4rem, 9vw, 3.6rem)", fontVariationSettings: '"opsz" 144', animationDelay: "240ms" }}>
+          {champion}
+        </h2>
+        <span className="anim-underline block h-[3px] w-[120px] mt-2 rounded-full" style={{ background: GOLD }} />
+
+        {/* final result line */}
+        {runnerUp && (
+          <p className="anim-fade-up mt-5 text-[15px] leading-relaxed" style={{ color: "rgba(245,241,232,0.78)", animationDelay: "300ms" }}>
+            Crowned 2026 World Cup winners,{" "}
+            <span className="font-serif italic" style={{ color: CREAM }}>
+              beating {runnerUp} in the final.
+            </span>
+          </p>
+        )}
+
+        {/* ── road to glory ── */}
+        {road.length > 0 && (
+          <div className="anim-fade-up w-full mt-8" style={{ animationDelay: "360ms" }}>
+            <div className="flex items-center gap-3 justify-center mb-4">
+              <span className="h-px w-8" style={{ background: "rgba(240,192,74,0.4)" }} />
+              <span className="font-mono text-[10px] uppercase tracking-[0.28em]" style={{ color: GOLD }}>
+                {champion}&rsquo;s road to glory
+              </span>
+              <span className="h-px w-8" style={{ background: "rgba(240,192,74,0.4)" }} />
+            </div>
+
+            <div className="flex items-stretch justify-center gap-1.5 flex-wrap">
+              {road.map((step, i) => (
+                <div key={step.round} className="flex items-center gap-1.5">
+                  <div
+                    title={`${ROAD_LABEL[step.round]} — beat ${step.opponent}`}
+                    className="anim-fade-up flex flex-col items-center gap-1.5 rounded-lg px-2.5 py-2.5 min-w-[62px]"
+                    style={{
+                      background: step.round === "FINAL" ? "rgba(240,192,74,0.14)" : "rgba(245,241,232,0.05)",
+                      border: `1px solid ${step.round === "FINAL" ? "rgba(240,192,74,0.45)" : "rgba(245,241,232,0.12)"}`,
+                      animationDelay: `${440 + i * 110}ms`,
+                    }}
+                  >
+                    <span className="font-mono text-[8.5px] uppercase tracking-[0.12em]" style={{ color: step.round === "FINAL" ? GOLD : "rgba(245,241,232,0.5)" }}>
+                      {ROAD_SHORT[step.round]}
+                    </span>
+                    <Flag team={step.opponent} size={26} className="rounded-[2px]" />
+                    <span className="text-[10px] leading-tight max-w-[60px] truncate" style={{ color: "rgba(245,241,232,0.72)" }} title={step.opponent}>
+                      {step.opponent}
+                    </span>
+                  </div>
+                  {i < road.length - 1 && (
+                    <span className="font-mono text-[12px] flex-shrink-0" style={{ color: "rgba(240,192,74,0.5)" }}>›</span>
+                  )}
+                </div>
+              ))}
+            </div>
+            <p className="mt-3 font-mono text-[9.5px] uppercase tracking-[0.16em]" style={{ color: "rgba(245,241,232,0.4)" }}>
+              Five wins. One trophy.
+            </p>
+          </div>
+        )}
+
+        {/* ── actions ── */}
+        <div className="anim-fade-up mt-9 flex items-center gap-3 flex-wrap justify-center" style={{ animationDelay: "560ms" }}>
+          <button
+            onClick={onClose}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-lg text-[14px] font-semibold transition-transform hover:-translate-y-0.5"
+            style={{ background: GOLD, color: "#0B1426" }}
+          >
+            <span className="emoji">🏆</span> Take a bow
+          </button>
+          <a
+            href="/stats"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-lg text-[13.5px] font-medium transition-colors"
+            style={{ color: CREAM, border: "1px solid rgba(245,241,232,0.25)" }}
+          >
+            See your dossier →
+          </a>
+        </div>
+
+        <p className="mt-6 font-mono text-[9.5px] uppercase tracking-[0.2em]" style={{ color: "rgba(245,241,232,0.3)" }}>
+          Tap anywhere to dismiss
+        </p>
+      </div>
+    </div>
+  );
 }
 
 type EnvelopePhase = "idle" | "shaking" | "opening";

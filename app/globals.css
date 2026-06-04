@@ -190,6 +190,48 @@
   .anim-grow-up { animation: none; }
 }
 
+/* ── Champion Coronation: full-screen celebration when the bracket is done ─── */
+
+/* Slowly rotating golden spotlight rays behind the champion */
+@keyframes coronaRays { to { transform: rotate(360deg); } }
+
+/* Ticker-tape: a single piece falls the full height with drift + spin */
+@keyframes tickerFall {
+  0%   { transform: translate3d(0, -14vh, 0) rotate(0deg);                     opacity: 0; }
+  10%  { opacity: 1; }
+  100% { transform: translate3d(var(--tx, 0px), 116vh, 0) rotate(var(--tr, 360deg)); opacity: 0.85; }
+}
+
+/* Trophy springs in with an overshoot */
+@keyframes trophyPop {
+  0%   { transform: scale(0) rotate(-18deg); opacity: 0; }
+  60%  { transform: scale(1.18) rotate(6deg); opacity: 1; }
+  80%  { transform: scale(0.94) rotate(-3deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Crown bobs gently above the champion flag */
+@keyframes crownFloat {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50%      { transform: translateY(-5px) rotate(4deg); }
+}
+
+/* Soft gold halo pulse around the champion flag */
+@keyframes haloPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(240,192,74,0.55), 0 0 30px 4px rgba(240,192,74,0.28); }
+  50%      { box-shadow: 0 0 0 2px rgba(240,192,74,0.8), 0 0 48px 10px rgba(240,192,74,0.45); }
+}
+
+.anim-corona-rays { animation: coronaRays 28s linear infinite; }
+.anim-trophy-pop  { animation: trophyPop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.anim-crown-float { animation: crownFloat 2.6s ease-in-out infinite; }
+.anim-halo-pulse  { animation: haloPulse 2.8s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-corona-rays, .anim-crown-float, .anim-halo-pulse { animation: none; }
+  .anim-trophy-pop { animation: fadeIn 0.4s both; }
+}
+
 @keyframes pickPress {
   0%   { transform: scale(0.95); }
   100% { transform: scale(1); }
