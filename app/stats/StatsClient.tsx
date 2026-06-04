@@ -2,6 +2,7 @@
 import { useMemo, useState } from "react";
 import type { PlayerStats } from "@/lib/services/stats";
 import { ordinal } from "@/lib/services/stats";
+import type { Round } from "@/lib/types";
 import Flag from "@/components/Flag";
 
 const TONE: Record<string, { bg: string; ring: string; text: string }> = {
@@ -23,8 +24,9 @@ export default function StatsClient({ stats, firstName }: { stats: PlayerStats |
   }
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-11">
       <DossierHeader stats={stats} firstName={firstName} />
+      <CeilingStrip stats={stats} />
       {stats.titles.length > 0 && <Honours stats={stats} />}
       <StatGrid stats={stats} />
       <ShareCard stats={stats} />
@@ -35,13 +37,13 @@ export default function StatsClient({ stats, firstName }: { stats: PlayerStats |
 /* ─── Header + hero standing ──────────────────────────────────────────────── */
 
 function DossierHeader({ stats, firstName }: { stats: PlayerStats; firstName: string }) {
-  const { rank, leagueSize, totalScore, pointsBehindLeader, pointsAheadOfNext } = stats;
-  const standingLine =
-    rank === 1
-      ? (pointsAheadOfNext !== null
-          ? `Top of ${stats.leagueName} — ${pointsAheadOfNext} clear of 2nd.`
-          : `Top of ${stats.leagueName}.`)
-      : `${pointsBehindLeader} ${pointsBehindLeader === 1 ? "point" : "points"} off the lead in ${stats.leagueName}.`;
+  const { rank, leagueSize, totalScore, pointsBehindLeader, pointsAheadOfNext, leaderName } = stats;
+  const leadIsYou = rank === 1;
+  const standingLine = leadIsYou
+    ? (pointsAheadOfNext !== null
+        ? `Top of ${stats.leagueName} — ${pointsAheadOfNext} clear of 2nd.`
+        : `Top of ${stats.leagueName}.`)
+    : `${pointsBehindLeader} ${pointsBehindLeader === 1 ? "point" : "points"} behind ${leaderName ?? "the lead"} in ${stats.leagueName}.`;
 
   return (
     <header className="anim-fade-up">
@@ -57,15 +59,16 @@ function DossierHeader({ stats, firstName }: { stats: PlayerStats; firstName: st
           <p className="mt-3 text-[15px] ink-soft max-w-xl">{standingLine}</p>
         </div>
 
-        {/* Rank / points plate */}
-        <div className="flex items-stretch rounded-xl border border-line bg-card shadow-paper overflow-hidden flex-shrink-0">
-          <div className="px-5 py-4 text-center border-r border-line">
-            <div className="font-serif font-bold leading-none tabular ink" style={{ fontSize: "38px", fontVariationSettings: '"opsz" 80' }}>
+        {/* Rank / points plate — gold-leafed when you're top of the table */}
+        <div className={`relative flex items-stretch rounded-xl border bg-card shadow-paper overflow-hidden flex-shrink-0 ${leadIsYou ? "border-gold/50" : "border-line"}`}>
+          {leadIsYou && <div className="champion-plate absolute inset-0 pointer-events-none" />}
+          <div className="relative px-5 py-4 text-center border-r border-line">
+            <div className={`font-serif font-bold leading-none tabular ${leadIsYou ? "text-gold" : "ink"}`} style={{ fontSize: "38px", fontVariationSettings: '"opsz" 80' }}>
               {ordinal(rank)}
             </div>
             <div className="mt-1.5 font-mono text-[9.5px] uppercase tracking-[0.18em] ink-faint">of {leagueSize}</div>
           </div>
-          <div className="px-5 py-4 text-center">
+          <div className="relative px-5 py-4 text-center">
             <div className="font-serif font-bold leading-none tabular text-accent" style={{ fontSize: "38px", fontVariationSettings: '"opsz" 80' }}>
               {totalScore}
             </div>
@@ -77,17 +80,74 @@ function DossierHeader({ stats, firstName }: { stats: PlayerStats; firstName: st
   );
 }
 
+/* ─── Ceiling: how much is still on the table ─────────────────────────────── */
+
+function CeilingStrip({ stats }: { stats: PlayerStats }) {
+  const { totalScore, maxPossibleScore, rank, leaderScore, leaderName } = stats;
+  const ceiling = Math.max(maxPossibleScore, totalScore);
+  const live = Math.max(0, ceiling - totalScore);
+  const bankedPct = ceiling > 0 ? (totalScore / ceiling) * 100 : 0;
+
+  // Can this player still mathematically overtake the leader?
+  const catchable = rank > 1 && leaderName !== null && maxPossibleScore >= leaderScore;
+  const verdict =
+    live === 0
+      ? "Every point's been played — this is where you finish."
+      : rank === 1
+        ? `${live} still on your table — the lead's yours to lose.`
+        : catchable
+          ? `${live} still live — enough to run down ${leaderName}.`
+          : `${live} still live, but ${leaderName} is out of reach now.`;
+
+  return (
+    <section className="anim-fade-up rounded-xl border border-line bg-card shadow-paper p-5" style={{ animationDelay: "40ms" }}>
+      <div className="flex items-baseline justify-between gap-4 flex-wrap">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] ink-faint">The climb · banked vs ceiling</p>
+        <p className="font-mono text-[11px] tabular ink-soft">
+          <span className="ink font-semibold">{totalScore}</span> / {ceiling} max
+        </p>
+      </div>
+
+      <div className="mt-3.5 relative h-3.5 rounded-full overflow-hidden bg-paper-deep">
+        {/* still-live ghost fill to the ceiling */}
+        <div className="absolute inset-y-0 left-0 bg-accent/15" style={{ width: "100%" }} />
+        {/* banked fill */}
+        <div
+          className="absolute inset-y-0 left-0 rounded-full"
+          style={{ width: `${bankedPct}%`, background: "var(--color-ink)", transition: "width 0.9s cubic-bezier(0.22,1,0.36,1)" }}
+        />
+        {/* leader marker */}
+        {rank > 1 && ceiling > 0 && leaderScore <= ceiling && (
+          <div className="absolute inset-y-0 w-[2px] bg-gold" style={{ left: `calc(${(leaderScore / ceiling) * 100}% - 1px)` }} title="Leader" />
+        )}
+      </div>
+
+      <div className="mt-3 flex items-center justify-between gap-4 flex-wrap">
+        <p className="text-[13px] ink-soft leading-snug">{verdict}</p>
+        {rank > 1 && leaderName && leaderScore <= ceiling && (
+          <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.14em] ink-faint">
+            <span className="h-2 w-[2px] bg-gold inline-block" /> {leaderName}&rsquo;s total
+          </span>
+        )}
+      </div>
+    </section>
+  );
+}
+
 /* ─── Honours (earned superlatives) ───────────────────────────────────────── */
 
 function Honours({ stats }: { stats: PlayerStats }) {
   return (
-    <section className="anim-fade-up" style={{ animationDelay: "60ms" }}>
+    <section className="anim-fade-up" style={{ animationDelay: "80ms" }}>
       <SectionLabel kicker="Honours" title="Titles you've earned" />
       <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {stats.titles.map((t, i) => {
           const tone = TONE[t.tone] ?? TONE.ink;
           return (
-            <div key={t.key} className={`relative rounded-xl border border-line ${tone.bg} p-4 ring-1 ${tone.ring} anim-fade-up`} style={{ animationDelay: `${100 + i * 70}ms` }}>
+            <div key={t.key} className={`relative rounded-xl border border-line ${tone.bg} p-4 ring-1 ${tone.ring} anim-fade-up`} style={{ animationDelay: `${120 + i * 70}ms` }}>
+              <span className="absolute top-3 right-3.5 font-mono text-[10px] tabular ink-faint opacity-70">
+                {String(i + 1).padStart(2, "0")}
+              </span>
               <div className="flex items-start gap-3">
                 <span className="text-[26px] leading-none flex-shrink-0 emoji">{t.emoji}</span>
                 <div className="min-w-0">
@@ -108,22 +168,20 @@ function Honours({ stats }: { stats: PlayerStats }) {
 /* ─── Stat grid ───────────────────────────────────────────────────────────── */
 
 function StatGrid({ stats }: { stats: PlayerStats }) {
-  const groupTotal = stats.groupPoints + stats.bracketPoints;
-  const groupPct = groupTotal > 0 ? (stats.groupPoints / groupTotal) * 100 : 0;
-
   return (
     <section className="anim-fade-up" style={{ animationDelay: "120ms" }}>
       <SectionLabel kicker="By the numbers" title="The full picture" />
       <div className="mt-5 grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
 
-        {/* Accuracy dial */}
+        {/* Accuracy dial + league benchmark */}
         <Card className="flex items-center gap-5">
-          <AccuracyDial pct={stats.accuracy} />
-          <div>
+          <AccuracyDial pct={stats.accuracy} avg={stats.leagueAvgAccuracy} />
+          <div className="min-w-0">
             <p className="font-mono text-[10px] uppercase tracking-[0.18em] ink-faint">Accuracy</p>
             <p className="font-serif font-medium text-[15px] ink mt-1 leading-snug" style={{ fontVariationSettings: '"opsz" 28' }}>
               {stats.correctPicks} right<br />of {stats.totalPicks} picks
             </p>
+            <AccuracyDelta you={stats.accuracy} avg={stats.leagueAvgAccuracy} />
           </div>
         </Card>
 
@@ -157,25 +215,8 @@ function StatGrid({ stats }: { stats: PlayerStats }) {
           </p>
         </Card>
 
-        {/* Group vs bracket split */}
-        <Card className="sm:col-span-2 lg:col-span-2">
-          <div className="flex items-center justify-between">
-            <p className="font-mono text-[10px] uppercase tracking-[0.18em] ink-faint">Where your points come from</p>
-            <p className="font-mono text-[11px] tabular ink-soft">{groupTotal} pts</p>
-          </div>
-          <div className="mt-3.5 flex h-3 rounded-full overflow-hidden bg-paper-deep" style={{ gap: 2 }}>
-            {groupTotal > 0 ? (
-              <>
-                <div style={{ width: `${groupPct}%`, background: "var(--color-ink)" }} />
-                <div style={{ width: `${100 - groupPct}%`, background: "var(--color-accent)" }} />
-              </>
-            ) : null}
-          </div>
-          <div className="mt-3 flex items-center gap-5 text-[12.5px]">
-            <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--color-ink)" }} /> <span className="ink-soft">Group</span> <span className="font-mono tabular ink font-semibold">{stats.groupPoints}</span></span>
-            <span className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-sm bg-accent" /> <span className="ink-soft">Bracket</span> <span className="font-mono tabular ink font-semibold">{stats.bracketPoints}</span></span>
-          </div>
-        </Card>
+        {/* Round-by-round form */}
+        <FormCard stats={stats} />
 
         {/* Champion pick */}
         <Card>
@@ -217,19 +258,90 @@ function StatGrid({ stats }: { stats: PlayerStats }) {
   );
 }
 
-function AccuracyDial({ pct }: { pct: number }) {
+/* ─── Round-by-round form (mini bar chart) ────────────────────────────────── */
+
+const ROUND_META: { key: Round; label: string; knockout: boolean }[] = [
+  { key: "GROUP",          label: "GRP", knockout: false },
+  { key: "ROUND_OF_32",    label: "R32", knockout: true },
+  { key: "ROUND_OF_16",    label: "R16", knockout: true },
+  { key: "QUARTER_FINALS", label: "QF",  knockout: true },
+  { key: "SEMI_FINALS",    label: "SF",  knockout: true },
+  { key: "FINAL",          label: "FIN", knockout: true },
+];
+
+function FormCard({ stats }: { stats: PlayerStats }) {
+  const data = ROUND_META.map(r => ({ ...r, value: stats.scoreByRound[r.key] ?? 0 }));
+  const max = Math.max(1, ...data.map(d => d.value));
+  const total = stats.groupPoints + stats.bracketPoints;
+
+  return (
+    <Card className="sm:col-span-2 lg:col-span-2 flex flex-col">
+      <div className="flex items-center justify-between">
+        <p className="font-mono text-[10px] uppercase tracking-[0.18em] ink-faint">Form · points by round</p>
+        <div className="flex items-center gap-4 font-mono text-[10px] tabular">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px]" style={{ background: "var(--color-ink)" }} /><span className="ink-soft">Group {stats.groupPoints}</span></span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-[2px] bg-accent" /><span className="ink-soft">Bracket {stats.bracketPoints}</span></span>
+        </div>
+      </div>
+
+      {total > 0 ? (
+        <div className="mt-4 flex items-end justify-between gap-2.5 flex-1" style={{ minHeight: 96 }}>
+          {data.map((d) => {
+            const h = d.value > 0 ? Math.max(6, (d.value / max) * 88) : 3;
+            return (
+              <div key={d.key} className="flex flex-col items-center gap-2 flex-1 min-w-0">
+                <span className={`font-mono text-[10px] tabular leading-none ${d.value > 0 ? "ink font-semibold" : "ink-faint"}`}>{d.value}</span>
+                <div
+                  className="w-full rounded-[3px] anim-grow-up"
+                  style={{
+                    height: h,
+                    background: d.value === 0 ? "var(--color-line)" : d.knockout ? "var(--color-accent)" : "var(--color-ink)",
+                    transformOrigin: "bottom",
+                  }}
+                />
+                <span className="font-mono text-[9px] uppercase tracking-[0.1em] ink-faint">{d.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <p className="mt-4 font-serif italic text-[15px] ink-faint flex-1 flex items-center" style={{ fontVariationSettings: '"opsz" 28' }}>
+          No points on the board yet — your form line starts at kickoff.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function AccuracyDial({ pct, avg }: { pct: number; avg: number }) {
   const r = 30, c = 2 * Math.PI * r, off = c * (1 - pct / 100);
+  const avgAngle = (avg / 100) * 360 - 90; // tick marking league average
+  const tickX = 38 + r * Math.cos((avgAngle * Math.PI) / 180);
+  const tickY = 38 + r * Math.sin((avgAngle * Math.PI) / 180);
   return (
     <div className="relative flex-shrink-0" style={{ width: 76, height: 76 }}>
       <svg width="76" height="76" viewBox="0 0 76 76" className="-rotate-90">
         <circle cx="38" cy="38" r={r} fill="none" stroke="var(--color-paper-deep)" strokeWidth="7" />
         <circle cx="38" cy="38" r={r} fill="none" stroke="var(--color-green-deep)" strokeWidth="7" strokeLinecap="round"
           strokeDasharray={c} strokeDashoffset={off} style={{ transition: "stroke-dashoffset 0.9s cubic-bezier(0.22,1,0.36,1)" }} />
+        {avg > 0 && <circle cx={tickX} cy={tickY} r="2.4" fill="var(--color-gold)" />}
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <span className="font-serif font-bold text-[18px] tabular ink" style={{ fontVariationSettings: '"opsz" 32' }}>{pct}%</span>
       </div>
     </div>
+  );
+}
+
+function AccuracyDelta({ you, avg }: { you: number; avg: number }) {
+  if (avg <= 0) return null;
+  const d = you - avg;
+  const tone = d > 0 ? "text-green-deep" : d < 0 ? "text-accent" : "ink-faint";
+  const sign = d > 0 ? "+" : "";
+  return (
+    <p className={`mt-2 font-mono text-[10px] uppercase tracking-[0.12em] ${tone}`}>
+      {d === 0 ? "Dead level with the league" : `${sign}${d} pts vs league avg (${avg}%)`}
+    </p>
   );
 }
 
@@ -247,9 +359,13 @@ function ShareCard({ stats }: { stats: PlayerStats }) {
       p: String(stats.totalScore),
       a: String(stats.accuracy),
       s: String(stats.currentStreak),
+      ls: String(stats.longestStreak),
+      u: String(stats.upsets),
       ti: stats.headline,
+      tb: stats.titles[0]?.blurb ?? "Still climbing the table.",
       lg: stats.leagueName,
       c: stats.champion?.team ?? "",
+      ca: stats.champion?.alive === true ? "1" : stats.champion?.alive === false ? "0" : "",
     });
     return `/stats/card?${p.toString()}`;
   }, [stats]);
@@ -295,29 +411,36 @@ function ShareCard({ stats }: { stats: PlayerStats }) {
 
   return (
     <section className="anim-fade-up" style={{ animationDelay: "180ms" }}>
-      <SectionLabel kicker="Brag a little" title="Your shareable scorecard" />
-      <div className="mt-5 grid lg:grid-cols-[1.6fr_1fr] gap-6 items-start">
+      <SectionLabel kicker="Brag a little" title="Your Wrapped card" />
+      <div className="mt-5 grid lg:grid-cols-[340px_1fr] gap-7 items-start">
         {/* Live preview — exactly what gets shared */}
-        <div className="rounded-xl border border-line bg-paper-deep/40 p-3 shadow-paper overflow-hidden">
+        <div className="rounded-2xl border border-line bg-paper-deep/40 p-3 shadow-lift">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={cardPath}
-            alt="Your Nutmeg scorecard"
-            className="w-full rounded-lg shadow-lift block"
-            style={{ aspectRatio: "1200 / 630" }}
+            alt="Your Nutmeg Wrapped card"
+            className="w-full rounded-xl shadow-lift block"
+            style={{ aspectRatio: "1080 / 1350" }}
           />
         </div>
 
         {/* Actions */}
         <div className="flex flex-col gap-3">
-          <p className="text-[14.5px] ink-soft leading-relaxed">
-            A snapshot of your dossier, ready for the group chat. Drop it in and let the trash talk write itself.
+          <p className="text-[14.5px] ink-soft leading-relaxed max-w-md">
+            Your season, wrapped — built for a story or the group chat. Drop it in and let the trash talk write itself.
           </p>
-          <button onClick={share} className="group inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-lg bg-ink text-paper text-[14px] font-semibold hover:bg-accent transition-colors">
+          <div className="flex flex-wrap gap-2 mb-1">
+            {[`${stats.totalScore} pts`, `${stats.accuracy}% accuracy`, stats.headline].map((chip) => (
+              <span key={chip} className="font-mono text-[10.5px] uppercase tracking-[0.12em] ink-soft border border-line rounded-full px-3 py-1.5 bg-card">
+                {chip}
+              </span>
+            ))}
+          </div>
+          <button onClick={share} className="group inline-flex items-center justify-center gap-2.5 px-5 py-3 rounded-lg bg-ink text-paper text-[14px] font-semibold hover:bg-accent transition-colors max-w-md">
             <svg viewBox="0 0 16 16" fill="none" className="h-4 w-4"><path d="M11 5.5a2 2 0 1 0-1.9-2.6L6 4.6a2 2 0 1 0 0 2.8l3.1 1.7a2 2 0 1 0 .5-.9L6.5 6.5a2 2 0 0 0 0-1l3.1-1.7A2 2 0 0 0 11 5.5z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
             Share my card
           </button>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-3 max-w-md">
             <button onClick={download} className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-line bg-card text-[13px] font-medium ink-soft hover:ink hover:border-ink/30 transition-colors">
               <svg viewBox="0 0 16 16" fill="none" className="h-3.5 w-3.5"><path d="M8 2v8m0 0L5 7m3 3 3-3M3 13h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
               Download

@@ -18,6 +18,9 @@ export interface PlayerStats {
   correctPicks: number;
   totalPicks: number;
   accuracy: number;            // 0–100, rounded
+  leagueAvgAccuracy: number;   // 0–100, mean accuracy across scoring members
+  leaderName: string | null;   // name of the current leader (null if that's you)
+  leaderScore: number;         // the leader's total
 
   currentStreak: number;
   longestStreak: number;
@@ -75,6 +78,11 @@ export function computePlayerStats(opts: {
   const next = rank > 1 ? entries[rank - 2] : null; // person directly above me
 
   const accuracy = me.totalPicks > 0 ? Math.round((me.correctPicks / me.totalPicks) * 100) : 0;
+
+  // League-wide average accuracy (members who've actually picked) — used as a
+  // benchmark so "72%" means something next to how everyone else is doing.
+  const accs = entries.filter(e => e.totalPicks > 0).map(e => e.correctPicks / e.totalPicks);
+  const leagueAvgAccuracy = accs.length ? Math.round((accs.reduce((a, b) => a + b, 0) / accs.length) * 100) : 0;
 
   // ── Longest streak ever (walk finished matches chronologically) ───────────
   const myPickMap = new Map(myPicks.map(p => [p.matchId, p.pick]));
@@ -145,6 +153,9 @@ export function computePlayerStats(opts: {
     correctPicks: me.correctPicks,
     totalPicks: me.totalPicks,
     accuracy,
+    leagueAvgAccuracy,
+    leaderName: leader && leader.email !== email ? leader.name : null,
+    leaderScore: leader?.totalScore ?? 0,
     currentStreak: me.streak,
     longestStreak: longest,
     upsets: me.upsets,

@@ -180,6 +180,16 @@
 
 .tab-content { animation: fadeIn 0.3s ease-out both; }
 
+/* Stats form chart: bars rise from the baseline on load */
+@keyframes growUp {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+.anim-grow-up { animation: growUp 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .anim-grow-up { animation: none; }
+}
+
 @keyframes pickPress {
   0%   { transform: scale(0.95); }
   100% { transform: scale(1); }
