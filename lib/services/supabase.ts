@@ -13,6 +13,38 @@ function getClient() {
   );
 }
 
+// PostgREST caps every response at `db-max-rows` (default 1000). An unbounded
+// `.select()` over a table that has grown past that silently returns only the
+// first 1000 rows — which is how a full league's picks ended up undercounted in
+// the standings (16 members × 72 group picks ≈ 1150 rows > 1000). Page through
+// in 1000-row windows so collection reads always return EVERY row, no matter how
+// large the pool gets.
+const PAGE_SIZE = 1000;
+
+/**
+ * Fetch all rows from a PostgREST query, paging past the 1000-row response cap.
+ *
+ * `makeQuery` MUST return a brand-new query builder on each call (filters
+ * applied, but no `.range()`/`.limit()`): a PostgREST builder can only be
+ * awaited once, so we rebuild it per page. PAGE_SIZE must stay ≤ the server's
+ * `db-max-rows`, otherwise a clamped page would look "short" and stop early.
+ */
+export async function fetchAllRows(
+  makeQuery: () => PromiseLike<{ data: unknown; error: { message: string } | null }> & {
+    range: (from: number, to: number) => PromiseLike<{ data: unknown; error: { message: string } | null }>;
+  }
+): Promise<Record<string, unknown>[]> {
+  const rows: Record<string, unknown>[] = [];
+  for (let from = 0; ; from += PAGE_SIZE) {
+    const { data, error } = await makeQuery().range(from, from + PAGE_SIZE - 1);
+    if (error) throw error;
+    const batch = (data ?? []) as Record<string, unknown>[];
+    rows.push(...batch);
+    if (batch.length < PAGE_SIZE) break; // last (partial) page reached
+  }
+  return rows;
+}
+
 // ── Matches ────────────────────────────────────────────────────────────────
 
 export async function getAllMatches(): Promise<Match[]> {
@@ -78,20 +110,17 @@ export async function getPicksForUser(email: string, leagueId?: string): Promise
 /** All picks within a specific league — used for community page and popular counts. */
 export async function getPicksForLeague(leagueId: string): Promise<Pick[]> {
   if (isMock) return MOCK_PICKS;
-  const { data, error } = await getClient()
-    .from("picks")
-    .select("*")
-    .eq("league_id", leagueId);
-  if (error) throw error;
-  return (data ?? []).map(rowToPick);
+  const rows = await fetchAllRows(() =>
+    getClient().from("picks").select("*").eq("league_id", leagueId)
+  );
+  return rows.map(rowToPick);
 }
 
 /** @deprecated Use getPicksForLeague for scoped queries */
 export async function getAllPicks(): Promise<Pick[]> {
   if (isMock) return MOCK_PICKS;
-  const { data, error } = await getClient().from("picks").select("*");
-  if (error) throw error;
-  return (data ?? []).map(rowToPick);
+  const rows = await fetchAllRows(() => getClient().from("picks").select("*"));
+  return rows.map(rowToPick);
 }
 
 function rowToPick(r: Record<string, unknown>): Pick {
@@ -183,29 +212,33 @@ export async function getBracketPicks(email: string, leagueId: string): Promise<
 
 export async function getBracketPicksForLeague(leagueId: string): Promise<BracketPick[]> {
   if (isMock) return [];
-  const { data, error } = await getClient()
-    .from("bracket_picks")
-    .select("*")
-    .eq("league_id", leagueId);
-  if (error) {
-    if (/bracket_picks/i.test(error.message) && /(relation|table|schema cache|does not exist)/i.test(error.message)) {
+  try {
+    const rows = await fetchAllRows(() =>
+      getClient().from("bracket_picks").select("*").eq("league_id", leagueId)
+    );
+    return rows.map(rowToBracketPick);
+  } catch (error) {
+    const msg = (error as { message?: string })?.message ?? "";
+    // Table not migrated yet — degrade to an empty bracket rather than crashing.
+    if (/bracket_picks/i.test(msg) && /(relation|table|schema cache|does not exist)/i.test(msg)) {
       return [];
     }
     throw error;
   }
-  return (data ?? []).map(rowToBracketPick);
 }
 
 export async function getAllBracketPicks(): Promise<BracketPick[]> {
   if (isMock) return [];
-  const { data, error } = await getClient().from("bracket_picks").select("*");
-  if (error) {
-    if (/bracket_picks/i.test(error.message) && /(relation|table|schema cache|does not exist)/i.test(error.message)) {
+  try {
+    const rows = await fetchAllRows(() => getClient().from("bracket_picks").select("*"));
+    return rows.map(rowToBracketPick);
+  } catch (error) {
+    const msg = (error as { message?: string })?.message ?? "";
+    if (/bracket_picks/i.test(msg) && /(relation|table|schema cache|does not exist)/i.test(msg)) {
       return [];
     }
     throw error;
   }
-  return (data ?? []).map(rowToBracketPick);
 }
 
 /**
@@ -259,9 +292,8 @@ export async function replaceBracketPicks(
 
 export async function getAllUsers(): Promise<User[]> {
   if (isMock) return MOCK_USERS;
-  const { data, error } = await getClient().from("users").select("*");
-  if (error) throw error;
-  return (data ?? []).map(r => ({
+  const rows = await fetchAllRows(() => getClient().from("users").select("*"));
+  return rows.map(r => ({
     email:         r.email as string,
     name:          r.name as string,
     createdAt:     r.created_at as string,

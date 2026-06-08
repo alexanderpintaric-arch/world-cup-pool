@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { League, LeagueWithRole } from "../types";
+import { fetchAllRows } from "./supabase";
 
 function getClient() {
   return createClient(
@@ -83,12 +84,10 @@ export async function joinLeagueByCode(
 /** Every league with its member emails — used for per-league recap emails. */
 export async function getAllLeaguesWithMembers(): Promise<{ id: string; name: string; memberEmails: string[] }[]> {
   const client = getClient();
-  const [{ data: leagues, error: lErr }, { data: members, error: mErr }] = await Promise.all([
-    client.from("leagues").select("id, name"),
-    client.from("league_members").select("league_id, email"),
+  const [leagues, members] = await Promise.all([
+    fetchAllRows(() => client.from("leagues").select("id, name")),
+    fetchAllRows(() => client.from("league_members").select("league_id, email")),
   ]);
-  if (lErr) throw lErr;
-  if (mErr) throw mErr;
 
   const byLeague = new Map<string, string[]>();
   for (const m of members ?? []) {
@@ -105,11 +104,10 @@ export async function getAllLeaguesWithMembers(): Promise<{ id: string; name: st
 
 /** Distinct emails of everyone who belongs to at least one league. */
 export async function getAllMemberEmails(): Promise<Set<string>> {
-  const { data, error } = await getClient()
-    .from("league_members")
-    .select("email");
-  if (error) throw error;
-  return new Set((data ?? []).map(r => r.email as string));
+  const rows = await fetchAllRows(() =>
+    getClient().from("league_members").select("email")
+  );
+  return new Set(rows.map(r => r.email as string));
 }
 
 // ── Queries ────────────────────────────────────────────────────────────────
