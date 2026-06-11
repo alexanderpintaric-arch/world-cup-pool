@@ -72,6 +72,9 @@ export default async function CommunityPage() {
 
   // ── Named picks (post-kickoff only) ────────────────────────────────────
   // Only revealed after a match has started; names stay hidden pre-kickoff.
+  // Gate on kickoff time, not just status — the synced status can lag behind
+  // the real world while a game is in progress.
+  const now = Date.now();
   const named: Record<string, {
     H: { name: string; email: string }[];
     A: { name: string; email: string }[];
@@ -79,7 +82,10 @@ export default async function CommunityPage() {
   }> = {};
   for (const pick of allPicks) {
     const match = matchMap.get(pick.matchId);
-    if (!match || match.status === "SCHEDULED") continue;
+    if (!match) continue;
+    const kickedOff =
+      match.status !== "SCHEDULED" || now >= new Date(match.kickoffUtc).getTime();
+    if (!kickedOff) continue;
     if (!named[pick.matchId]) named[pick.matchId] = { H: [], A: [], T: [] };
     const user  = userMap.get(pick.email);
     const name  = user?.name ?? pick.email;

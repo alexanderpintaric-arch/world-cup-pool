@@ -145,7 +145,9 @@ export default function CommunityClient({
       homeTeam:    match.homeTeam,
       awayTeam:    match.awayTeam,
       isKnockout:  match.round !== "GROUP",
-      isPreKickoff: match.status === "SCHEDULED",
+      // Kicked off when the clock says so, even if the synced status lags.
+      isPreKickoff: match.status === "SCHEDULED" &&
+        Date.now() < new Date(match.kickoffUtc).getTime(),
       result,
     });
   }
