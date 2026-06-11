@@ -680,9 +680,14 @@ function UserStack({
   isLoser:   boolean;
   initials:  (name: string) => string;
 }) {
+  // Tap an avatar to expand it into a full-name chip (title tooltips don't
+  // exist on touch); tap "+N" to reveal the overflow avatars.
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [showAll, setShowAll]   = useState(false);
+
   const meEntry = users.find(u => u.email === userEmail);
   const others  = users.filter(u => u.email !== userEmail);
-  const shown   = others.slice(0, MAX_AVATARS);
+  const shown   = showAll ? others : others.slice(0, MAX_AVATARS);
   const overflow = others.length - shown.length;
 
   // Avatar colours
@@ -712,31 +717,44 @@ function UserStack({
 
       {/* Overlapping avatar stack for everyone else */}
       {shown.length > 0 && (
-        <div className="flex items-center" style={{ gap: 0 }}>
-          {shown.map((user, i) => (
-            <div
-              key={user.email}
-              title={user.name.replace(/\b\w/g, c => c.toUpperCase())}
-              style={{
-                marginLeft: i > 0 ? "-7px" : 0,
-                zIndex:     shown.length - i,
-              }}
-              className={`h-7 w-7 rounded-full flex items-center justify-center
-                text-[9px] font-semibold ring-[1.5px] ring-paper flex-shrink-0
-                ${avatarBg} ${avatarText}`}
-            >
-              {initials(user.name)}
-            </div>
-          ))}
+        <div className="flex items-center flex-wrap" style={{ gap: 0, rowGap: "5px" }}>
+          {shown.map((user, i) => {
+            const isOpen      = expanded === user.email;
+            const displayName = user.name.replace(/\b\w/g, c => c.toUpperCase());
+            return (
+              <button
+                key={user.email}
+                title={displayName}
+                aria-expanded={isOpen}
+                onClick={() => setExpanded(isOpen ? null : user.email)}
+                style={{
+                  marginLeft: i > 0 ? "-7px" : 0,
+                  zIndex:     isOpen ? shown.length + 1 : shown.length - i,
+                }}
+                className={`h-7 rounded-full flex items-center justify-center
+                  ring-[1.5px] ring-paper flex-shrink-0 transition-all
+                  ${isOpen ? "px-2.5 gap-1.5" : "w-7"}
+                  ${avatarBg} ${avatarText}`}
+              >
+                <span className="text-[9px] font-semibold leading-none">{initials(user.name)}</span>
+                {isOpen && (
+                  <span className="text-[12px] font-medium leading-none whitespace-nowrap">
+                    {displayName}
+                  </span>
+                )}
+              </button>
+            );
+          })}
           {overflow > 0 && (
-            <div
+            <button
+              onClick={() => setShowAll(true)}
               style={{ marginLeft: "-7px", zIndex: 0 }}
               className="h-7 px-2 min-w-[28px] rounded-full flex items-center justify-center
                 font-mono text-[10px] font-semibold ring-[1.5px] ring-paper
-                bg-line ink-faint flex-shrink-0"
+                bg-line ink-faint flex-shrink-0 hover:ink-soft transition-colors"
             >
               +{overflow}
-            </div>
+            </button>
           )}
         </div>
       )}
