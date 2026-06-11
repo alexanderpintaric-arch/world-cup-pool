@@ -140,13 +140,17 @@ export default function CommunityClient({
     const result: Option | null =
       match.result === "H" || match.result === "A" || match.result === "T"
         ? match.result : null;
+    // Names unlock for the whole round at its first kickoff (picks lock then),
+    // or when this match starts — whichever the clock or status says first.
+    const rs = roundStates.find(r => r.round === match.round);
+    const roundLocked =
+      !!rs?.deadline && Date.now() >= new Date(rs.deadline).getTime();
     setModal({
       matchId:     match.matchId,
       homeTeam:    match.homeTeam,
       awayTeam:    match.awayTeam,
       isKnockout:  match.round !== "GROUP",
-      // Kicked off when the clock says so, even if the synced status lags.
-      isPreKickoff: match.status === "SCHEDULED" &&
+      isPreKickoff: !roundLocked && match.status === "SCHEDULED" &&
         Date.now() < new Date(match.kickoffUtc).getTime(),
       result,
     });
@@ -175,7 +179,7 @@ export default function CommunityClient({
         </h1>
         <p className="mt-3 text-[15px] ink-soft max-w-xl">
           See how the pool voted on every match. Names stay hidden until
-          kickoff — then the full breakdown is revealed.
+          the round kicks off and picks lock — then the full breakdown is revealed.
         </p>
       </header>
 
@@ -928,7 +932,7 @@ function PickModal({
                     <span className="font-mono text-[11px] ink-faint">
                       {sec.count === 0
                         ? "Nobody picked this yet."
-                        : `${sec.count} ${sec.count === 1 ? "person" : "people"} — revealed at kickoff.`}
+                        : `${sec.count} ${sec.count === 1 ? "person" : "people"} — revealed when the round kicks off.`}
                     </span>
                   </div>
                 ) : sec.users.length === 0 ? (

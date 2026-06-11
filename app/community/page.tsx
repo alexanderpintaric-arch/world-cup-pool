@@ -70,11 +70,17 @@ export default async function CommunityPage() {
     c.total++;
   }
 
-  // ── Named picks (post-kickoff only) ────────────────────────────────────
-  // Only revealed after a match has started; names stay hidden pre-kickoff.
-  // Gate on kickoff time, not just status — the synced status can lag behind
-  // the real world while a game is in progress.
+  // ── Named picks (post-lock only) ───────────────────────────────────────
+  // The whole round locks for picks at its first kickoff (getRoundStates /
+  // the picks API), so once a round is underway every pick in it is immutable
+  // and all names can be revealed at once. A started match also reveals as a
+  // fallback — synced statuses can lag behind the clock.
   const now = Date.now();
+  const lockedRounds = new Set(
+    roundStates
+      .filter(rs => rs.deadline && now >= new Date(rs.deadline).getTime())
+      .map(rs => rs.round)
+  );
   const named: Record<string, {
     H: { name: string; email: string }[];
     A: { name: string; email: string }[];
@@ -83,9 +89,11 @@ export default async function CommunityPage() {
   for (const pick of allPicks) {
     const match = matchMap.get(pick.matchId);
     if (!match) continue;
-    const kickedOff =
-      match.status !== "SCHEDULED" || now >= new Date(match.kickoffUtc).getTime();
-    if (!kickedOff) continue;
+    const revealed =
+      lockedRounds.has(match.round) ||
+      match.status !== "SCHEDULED" ||
+      now >= new Date(match.kickoffUtc).getTime();
+    if (!revealed) continue;
     if (!named[pick.matchId]) named[pick.matchId] = { H: [], A: [], T: [] };
     const user  = userMap.get(pick.email);
     const name  = user?.name ?? pick.email;

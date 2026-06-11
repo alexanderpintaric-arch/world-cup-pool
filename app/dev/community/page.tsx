@@ -62,9 +62,15 @@ const counts = {
   "dev-upcoming-1": { H: 5, A: 9, T: 3, total: 17 },
 };
 
-// Named picks exist only for the kicked-off match, like the real page.
+// The group round locked at its first kickoff (dev-live-1), so names are
+// revealed for EVERY group match — including the not-yet-played one.
 const named = {
-  "dev-live-1": { H: mexicoPickers, A: [], T: drawPickers },
+  "dev-live-1":     { H: mexicoPickers, A: [], T: drawPickers },
+  "dev-upcoming-1": {
+    H: POOL.slice(0, 5),
+    A: [{ name: "Alexander Pintaric", email: ME }, ...POOL.slice(5, 13)],
+    T: POOL.slice(13, 16),
+  },
 };
 
 export default function DevCommunityPage() {
