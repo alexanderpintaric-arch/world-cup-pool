@@ -8,14 +8,15 @@ import {
 import { getAllMemberEmails, getAllLeaguesWithMembers } from "./leagues";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "./scoring";
 import { computeRoundAwards, computeKnockoutAwards } from "./superlatives";
-import { sendDailyDigestEmail, sendRoundOpenEmail, sendDeadlineReminderEmail, sendRoundRecapEmail } from "./email";
-import type { DigestMatchLine } from "./email";
+import { sendPoolDigestEmail, sendRoundOpenEmail, sendDeadlineReminderEmail, sendRoundRecapEmail } from "./email";
+import type { DigestMatchLine, DigestDay } from "./email";
 import type { KnockoutRound } from "./bracket";
 import type { SyncResult, Match, Pick } from "../types";
 
 const REMIND_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h
 const DIGEST_TZ = "America/Toronto";
-const DIGEST_SEND_HOUR = 9; // don't send the daily digest before 9am Toronto
+const DIGEST_SEND_HOUR = 9;     // don't send the digest before 9am Toronto
+const DIGEST_INTERVAL_DAYS = 3; // recap covers (at least) this many match days
 
 export async function runSync(options?: { includeOdds?: boolean }): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
@@ -50,11 +51,14 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
       }
     }
 
-    // 6. Daily digest — one summary email per match day instead of an email
-    //    after every match. Covers the previous day's results (Toronto time),
-    //    sent on the first sync after DIGEST_SEND_HOUR. Deduped per day via
-    //    the round_reminders table with a "digest:" key.
+    // 6. Pool digest — one summary email every DIGEST_INTERVAL_DAYS instead of
+    //    an email after every match. Covers all match days (Toronto time)
+    //    since the previous digest, through yesterday, sent on the first sync
+    //    after DIGEST_SEND_HOUR. The last covered day is recorded in the
+    //    round_reminders table as "digest:YYYY-MM-DD"; the next digest is due
+    //    once yesterday is at least DIGEST_INTERVAL_DAYS past that.
     try {
+      const dayMs = 24 * 60 * 60 * 1000;
       const now = new Date();
       const torontoHour = Number(new Intl.DateTimeFormat("en-CA", {
         timeZone: DIGEST_TZ, hour: "2-digit", hour12: false,
@@ -63,26 +67,63 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
       const torontoDate = (d: Date | string) => new Intl.DateTimeFormat("en-CA", {
         timeZone: DIGEST_TZ, dateStyle: "short",
       }).format(typeof d === "string" ? new Date(d) : d);
-      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const digestDay = torontoDate(yesterday);
-      const digestKey = `digest:${digestDay}`;
+      // Pure calendar math on YYYY-MM-DD strings (UTC-pinned, no tz drift)
+      const addDays = (day: string, n: number) =>
+        new Date(Date.parse(`${day}T00:00:00Z`) + n * dayMs).toISOString().slice(0, 10);
+      const daysBetween = (a: string, b: string) =>
+        Math.round((Date.parse(`${b}T00:00:00Z`) - Date.parse(`${a}T00:00:00Z`)) / dayMs);
+
+      const endDay = torontoDate(new Date(now.getTime() - dayMs)); // yesterday
+      const digestKey = `digest:${endDay}`;
 
       if (torontoHour >= DIGEST_SEND_HOUR) {
         const reminded = await getRemindedRounds();
+        const lastSent = [...reminded]
+          .filter(k => k.startsWith("digest:"))
+          .map(k => k.slice("digest:".length))
+          .sort()
+          .pop();
+        const due = !lastSent || daysBetween(lastSent, endDay) >= DIGEST_INTERVAL_DAYS;
+        const startDay = lastSent
+          ? addDays(lastSent, 1)
+          : addDays(endDay, -(DIGEST_INTERVAL_DAYS - 1));
+
         const digestMatches = freshMatches
-          .filter(m => m.status === "FINISHED" && torontoDate(m.kickoffUtc) === digestDay)
+          .filter(m => {
+            const day = torontoDate(m.kickoffUtc);
+            return m.status === "FINISHED" && day >= startDay && day <= endDay;
+          })
           .sort((a, b) => a.kickoffUtc.localeCompare(b.kickoffUtc));
 
-        if (!reminded.has(digestKey) && digestMatches.length > 0) {
+        if (due && digestMatches.length > 0) {
           const [allPicks, allUsers, allBracketPicks] = await Promise.all([
             getAllPicks(), getAllUsers(), getAllBracketPicks(),
           ]);
           const leaderboard = computeLeaderboard(allUsers, allPicks, freshMatches, allBracketPicks);
           const totalParticipants = leaderboard.length;
           const digestIds = new Set(digestMatches.map(m => m.matchId));
-          const dateLabel = new Intl.DateTimeFormat("en-CA", {
-            timeZone: DIGEST_TZ, weekday: "long", month: "long", day: "numeric",
-          }).format(yesterday);
+
+          // Group matches by Toronto match day, preserving kickoff order
+          const dayGroups: { day: string; matches: Match[] }[] = [];
+          for (const m of digestMatches) {
+            const day = torontoDate(m.kickoffUtc);
+            const group = dayGroups[dayGroups.length - 1];
+            if (group && group.day === day) group.matches.push(m);
+            else dayGroups.push({ day, matches: [m] });
+          }
+
+          // "June 11–14" within a month, "June 30 – July 2" across months.
+          // Pin to UTC noon so the YYYY-MM-DD strings format as-is.
+          const fmtDay = (day: string, opts: Intl.DateTimeFormatOptions) =>
+            new Intl.DateTimeFormat("en-CA", { timeZone: "UTC", ...opts })
+              .format(new Date(`${day}T12:00:00Z`));
+          const firstDay = dayGroups[0].day;
+          const lastDay = dayGroups[dayGroups.length - 1].day;
+          const rangeLabel = firstDay === lastDay
+            ? fmtDay(firstDay, { month: "long", day: "numeric" })
+            : firstDay.slice(0, 7) === lastDay.slice(0, 7)
+              ? `${fmtDay(firstDay, { month: "long", day: "numeric" })}–${fmtDay(lastDay, { day: "numeric" })}`
+              : `${fmtDay(firstDay, { month: "long", day: "numeric" })} – ${fmtDay(lastDay, { month: "long", day: "numeric" })}`;
 
           let sent = 0;
           for (const user of allUsers) {
@@ -93,15 +134,15 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
                 userPicks.set(p.matchId, p);
               }
             }
-            // Only email people who had skin in yesterday's matches
+            // Only email people who had skin in this stretch's matches
             if (userPicks.size === 0) continue;
 
             const entry = leaderboard.find(e => e.email === user.email);
             if (!entry) continue;
             const rank = leaderboard.indexOf(entry) + 1;
 
-            let dayPoints = 0;
-            const lines: DigestMatchLine[] = digestMatches.map(m => {
+            let pointsWon = 0;
+            const toLine = (m: Match): DigestMatchLine => {
               const resultLabel =
                 m.result === "H" ? m.homeTeam :
                 m.result === "A" ? m.awayTeam : "Draw";
@@ -113,16 +154,20 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
               }
               const correct = pick.pick === m.result;
               const pointsEarned = correct ? m.pointsValue : 0;
-              dayPoints += pointsEarned;
+              pointsWon += pointsEarned;
               const yourPick =
                 pick.pick === "H" ? m.homeTeam :
                 pick.pick === "A" ? m.awayTeam : "Draw";
               return { matchName: `${m.homeTeam} vs ${m.awayTeam}`, scoreline, resultLabel, yourPick, correct, pointsEarned };
-            });
+            };
+            const days: DigestDay[] = dayGroups.map(g => ({
+              label: fmtDay(g.day, { weekday: "long", month: "long", day: "numeric" }),
+              lines: g.matches.map(toLine),
+            }));
 
             try {
-              await sendDailyDigestEmail(user.email, user.name, {
-                dateLabel, lines, dayPoints,
+              await sendPoolDigestEmail(user.email, user.name, {
+                rangeLabel, days, pointsWon,
                 totalScore: entry.totalScore, rank, totalParticipants,
               });
               emailsSent++; sent++;
@@ -134,7 +179,7 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
         }
       }
     } catch (e) {
-      console.error("Daily digest failed (non-fatal):", e);
+      console.error("Pool digest failed (non-fatal):", e);
     }
 
     // 7. Detect newly opened rounds (send "picks open" emails)

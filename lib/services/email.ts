@@ -282,7 +282,8 @@ export async function sendRoundOpenEmail(
   });
 }
 
-// ── 4. Daily digest (one summary per match day, replaces per-match emails) ──
+// ── 4. Pool digest (one summary every few match days, replaces per-match
+//      emails) ───────────────────────────────────────────────────────────────
 
 export interface DigestMatchLine {
   matchName: string;          // "Mexico vs Poland"
@@ -293,26 +294,31 @@ export interface DigestMatchLine {
   pointsEarned: number;
 }
 
-export async function sendDailyDigestEmail(
+export interface DigestDay {
+  label: string;              // "Thursday, June 11"
+  lines: DigestMatchLine[];
+}
+
+export async function sendPoolDigestEmail(
   to: string,
   name: string,
   opts: {
-    dateLabel: string;        // "Thursday, June 12"
-    lines: DigestMatchLine[];
-    dayPoints: number;
+    rangeLabel: string;       // "June 11–14" or "June 30 – July 2"
+    days: DigestDay[];
+    pointsWon: number;
     totalScore: number;
     rank: number;
     totalParticipants: number;
   }
 ): Promise<void> {
-  const { dateLabel, lines, dayPoints, totalScore, rank, totalParticipants } = opts;
+  const { rangeLabel, days, pointsWon, totalScore, rank, totalParticipants } = opts;
   const appUrl = APP_URL();
 
-  const picked = lines.filter(l => l.yourPick !== null);
+  const allLines = days.flatMap(d => d.lines);
+  const picked = allLines.filter(l => l.yourPick !== null);
   const correctCount = picked.filter(l => l.correct).length;
 
-  const matchRows = lines.map((l, i) => {
-    const border = i > 0 ? `border-top:1px solid ${C.line};` : "";
+  const lineRow = (l: DigestMatchLine) => {
     const verdict = l.yourPick === null
       ? `<span style="color:${C.inkFaint};">&mdash;</span>`
       : l.correct
@@ -320,26 +326,30 @@ export async function sendDailyDigestEmail(
         : `<span style="color:${C.accent};">&#10007;</span>`;
     return `
       <tr>
-        <td style="padding:10px 0;${border}">
+        <td style="padding:9px 0;border-top:1px solid ${C.line};">
           <div style="font-family:${SANS};font-size:13.5px;font-weight:600;color:${C.ink};">${l.matchName}</div>
           <div style="font-family:${SANS};font-size:12px;color:${C.inkSoft};margin-top:3px;">${l.scoreline ? `${l.scoreline} &middot; ` : ""}${l.resultLabel === "Draw" ? "Draw" : `${l.resultLabel} won`}${l.yourPick ? ` &middot; you picked ${l.yourPick}` : ""}</div>
         </td>
-        <td style="padding:10px 0;font-family:${MONO};font-size:13px;font-weight:bold;text-align:right;vertical-align:top;${border}">${verdict}</td>
+        <td style="padding:9px 0;font-family:${MONO};font-size:13px;font-weight:bold;text-align:right;vertical-align:top;border-top:1px solid ${C.line};">${verdict}</td>
       </tr>`;
-  }).join("");
+  };
+
+  const dayTables = days.map(d => `
+    <div style="font-family:${MONO};font-size:10.5px;letter-spacing:0.18em;text-transform:uppercase;color:${C.inkFaint};margin:18px 0 4px;">${d.label}</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:0 18px 4px;margin:0;">
+      ${d.lines.map(lineRow).join("")}
+    </table>`).join("");
 
   const body = `
     ${p(`Hi ${firstName(name)},`)}
-    ${p(`Here&rsquo;s how <strong style="color:${C.ink};">${dateLabel}</strong> shook out${picked.length > 0 ? ` &mdash; you went <strong style="color:${C.ink};">${correctCount}/${picked.length}</strong> on the day` : ""}.`)}
+    ${p(`Here&rsquo;s how <strong style="color:${C.ink};">${rangeLabel}</strong> shook out${picked.length > 0 ? ` &mdash; you went <strong style="color:${C.ink};">${correctCount}/${picked.length}</strong> over the stretch` : ""}.`)}
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:4px 18px;margin:4px 0 20px;">
-      ${matchRows}
-    </table>
+    ${dayTables}
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:6px 18px;margin:0 0 20px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:6px 18px;margin:22px 0 20px;">
       <tr>
         <td style="padding:9px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};">Points won</td>
-        <td style="padding:9px 0;font-family:${MONO};font-size:13.5px;font-weight:bold;color:${dayPoints > 0 ? C.green : C.ink};text-align:right;">+${dayPoints}</td>
+        <td style="padding:9px 0;font-family:${MONO};font-size:13.5px;font-weight:bold;color:${pointsWon > 0 ? C.green : C.ink};text-align:right;">+${pointsWon}</td>
       </tr>
       <tr>
         <td style="padding:9px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};border-top:1px solid ${C.line};">Your total</td>
@@ -360,12 +370,12 @@ export async function sendDailyDigestEmail(
     from: FROM(),
     to,
     subject: picked.length > 0
-      ? `⚽ ${dateLabel} recap: ${correctCount}/${picked.length} picks, +${dayPoints} pts`
-      : `⚽ ${dateLabel} recap — ${APP_NAME()}`,
+      ? `⚽ ${rangeLabel} recap: ${correctCount}/${picked.length} picks, +${pointsWon} pts`
+      : `⚽ ${rangeLabel} recap — ${APP_NAME()}`,
     html: shell({
-      preview: `Yesterday's results and where you stand: #${rank} of ${totalParticipants}.`,
-      kicker: "Daily recap",
-      heading: `Yesterday, settled.`,
+      preview: `Results from ${rangeLabel} and where you stand: #${rank} of ${totalParticipants}.`,
+      kicker: "Pool recap",
+      heading: `${rangeLabel}, settled.`,
       bodyHtml: body,
     }),
   });
