@@ -282,42 +282,68 @@ export async function sendRoundOpenEmail(
   });
 }
 
-// ── 4. Score update (match finished) ────────────────────────────────────────
+// ── 4. Daily digest (one summary per match day, replaces per-match emails) ──
 
-export async function sendScoreUpdateEmail(
+export interface DigestMatchLine {
+  matchName: string;          // "Mexico vs Poland"
+  scoreline: string;          // "2–1", or "" if scores unavailable
+  resultLabel: string;        // winning team name, or "Draw"
+  yourPick: string | null;    // null = recipient didn't pick this match
+  correct: boolean | null;
+  pointsEarned: number;
+}
+
+export async function sendDailyDigestEmail(
   to: string,
   name: string,
   opts: {
-    matchName: string;
-    result: string;
-    yourPick: string;
-    correct: boolean;
-    pointsEarned: number;
-    newTotal: number;
+    dateLabel: string;        // "Thursday, June 12"
+    lines: DigestMatchLine[];
+    dayPoints: number;
+    totalScore: number;
     rank: number;
     totalParticipants: number;
   }
 ): Promise<void> {
-  const { matchName, result, yourPick, correct, pointsEarned, newTotal, rank, totalParticipants } = opts;
+  const { dateLabel, lines, dayPoints, totalScore, rank, totalParticipants } = opts;
   const appUrl = APP_URL();
-  const resultColor = correct ? C.green : C.accent;
+
+  const picked = lines.filter(l => l.yourPick !== null);
+  const correctCount = picked.filter(l => l.correct).length;
+
+  const matchRows = lines.map((l, i) => {
+    const border = i > 0 ? `border-top:1px solid ${C.line};` : "";
+    const verdict = l.yourPick === null
+      ? `<span style="color:${C.inkFaint};">&mdash;</span>`
+      : l.correct
+        ? `<span style="color:${C.green};">&#10003; +${l.pointsEarned}</span>`
+        : `<span style="color:${C.accent};">&#10007;</span>`;
+    return `
+      <tr>
+        <td style="padding:10px 0;${border}">
+          <div style="font-family:${SANS};font-size:13.5px;font-weight:600;color:${C.ink};">${l.matchName}</div>
+          <div style="font-family:${SANS};font-size:12px;color:${C.inkSoft};margin-top:3px;">${l.scoreline ? `${l.scoreline} &middot; ` : ""}${l.resultLabel === "Draw" ? "Draw" : `${l.resultLabel} won`}${l.yourPick ? ` &middot; you picked ${l.yourPick}` : ""}</div>
+        </td>
+        <td style="padding:10px 0;font-family:${MONO};font-size:13px;font-weight:bold;text-align:right;vertical-align:top;${border}">${verdict}</td>
+      </tr>`;
+  }).join("");
 
   const body = `
     ${p(`Hi ${firstName(name)},`)}
-    ${p(`<strong style="color:${C.ink};">${matchName}</strong> just finished: <strong style="color:${C.ink};">${result}</strong>.`)}
+    ${p(`Here&rsquo;s how <strong style="color:${C.ink};">${dateLabel}</strong> shook out${picked.length > 0 ? ` &mdash; you went <strong style="color:${C.ink};">${correctCount}/${picked.length}</strong> on the day` : ""}.`)}
 
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:6px 18px;margin:4px 0 20px;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:4px 18px;margin:4px 0 20px;">
+      ${matchRows}
+    </table>
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${C.paper};border:1px solid ${C.line};border-radius:12px;padding:6px 18px;margin:0 0 20px;">
       <tr>
-        <td style="padding:9px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};">Your pick</td>
-        <td style="padding:9px 0;font-family:${SANS};font-size:13.5px;font-weight:600;color:${C.ink};text-align:right;">${yourPick}</td>
-      </tr>
-      <tr>
-        <td style="padding:9px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};border-top:1px solid ${C.line};">Result</td>
-        <td style="padding:9px 0;font-family:${MONO};font-size:13.5px;font-weight:bold;color:${resultColor};text-align:right;border-top:1px solid ${C.line};">${correct ? `WON +${pointsEarned}` : "LOST"}</td>
+        <td style="padding:9px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};">Points won</td>
+        <td style="padding:9px 0;font-family:${MONO};font-size:13.5px;font-weight:bold;color:${dayPoints > 0 ? C.green : C.ink};text-align:right;">+${dayPoints}</td>
       </tr>
       <tr>
         <td style="padding:9px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};border-top:1px solid ${C.line};">Your total</td>
-        <td style="padding:9px 0;font-family:${MONO};font-size:13.5px;font-weight:bold;color:${C.ink};text-align:right;border-top:1px solid ${C.line};">${newTotal} pts</td>
+        <td style="padding:9px 0;font-family:${MONO};font-size:13.5px;font-weight:bold;color:${C.ink};text-align:right;border-top:1px solid ${C.line};">${totalScore} pts</td>
       </tr>
       <tr>
         <td style="padding:9px 0;font-family:${SANS};font-size:13.5px;color:${C.inkSoft};border-top:1px solid ${C.line};">Current rank</td>
@@ -333,11 +359,13 @@ export async function sendScoreUpdateEmail(
   await deliver({
     from: FROM(),
     to,
-    subject: `${correct ? "✓" : "✗"} ${matchName} — ${APP_NAME()}`,
+    subject: picked.length > 0
+      ? `⚽ ${dateLabel} recap: ${correctCount}/${picked.length} picks, +${dayPoints} pts`
+      : `⚽ ${dateLabel} recap — ${APP_NAME()}`,
     html: shell({
-      preview: `${matchName}: ${result}. You ${correct ? `won +${pointsEarned}` : "missed this one"}.`,
-      kicker: "Full time",
-      heading: correct ? "Nice call." : "Tough break.",
+      preview: `Yesterday's results and where you stand: #${rank} of ${totalParticipants}.`,
+      kicker: "Daily recap",
+      heading: `Yesterday, settled.`,
       bodyHtml: body,
     }),
   });

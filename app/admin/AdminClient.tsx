@@ -139,7 +139,7 @@ export default function AdminClient({ lastSync, stats }: Props) {
         </div>
         <div className="px-6 py-5">
           <p className="text-[14px] ink-soft leading-relaxed mb-5">
-            Pulls fresh match data from football-data.org, recalculates scores, and dispatches any pending result emails. Odds are left untouched.
+            Pulls fresh match data from football-data.org, recalculates scores, and dispatches any pending notification emails (daily digests, deadline reminders, round recaps). Odds are left untouched.
           </p>
           <button
             onClick={handleSync}

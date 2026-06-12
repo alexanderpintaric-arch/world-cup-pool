@@ -8,11 +8,14 @@ import {
 import { getAllMemberEmails, getAllLeaguesWithMembers } from "./leagues";
 import { computeLeaderboard, getRoundStates, getActiveRound } from "./scoring";
 import { computeRoundAwards, computeKnockoutAwards } from "./superlatives";
-import { sendScoreUpdateEmail, sendRoundOpenEmail, sendDeadlineReminderEmail, sendRoundRecapEmail } from "./email";
+import { sendDailyDigestEmail, sendRoundOpenEmail, sendDeadlineReminderEmail, sendRoundRecapEmail } from "./email";
+import type { DigestMatchLine } from "./email";
 import type { KnockoutRound } from "./bracket";
-import type { SyncResult, Match } from "../types";
+import type { SyncResult, Match, Pick } from "../types";
 
 const REMIND_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h
+const DIGEST_TZ = "America/Toronto";
+const DIGEST_SEND_HOUR = 9; // don't send the daily digest before 9am Toronto
 
 export async function runSync(options?: { includeOdds?: boolean }): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
@@ -28,18 +31,10 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
 
     // 2. Get current state before update (to detect changes)
     const prevMatches = await getAllMatches();
-    const prevFinished = new Set(
-      prevMatches.filter(m => m.status === "FINISHED").map(m => m.matchId)
-    );
     const prevRoundStates = getRoundStates(prevMatches);
 
     // 3. Upsert matches into Sheets
     matchesUpdated = await upsertMatches(freshMatches);
-
-    // 4. Detect newly finished matches
-    const newlyFinished = freshMatches.filter(
-      m => m.status === "FINISHED" && !prevFinished.has(m.matchId)
-    );
 
     // 5. Fetch odds (opt-in only — the recurring sync skips this; odds are
     //    refreshed manually from the admin console)
@@ -55,50 +50,91 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
       }
     }
 
-    // 6. Send score update emails for newly finished matches
-    if (newlyFinished.length > 0) {
-      const [allPicks, allUsers, allBracketPicks] = await Promise.all([
-        getAllPicks(), getAllUsers(), getAllBracketPicks(),
-      ]);
-      const leaderboard = computeLeaderboard(allUsers, allPicks, freshMatches, allBracketPicks);
-      const totalParticipants = leaderboard.length;
+    // 6. Daily digest — one summary email per match day instead of an email
+    //    after every match. Covers the previous day's results (Toronto time),
+    //    sent on the first sync after DIGEST_SEND_HOUR. Deduped per day via
+    //    the round_reminders table with a "digest:" key.
+    try {
+      const now = new Date();
+      const torontoHour = Number(new Intl.DateTimeFormat("en-CA", {
+        timeZone: DIGEST_TZ, hour: "2-digit", hour12: false,
+      }).format(now));
+      // en-CA dateStyle:"short" formats as YYYY-MM-DD
+      const torontoDate = (d: Date | string) => new Intl.DateTimeFormat("en-CA", {
+        timeZone: DIGEST_TZ, dateStyle: "short",
+      }).format(typeof d === "string" ? new Date(d) : d);
+      const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+      const digestDay = torontoDate(yesterday);
+      const digestKey = `digest:${digestDay}`;
 
-      for (const match of newlyFinished) {
-        const affectedPicks = allPicks.filter(p => p.matchId === match.matchId);
+      if (torontoHour >= DIGEST_SEND_HOUR) {
+        const reminded = await getRemindedRounds();
+        const digestMatches = freshMatches
+          .filter(m => m.status === "FINISHED" && torontoDate(m.kickoffUtc) === digestDay)
+          .sort((a, b) => a.kickoffUtc.localeCompare(b.kickoffUtc));
 
-        for (const pick of affectedPicks) {
-          const user = allUsers.find(u => u.email === pick.email);
-          if (!user) continue;
+        if (!reminded.has(digestKey) && digestMatches.length > 0) {
+          const [allPicks, allUsers, allBracketPicks] = await Promise.all([
+            getAllPicks(), getAllUsers(), getAllBracketPicks(),
+          ]);
+          const leaderboard = computeLeaderboard(allUsers, allPicks, freshMatches, allBracketPicks);
+          const totalParticipants = leaderboard.length;
+          const digestIds = new Set(digestMatches.map(m => m.matchId));
+          const dateLabel = new Intl.DateTimeFormat("en-CA", {
+            timeZone: DIGEST_TZ, weekday: "long", month: "long", day: "numeric",
+          }).format(yesterday);
 
-          const entry = leaderboard.find(e => e.email === pick.email);
-          if (!entry) continue;
+          let sent = 0;
+          for (const user of allUsers) {
+            // Same match may be picked in several leagues — dedupe by matchId
+            const userPicks = new Map<string, Pick>();
+            for (const p of allPicks) {
+              if (p.email === user.email && digestIds.has(p.matchId) && !userPicks.has(p.matchId)) {
+                userPicks.set(p.matchId, p);
+              }
+            }
+            // Only email people who had skin in yesterday's matches
+            if (userPicks.size === 0) continue;
 
-          const rank = leaderboard.indexOf(entry) + 1;
-          const correct = pick.pick === match.result;
-          const resultLabel =
-            match.result === "H" ? match.homeTeam :
-            match.result === "A" ? match.awayTeam : "Draw";
-          const pickLabel =
-            pick.pick === "H" ? match.homeTeam :
-            pick.pick === "A" ? match.awayTeam : "Draw";
+            const entry = leaderboard.find(e => e.email === user.email);
+            if (!entry) continue;
+            const rank = leaderboard.indexOf(entry) + 1;
 
-          try {
-            await sendScoreUpdateEmail(user.email, user.name, {
-              matchName: `${match.homeTeam} vs ${match.awayTeam}`,
-              result: resultLabel,
-              yourPick: pickLabel,
-              correct,
-              pointsEarned: correct ? match.pointsValue : 0,
-              newTotal: entry.totalScore,
-              rank,
-              totalParticipants,
+            let dayPoints = 0;
+            const lines: DigestMatchLine[] = digestMatches.map(m => {
+              const resultLabel =
+                m.result === "H" ? m.homeTeam :
+                m.result === "A" ? m.awayTeam : "Draw";
+              const scoreline = m.homeScore != null && m.awayScore != null
+                ? `${m.homeScore}–${m.awayScore}` : "";
+              const pick = userPicks.get(m.matchId);
+              if (!pick) {
+                return { matchName: `${m.homeTeam} vs ${m.awayTeam}`, scoreline, resultLabel, yourPick: null, correct: null, pointsEarned: 0 };
+              }
+              const correct = pick.pick === m.result;
+              const pointsEarned = correct ? m.pointsValue : 0;
+              dayPoints += pointsEarned;
+              const yourPick =
+                pick.pick === "H" ? m.homeTeam :
+                pick.pick === "A" ? m.awayTeam : "Draw";
+              return { matchName: `${m.homeTeam} vs ${m.awayTeam}`, scoreline, resultLabel, yourPick, correct, pointsEarned };
             });
-            emailsSent++;
-          } catch (e) {
-            console.error(`Email failed for ${user.email}:`, e);
+
+            try {
+              await sendDailyDigestEmail(user.email, user.name, {
+                dateLabel, lines, dayPoints,
+                totalScore: entry.totalScore, rank, totalParticipants,
+              });
+              emailsSent++; sent++;
+            } catch (e) {
+              console.error(`Digest email failed for ${user.email}:`, e);
+            }
           }
+          if (sent > 0) await markRoundReminded(digestKey);
         }
       }
+    } catch (e) {
+      console.error("Daily digest failed (non-fatal):", e);
     }
 
     // 7. Detect newly opened rounds (send "picks open" emails)
