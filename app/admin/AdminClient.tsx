@@ -16,6 +16,12 @@ export default function AdminClient({ lastSync, stats }: Props) {
     error?: string;
     syncedAt: string;
   } | null>(null);
+  const [oddsSyncing, setOddsSyncing] = useState(false);
+  const [oddsResult, setOddsResult] = useState<{
+    oddsUpdated: number;
+    error?: string;
+    syncedAt: string;
+  } | null>(null);
 
   async function handleSync() {
     setSyncing(true);
@@ -28,6 +34,20 @@ export default function AdminClient({ lastSync, stats }: Props) {
       setResult({ matchesUpdated: 0, oddsUpdated: 0, roundsOpened: [], emailsSent: 0, error: "Network error", syncedAt: new Date().toISOString() });
     } finally {
       setSyncing(false);
+    }
+  }
+
+  async function handleOddsSync() {
+    setOddsSyncing(true);
+    setOddsResult(null);
+    try {
+      const res = await fetch("/api/sync/odds", { method: "POST" });
+      const data = await res.json();
+      setOddsResult(data);
+    } catch {
+      setOddsResult({ oddsUpdated: 0, error: "Network error", syncedAt: new Date().toISOString() });
+    } finally {
+      setOddsSyncing(false);
     }
   }
 
@@ -102,7 +122,7 @@ export default function AdminClient({ lastSync, stats }: Props) {
             <p className="text-[13.5px] ink-faint italic font-serif">No syncs recorded yet.</p>
           )}
           <p className="mt-5 pt-4 border-t border-[color:var(--line-soft)] font-mono text-[10.5px] ink-faint">
-            Auto-sync runs daily at 15:00 UTC via Vercel Cron.
+            Auto-sync runs every 15 minutes via GitHub Actions, with a daily 15:00 UTC Vercel Cron fallback. Odds are only updated manually.
           </p>
         </div>
       </section>
@@ -119,7 +139,7 @@ export default function AdminClient({ lastSync, stats }: Props) {
         </div>
         <div className="px-6 py-5">
           <p className="text-[14px] ink-soft leading-relaxed mb-5">
-            Pulls fresh match data from football-data.org, refreshes odds, recalculates scores, and dispatches any pending result emails.
+            Pulls fresh match data from football-data.org, recalculates scores, and dispatches any pending result emails. Odds are left untouched.
           </p>
           <button
             onClick={handleSync}
@@ -157,7 +177,6 @@ export default function AdminClient({ lastSync, stats }: Props) {
               )}
               <dl className="space-y-1 text-[13px] ink-soft">
                 <Row label="Matches updated" value={String(result.matchesUpdated)} compact mono />
-                <Row label="Odds refreshed" value={result.oddsUpdated > 0 ? String(result.oddsUpdated) : "none available"} compact mono />
                 <Row label="Emails sent" value={String(result.emailsSent)} compact mono />
                 {result.roundsOpened.length > 0 && (
                   <Row label="Rounds opened" value={result.roundsOpened.join(", ")} compact />
@@ -165,6 +184,65 @@ export default function AdminClient({ lastSync, stats }: Props) {
               </dl>
               <p className="mt-3 font-mono text-[10px] ink-faint tabular">
                 {new Date(result.syncedAt).toLocaleString("en-CA")}
+              </p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Odds refresh */}
+      <section className="anim-fade-up bg-card border border-line rounded-lg shadow-paper" style={{animationDelay: '160ms'}}>
+        <div className="px-6 py-4 border-b border-line">
+          <p className="font-mono text-[10.5px] uppercase tracking-[0.18em] ink-faint mb-0.5">
+            Manual
+          </p>
+          <h2 className="font-serif text-[20px] ink font-medium" style={{fontVariationSettings: '"opsz" 40'}}>
+            Refresh odds
+          </h2>
+        </div>
+        <div className="px-6 py-5">
+          <p className="text-[14px] ink-soft leading-relaxed mb-5">
+            Pulls fresh win probabilities from The Odds API for matches already in the database. Not part of the automatic sync — run this whenever you want updated odds.
+          </p>
+          <button
+            onClick={handleOddsSync}
+            disabled={oddsSyncing}
+            className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-md bg-ink text-paper text-[13.5px] font-semibold hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {oddsSyncing ? (
+              <>
+                <span className="font-mono text-[15px] inline-block animate-spin">↻</span>
+                Refreshing…
+              </>
+            ) : (
+              <>
+                Refresh odds
+                <span className="font-mono">&rarr;</span>
+              </>
+            )}
+          </button>
+
+          {oddsResult && (
+            <div className={`mt-5 rounded-md border p-4 anim-fade-up
+              ${oddsResult.error
+                ? "border-[color:var(--accent)]/30 bg-accent-soft"
+                : "border-[color:var(--green)]/30 bg-green-soft"
+              }`}>
+              <p className={`font-serif text-[16px] font-medium mb-2
+                ${oddsResult.error ? "text-accent" : "text-green-deep"}
+              `} style={{fontVariationSettings: '"opsz" 32'}}>
+                {oddsResult.error ? "Odds refresh failed" : "Odds refreshed"}
+              </p>
+              {oddsResult.error && (
+                <p className="text-[12.5px] text-accent font-mono mb-3 leading-relaxed">
+                  {oddsResult.error}
+                </p>
+              )}
+              <dl className="space-y-1 text-[13px] ink-soft">
+                <Row label="Odds refreshed" value={oddsResult.oddsUpdated > 0 ? String(oddsResult.oddsUpdated) : "none available"} compact mono />
+              </dl>
+              <p className="mt-3 font-mono text-[10px] ink-faint tabular">
+                {new Date(oddsResult.syncedAt).toLocaleString("en-CA")}
               </p>
             </div>
           )}

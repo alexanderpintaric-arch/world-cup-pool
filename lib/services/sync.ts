@@ -14,7 +14,7 @@ import type { SyncResult, Match } from "../types";
 
 const REMIND_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h
 
-export async function runSync(): Promise<SyncResult> {
+export async function runSync(options?: { includeOdds?: boolean }): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
   let matchesUpdated = 0;
   let oddsUpdated = 0;
@@ -41,15 +41,18 @@ export async function runSync(): Promise<SyncResult> {
       m => m.status === "FINISHED" && !prevFinished.has(m.matchId)
     );
 
-    // 5. Fetch odds (non-fatal) — pass fresh matches so IDs can be resolved by team name
-    try {
-      const odds = await fetchWCOdds(freshMatches);
-      if (odds.length > 0) {
-        await upsertOdds(odds);
-        oddsUpdated = odds.length;
+    // 5. Fetch odds (opt-in only — the recurring sync skips this; odds are
+    //    refreshed manually from the admin console)
+    if (options?.includeOdds) {
+      try {
+        const odds = await fetchWCOdds(freshMatches);
+        if (odds.length > 0) {
+          await upsertOdds(odds);
+          oddsUpdated = odds.length;
+        }
+      } catch (e) {
+        console.error("Odds sync failed (non-fatal):", e);
       }
-    } catch (e) {
-      console.error("Odds sync failed (non-fatal):", e);
     }
 
     // 6. Send score update emails for newly finished matches
@@ -245,4 +248,20 @@ export async function runSync(): Promise<SyncResult> {
   });
 
   return { matchesUpdated, oddsUpdated, roundsOpened, emailsSent, error: error || undefined, syncedAt };
+}
+
+// Standalone odds refresh, triggered manually from the admin console. Uses the
+// matches already in the database rather than re-hitting football-data.org.
+export async function runOddsSync(): Promise<{ oddsUpdated: number; syncedAt: string; error?: string }> {
+  const syncedAt = new Date().toISOString();
+  try {
+    const matches = await getAllMatches();
+    const odds = await fetchWCOdds(matches);
+    if (odds.length > 0) await upsertOdds(odds);
+    return { oddsUpdated: odds.length, syncedAt };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : JSON.stringify(e);
+    console.error("Odds sync failed:", e);
+    return { oddsUpdated: 0, syncedAt, error };
+  }
 }

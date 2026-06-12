@@ -1,0 +1,19 @@
+name: Sync match results
+
+# Vercel Hobby crons are limited to once per day, so this workflow does the
+# frequent syncing by hitting the same secured endpoint. The daily Vercel cron
+# (vercel.json) remains as a fallback.
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger sync endpoint
+        run: |
+          curl --fail-with-body -sS --max-time 290 \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "https://nutmeg.bet/api/cron/sync"
