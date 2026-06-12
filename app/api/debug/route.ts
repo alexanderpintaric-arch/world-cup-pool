@@ -1,6 +1,24 @@
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+export async function GET(req: Request) {
+  // /api/debug?matches=1 — recent match rows as stored (public info), to
+  // diagnose result-sync issues without needing DB access.
+  if (new URL(req.url).searchParams.get("matches")) {
+    const { getAllMatches } = await import("@/lib/services/supabase");
+    const cutoff = Date.now() - 48 * 60 * 60 * 1000;
+    const recent = (await getAllMatches())
+      .filter(m => new Date(m.kickoffUtc).getTime() >= cutoff && new Date(m.kickoffUtc).getTime() <= Date.now() + 24 * 60 * 60 * 1000)
+      .sort((a, b) => a.kickoffUtc.localeCompare(b.kickoffUtc))
+      .map(m => ({
+        match: `${m.homeTeam} vs ${m.awayTeam}`,
+        kickoffUtc: m.kickoffUtc,
+        status: m.status,
+        result: m.result,
+        score: m.homeScore != null ? `${m.homeScore}-${m.awayScore}` : null,
+      }));
+    return Response.json({ now: new Date().toISOString(), recent });
+  }
+
   const checks = {
     GOOGLE_CLIENT_ID: (() => {
       const v = process.env.GOOGLE_CLIENT_ID ?? "";
