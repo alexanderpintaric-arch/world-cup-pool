@@ -66,6 +66,7 @@ export interface LeaderboardEntry {
   maxPossibleScore: number;
   scoreByRound: Record<Round, number>;
   correctPicks: number;
+  /** Settled picks only (finished matches / decided bracket rounds), so correctPicks/totalPicks = accuracy on games played */
   totalPicks: number;
   supportedTeam?: string | null;
   /** Current active streak of consecutive correct picks (0 = none) */

@@ -122,9 +122,11 @@ export function computeLeaderboard(
     for (const pick of picks) {
       const match = matchMap.get(pick.matchId);
       if (!match) continue;
-      total++;
 
       if (match.status === "FINISHED" && match.result) {
+        // Only settled picks count toward the accuracy denominator — picks on
+        // matches not yet played shouldn't drag the percentage down.
+        total++;
         if (pick.pick === match.result) {
           const pts = match.pointsValue;
           scoreByRound[pick.round] = (scoreByRound[pick.round] ?? 0) + pts;
@@ -152,8 +154,8 @@ export function computeLeaderboard(
     for (const bp of bracketPicks) {
       const round = bp.round as KnockoutRound;
       const pts = ROUND_CONFIG[round]?.pointsValue ?? 0;
-      total++;
       if (roundDecided[round]) {
+        total++;
         if (advancers[round]?.has(bp.team)) {
           scoreByRound[round] = (scoreByRound[round] ?? 0) + pts;
           totalScore += pts;
