@@ -383,7 +383,9 @@ export default function LeaderboardClient({
                     const isReleg = isRelegatedScore(entry.totalScore);
                     const rank = hasSeparation ? compRank[i] : i + 1;
 
-                    const tone = isKing
+                    const tone = isRyno(entry.name)
+                      ? "ryno-row"
+                      : isKing
                       ? "king-row champion-plate bg-gold-soft/50 hover:bg-gold-soft/70"
                       : isReleg
                       ? "rel-row bg-accent-soft/50 hover:bg-accent-soft/70"
