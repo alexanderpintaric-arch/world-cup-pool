@@ -1,9 +1,51 @@
 export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+
+  // /api/debug?picks_audit=EMAIL&secret=CRON_SECRET — raw picks+timestamps for one user
+  // Admin-only: requires the CRON_SECRET to prevent public access.
+  const auditEmail = url.searchParams.get("picks_audit");
+  if (auditEmail) {
+    const secret = url.searchParams.get("secret");
+    if (!secret || secret !== process.env.CRON_SECRET) {
+      return Response.json({ error: "Forbidden" }, { status: 403 });
+    }
+    const { getAllPicks, getAllMatches } = await import("@/lib/services/supabase");
+    const [allPicks, allMatches] = await Promise.all([getAllPicks(), getAllMatches()]);
+    const matchMap = new Map(allMatches.map(m => [m.matchId, m]));
+    const userPicks = allPicks.filter(p => p.email === auditEmail);
+    const result = userPicks.map(p => {
+      const match = matchMap.get(p.matchId);
+      const kickoff = match?.kickoffUtc ?? null;
+      const updatedAfterKickoff = kickoff
+        ? new Date(p.updatedAt) > new Date(kickoff)
+        : null;
+      const submittedAfterKickoff = kickoff
+        ? new Date(p.submittedAt) > new Date(kickoff)
+        : null;
+      const deltaSeconds = Math.round(
+        (new Date(p.updatedAt).getTime() - new Date(p.submittedAt).getTime()) / 1000
+      );
+      return {
+        matchId: p.matchId,
+        match: match ? `${match.homeTeam} vs ${match.awayTeam}` : "unknown",
+        round: p.round,
+        pick: p.pick,
+        kickoffUtc: kickoff,
+        submittedAt: p.submittedAt,
+        updatedAt: p.updatedAt,
+        deltaSeconds,
+        SUSPICIOUS_updated_after_kickoff: updatedAfterKickoff,
+        SUSPICIOUS_submitted_after_kickoff: submittedAfterKickoff,
+      };
+    }).sort((a, b) => (a.kickoffUtc ?? "").localeCompare(b.kickoffUtc ?? ""));
+    return Response.json({ email: auditEmail, pickCount: result.length, picks: result });
+  }
+
   // /api/debug?matches=1 — recent match rows as stored (public info), to
   // diagnose result-sync issues without needing DB access.
-  if (new URL(req.url).searchParams.get("matches")) {
+  if (url.searchParams.get("matches")) {
     const { getAllMatches } = await import("@/lib/services/supabase");
     const cutoff = Date.now() - 48 * 60 * 60 * 1000;
     const recent = (await getAllMatches())
