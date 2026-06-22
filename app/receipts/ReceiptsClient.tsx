@@ -29,6 +29,16 @@ function scoreStr(m: Match) {
   return `${m.homeScore}–${m.awayScore}`;
 }
 
+/**
+ * A group match is settled (eligible for WON/LOST) only once it's FINISHED AND a
+ * result has been recorded. football-data can briefly flip a match to FINISHED
+ * before the result/score lands; until `result` exists the pick is still pending,
+ * not a loss. Mirrors the leaderboard guard in scoring.ts.
+ */
+function isSettled(m: Match): boolean {
+  return m.status === "FINISHED" && m.result != null;
+}
+
 /** Decimal → American odds, matching the pick card (e.g. +140, -182). */
 function toAmerican(decimal: number): string {
   if (decimal >= 2) return `+${Math.round((decimal - 1) * 100)}`;
@@ -184,7 +194,7 @@ export default function ReceiptsClient({
         .filter(m => m.round === rs.round && !(m.homeTeam === "TBD" && m.awayTeam === "TBD"))
         .sort((a, b) => new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime());
 
-      const finished  = roundMatches.filter(m => m.status === "FINISHED");
+      const finished  = roundMatches.filter(isSettled);
       const correct   = finished.filter(m => {
         const p = pickMap.get(m.matchId);
         return p && p === m.result;
@@ -276,9 +286,9 @@ export default function ReceiptsClient({
         const odds = oddsMap.get(m.matchId);
         const oddsStr = pick && odds ? ` (${toAmerican(odds)})` : "";
         const score = scoreStr(m);
-        const isFinished = m.status === "FINISHED";
-        const isCorrect  = isFinished && pick && pick === m.result;
-        const isWrong    = isFinished && pick && pick !== m.result;
+        const settled = isSettled(m);
+        const isCorrect  = settled && pick && pick === m.result;
+        const isWrong    = settled && pick && pick !== m.result;
         const flag = isCorrect ? `  WON +${m.pointsValue}` : isWrong ? "  LOST" : "";
         const matchup = score ? `${m.homeTeam} ${score} ${m.awayTeam}` : `${m.homeTeam} v ${m.awayTeam}`;
         lines.push(`  ${matchup}`);
@@ -588,10 +598,10 @@ function PickRow({ match, pick, odds }: {
   pick: MatchResult;
   odds: number | null;
 }) {
-  const isFinished = match.status === "FINISHED";
+  const settled    = isSettled(match);
   const isLive     = match.status === "IN_PLAY" || match.status === "LIVE" || match.status === "PAUSED";
-  const isCorrect  = isFinished && !!pick && pick === match.result;
-  const isWrong    = isFinished && !!pick && pick !== match.result;
+  const isCorrect  = settled && !!pick && pick === match.result;
+  const isWrong    = settled && !!pick && pick !== match.result;
   const notPicked  = !pick;
 
   const label = pick ? pickLabel(pick, match) : "no pick";
@@ -606,7 +616,7 @@ function PickRow({ match, pick, odds }: {
   if (isCorrect)      status = <span className="text-green-deep font-bold">WON +{match.pointsValue}</span>;
   else if (isWrong)   status = <span className="text-accent font-bold">LOST</span>;
   else if (isLive)    status = <span className="text-gold font-bold">LIVE</span>;
-  else if (notPicked && isFinished) status = <span className="ink-faint/60">MISSED</span>;
+  else if (notPicked && settled) status = <span className="ink-faint/60">MISSED</span>;
   else                status = <span className="ink-faint/50">open</span>;
 
   return (
