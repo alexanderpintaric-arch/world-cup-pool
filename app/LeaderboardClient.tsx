@@ -107,6 +107,14 @@ function DownChevron({ className = "" }: { className?: string }) {
   );
 }
 
+// 🏖️ League in-joke: Ryan "Ryno" Bennett gets a custom greeting and his own
+// face as his standings avatar. Matched by name; swap to email if a namesake
+// ever joins. Lives in code so it persists for the whole tournament.
+const RYNO_NAME = "ryan bennett";
+function isRyno(name?: string | null) {
+  return (name ?? "").trim().toLowerCase() === RYNO_NAME;
+}
+
 function relativeTime(iso: string): string {
   const diff = new Date(iso).getTime() - Date.now();
   const abs = Math.abs(diff);
@@ -214,7 +222,9 @@ export default function LeaderboardClient({
           {activeLeague.name} &middot; {new Date().toLocaleDateString("en-CA", { month: "long", day: "numeric" })}
         </p>
         <h1 className="font-serif font-medium leading-[1.02] tracking-[-0.025em] ink" style={{fontSize: 'clamp(2.25rem, 5.5vw, 3.75rem)', fontVariationSettings: '"opsz" 120'}}>
-          {greeting}{firstName ? `, ${firstName}` : ""}.
+          {isRyno(currentUserName)
+            ? "Eat sand, Ryno."
+            : <>{greeting}{firstName ? `, ${firstName}` : ""}.</>}
         </h1>
         <p className="mt-3 text-[16px] ink-soft max-w-2xl">
           {myRank && myEntry ? (
@@ -409,8 +419,17 @@ export default function LeaderboardClient({
                         </td>
                         <td className="px-2 py-4">
                           <div className="flex items-center gap-3">
-                            <div className={`h-8 w-8 rounded-full bg-ink text-paper flex items-center justify-center text-[10px] font-semibold tracking-wide flex-shrink-0 ${isKing ? "ring-2 ring-gold/80" : isReleg ? "ring-1 ring-accent/40" : ""}`}>
-                              {initials(entry.name)}
+                            <div className={`relative h-8 w-8 rounded-full overflow-hidden flex items-center justify-center text-[10px] font-semibold tracking-wide flex-shrink-0 ${isRyno(entry.name) ? "bg-paper-deep" : "bg-ink text-paper"} ${isKing ? "ring-2 ring-gold/80" : isReleg ? "ring-1 ring-accent/40" : ""}`}>
+                              {isRyno(entry.name) ? (
+                                <img
+                                  src="/ryno.png"
+                                  alt={formatName(entry.name)}
+                                  className="h-full w-full object-cover"
+                                  style={{ objectPosition: "50% 30%" }}
+                                />
+                              ) : (
+                                initials(entry.name)
+                              )}
                             </div>
                             <div className="flex flex-col gap-0.5 min-w-0">
                               <div className="flex items-baseline gap-2">
@@ -421,6 +440,9 @@ export default function LeaderboardClient({
                                   <span className="font-mono text-[9.5px] uppercase tracking-[0.18em] text-green-deep">
                                     You
                                   </span>
+                                )}
+                                {isRyno(entry.name) && (
+                                  <span className="text-[14px] leading-none" role="img" aria-label="poop">💩</span>
                                 )}
                               </div>
                               {/* King of the Castle / Relegation honours */}
