@@ -1,5 +1,5 @@
 "use client";
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useTransition, Fragment } from "react";
 import type { LeaderboardEntry, Match, RoundState, OddsData } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
 import Flag from "@/components/Flag";
@@ -91,6 +91,22 @@ function initials(name: string) {
   return name.split(/\s+/).map(w => w[0]).join("").toUpperCase().slice(0, 2);
 }
 
+function Crown({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 20" className={className} fill="currentColor" aria-hidden="true">
+      <path d="M2 7l4.2 3.4L11 3.1a1.2 1.2 0 0 1 2 0l4.8 7.3L22 7c.8-.66 1.95.06 1.7 1.04l-2.2 8.2a1 1 0 0 1-.97.74H3.47a1 1 0 0 1-.97-.74L.3 8.04C.05 7.06 1.2 6.34 2 7z" />
+    </svg>
+  );
+}
+
+function DownChevron({ className = "" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 12 12" className={className} fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M2.5 4.5L6 8l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function relativeTime(iso: string): string {
   const diff = new Date(iso).getTime() - Date.now();
   const abs = Math.abs(diff);
@@ -166,6 +182,28 @@ export default function LeaderboardClient({
   const anyoneScored = leaderboard.some(e => e.totalScore > 0);
   const personAhead = myRank && myRank > 1 ? leaderboard[myRank - 2] : null;
   const deficit = personAhead && myEntry ? personAhead.totalScore - myEntry.totalScore : 0;
+
+  // ── King of the Castle / Relegation honours ───────────────────────────────
+  // Once there's genuine separation on the board, crown everyone tied at the
+  // top and flag everyone tied at the bottom (the football "drop zone"). Ties
+  // share a competition rank, so co-leaders both read as 1st. Before any
+  // separation (pre-tournament, or a flat board) nobody is crowned or relegated.
+  const topScore    = leaderboard[0]?.totalScore ?? 0;
+  const bottomScore = leaderboard[leaderboard.length - 1]?.totalScore ?? 0;
+  const hasSeparation = anyoneScored && topScore > bottomScore;
+  const kingCount = hasSeparation ? leaderboard.filter(e => e.totalScore === topScore).length : 0;
+  // Relegation: the bottom two on the table go down — plus anyone level on points
+  // with the cut-off line (you can't relegate one of two tied players and spare
+  // the other). Kings are always safe. The wooden spoon goes to a unique last.
+  const relegationCutoff = leaderboard[Math.max(0, leaderboard.length - 2)]?.totalScore ?? bottomScore;
+  const isRelegatedScore = (s: number) => hasSeparation && s <= relegationCutoff && s < topScore;
+  const firstRelegatedIdx = leaderboard.findIndex(e => isRelegatedScore(e.totalScore));
+  const deadLastCount = leaderboard.filter(e => e.totalScore === bottomScore).length;
+  const compRank = leaderboard.map((e, i, arr) =>
+    i > 0 && e.totalScore === arr[i - 1].totalScore ? -1 : i + 1
+  );
+  for (let i = 0; i < compRank.length; i++) if (compRank[i] === -1) compRank[i] = compRank[i - 1];
+  const totalCols = 4 + Object.keys(ROUND_CONFIG).length;
 
   return (
     <div className="space-y-12">
@@ -331,23 +369,47 @@ export default function LeaderboardClient({
                   {leaderboard.map((entry, i) => {
                     const isMe = entry.email === currentUserEmail;
                     const isSelected = entry.email === compareA || entry.email === compareB;
-                    const rank = i + 1;
+                    const isKing = hasSeparation && entry.totalScore === topScore;
+                    const isReleg = isRelegatedScore(entry.totalScore);
+                    const rank = hasSeparation ? compRank[i] : i + 1;
+
+                    const tone = isKing
+                      ? "king-row champion-plate bg-gold-soft/50 hover:bg-gold-soft/70"
+                      : isReleg
+                      ? "rel-row bg-accent-soft/50 hover:bg-accent-soft/70"
+                      : isMe
+                      ? "bg-green-soft/40 hover:bg-green-soft/60"
+                      : "hover:bg-paper-deep/40";
+                    const sel = isSelected ? " ring-2 ring-inset ring-gold/60" : "";
 
                     return (
+                      <Fragment key={entry.email}>
+                        {i === firstRelegatedIdx && firstRelegatedIdx > 0 && (
+                          <tr aria-hidden="true">
+                            <td colSpan={totalCols} className="px-4 sm:px-6 py-2 bg-card">
+                              <div className="relative flex items-center justify-center">
+                                <div
+                                  className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed"
+                                  style={{ borderColor: "rgba(201,48,44,0.45)" }}
+                                />
+                                <span className="relative bg-card px-3 inline-flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.2em] text-accent/80">
+                                  <DownChevron className="h-2.5 w-2.5" /> The drop &middot; Relegation zone <DownChevron className="h-2.5 w-2.5" />
+                                </span>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                       <tr
-                        key={entry.email}
                         onClick={() => handleRowClick(entry.email)}
-                        className={`group cursor-pointer transition-colors border-t border-[color:var(--line-soft)] anim-fade-up
-                          ${isSelected ? "bg-gold-soft" : isMe ? "bg-green-soft/40" : "hover:bg-paper-deep/40"}
-                        `}
+                        className={`group cursor-pointer transition-colors border-t border-[color:var(--line-soft)] anim-fade-up ${tone}${sel}`}
                         style={{ animationDelay: `${100 + i * 30}ms` }}
                       >
                         <td className="px-4 sm:px-6 py-4">
-                          <RankBadge rank={rank} />
+                          <RankBadge rank={rank} isKing={isKing} isRelegated={isReleg} />
                         </td>
                         <td className="px-2 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-ink text-paper flex items-center justify-center text-[10px] font-semibold tracking-wide flex-shrink-0">
+                            <div className={`h-8 w-8 rounded-full bg-ink text-paper flex items-center justify-center text-[10px] font-semibold tracking-wide flex-shrink-0 ${isKing ? "ring-2 ring-gold/80" : isReleg ? "ring-1 ring-accent/40" : ""}`}>
                               {initials(entry.name)}
                             </div>
                             <div className="flex flex-col gap-0.5 min-w-0">
@@ -361,6 +423,28 @@ export default function LeaderboardClient({
                                   </span>
                                 )}
                               </div>
+                              {/* King of the Castle / Relegation honours */}
+                              {isKing && (
+                                <div className="mt-1">
+                                  <span className="champion-plate inline-flex items-center gap-1.5 rounded-full border border-gold/40 bg-gold-soft px-2.5 py-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold leading-none">
+                                    <Crown className="h-3 w-3 anim-crown-float" />
+                                    {kingCount > 1 ? "Joint kings" : "King of the castle"}
+                                  </span>
+                                </div>
+                              )}
+                              {isReleg && (
+                                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                                  <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent-soft px-2.5 py-1 font-mono text-[9.5px] font-semibold uppercase tracking-[0.16em] text-accent leading-none">
+                                    <DownChevron className="h-2.5 w-2.5" />
+                                    Relegation zone
+                                  </span>
+                                  {entry.totalScore === bottomScore && deadLastCount === 1 && (
+                                    <span className="font-mono text-[9px] uppercase tracking-[0.14em] ink-faint leading-none" title="Dead last — the wooden spoon">
+                                      🥄 Wooden spoon
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                               {/* Supported team display */}
                               {entry.supportedTeam ? (
                                 <div className="flex items-center gap-1.5">
@@ -430,6 +514,7 @@ export default function LeaderboardClient({
                           </span>
                         </td>
                       </tr>
+                      </Fragment>
                     );
                   })}
                 </tbody>
@@ -763,7 +848,23 @@ function KnockoutScheduleCard({ rounds }: { rounds: RoundState[] }) {
   );
 }
 
-function RankBadge({ rank }: { rank: number }) {
+function RankBadge({ rank, isKing, isRelegated }: { rank: number; isKing?: boolean; isRelegated?: boolean }) {
+  if (isKing) {
+    return (
+      <div className="flex flex-col items-center gap-0.5 text-gold">
+        <Crown className="h-[18px] w-[18px] anim-crown-float" />
+        <span className="font-mono text-[8.5px] uppercase tracking-[0.08em] leading-none">{ordinal(rank)}</span>
+      </div>
+    );
+  }
+  if (isRelegated) {
+    return (
+      <div className="flex items-center gap-1 text-accent">
+        <span className="font-serif font-bold text-[16px] leading-none" style={{ fontVariationSettings: '"opsz" 60' }}>{rank}</span>
+        <DownChevron className="h-2.5 w-2.5" />
+      </div>
+    );
+  }
   if (rank === 1) {
     return (
       <div className="flex items-center gap-1">
