@@ -36,6 +36,32 @@ function mapStatus(s: string): MatchStatus {
   return valid.includes(s) ? (s as MatchStatus) : "SCHEDULED";
 }
 
+/**
+ * Manual result overrides. football-data has these matches wrong or stale and
+ * keeps reverting them on every sync, which silently corrupts the standings.
+ * We pin the correct score here so it is re-applied on EVERY sync and can never
+ * be lost. Matched on team names (order-agnostic). The status is forced to
+ * FINISHED and the result derived from the score below. Add an entry only when
+ * the upstream feed is demonstrably wrong for a settled match.
+ */
+const MANUAL_RESULTS: { test: (home: string, away: string) => boolean; homeScore: number; awayScore: number }[] = [
+  // Canada 1–1 Bosnia and Herzegovina (Jun 12) — upstream never settled it.
+  {
+    test: (h, a) => {
+      const s = `${h} ${a}`.toLowerCase();
+      return s.includes("canada") && s.includes("bosnia");
+    },
+    homeScore: 1,
+    awayScore: 1,
+  },
+];
+
+function resultFromScore(home: number, away: number): MatchResult {
+  if (home > away) return "H";
+  if (away > home) return "A";
+  return "T";
+}
+
 export async function fetchAllWCMatches(): Promise<Match[]> {
   const res = await fetch(`${BASE}/competitions/${WC_CODE}/matches`, {
     headers: headers(),
@@ -68,17 +94,25 @@ export async function fetchAllWCMatches(): Promise<Match[]> {
       m.score?.extraTime?.away != null ? m.score.extraTime!.away :
       m.score?.fullTime?.away ?? null;
 
+    const homeTeam = m.homeTeam?.name || m.homeTeam?.tla || "TBD";
+    const awayTeam = m.awayTeam?.name || m.awayTeam?.tla || "TBD";
+
+    // Apply any pinned manual result — upstream is wrong/stale for these and
+    // keeps reverting them. Forced on every sync so it can never be overridden.
+    const override = MANUAL_RESULTS.find(o => o.test(homeTeam, awayTeam));
+
     return [{
       matchId:     String(m.id),
       round,
-      homeTeam:    m.homeTeam?.name || m.homeTeam?.tla || "TBD",
-      awayTeam:    m.awayTeam?.name || m.awayTeam?.tla || "TBD",
-      result:      status === "FINISHED" ? mapResult(m.score?.winner ?? null, m.stage) : null,
-      status,
+      homeTeam,
+      awayTeam,
+      result:      override ? resultFromScore(override.homeScore, override.awayScore)
+                   : status === "FINISHED" ? mapResult(m.score?.winner ?? null, m.stage) : null,
+      status:      override ? "FINISHED" : status,
       kickoffUtc:  m.utcDate,
       pointsValue: ROUND_CONFIG[round].pointsValue,
-      homeScore,
-      awayScore,
+      homeScore:   override ? override.homeScore : homeScore,
+      awayScore:   override ? override.awayScore : awayScore,
     }];
   });
 }

@@ -18,6 +18,26 @@ const DIGEST_TZ = "America/Toronto";
 const DIGEST_SEND_HOUR = 9;     // don't send the digest before 9am Toronto
 const DIGEST_INTERVAL_DAYS = 3; // recap covers (at least) this many match days
 
+/**
+ * Once a match is settled in our DB (FINISHED with a result), a later sync must
+ * never revert it to unsettled. football-data occasionally drops a result back
+ * to null or flips a finished match to a non-final status, which silently wipes
+ * points from the standings on the next refresh. In that case we keep our stored
+ * value; genuine corrections (feed still settled, just a different score) flow
+ * through normally.
+ */
+function mergeStickyResults(feed: Match[], prev: Match[]): Match[] {
+  const prevById = new Map(prev.map(m => [m.matchId, m]));
+  return feed.map(fm => {
+    const p = prevById.get(fm.matchId);
+    if (p && p.status === "FINISHED" && p.result != null &&
+        (fm.result == null || fm.status !== "FINISHED")) {
+      return { ...fm, status: p.status, result: p.result, homeScore: p.homeScore, awayScore: p.awayScore };
+    }
+    return fm;
+  });
+}
+
 export async function runSync(options?: { includeOdds?: boolean }): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
   let matchesUpdated = 0;
@@ -27,12 +47,16 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
   let error = "";
 
   try {
-    // 1. Fetch fresh match data
-    const freshMatches = await fetchAllWCMatches();
+    // 1. Fetch fresh match data (pinned manual results already applied)
+    const feedMatches = await fetchAllWCMatches();
 
     // 2. Get current state before update (to detect changes)
     const prevMatches = await getAllMatches();
     const prevRoundStates = getRoundStates(prevMatches);
+
+    // 2b. Guard against a feed glitch un-settling a match we've already settled,
+    //     which would silently wipe points from the standings on refresh.
+    const freshMatches = mergeStickyResults(feedMatches, prevMatches);
 
     // 3. Upsert matches into Sheets
     matchesUpdated = await upsertMatches(freshMatches);
