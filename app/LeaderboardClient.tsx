@@ -426,8 +426,9 @@ export default function LeaderboardClient({
                                 <img
                                   src="/ryno.png"
                                   alt={formatName(entry.name)}
-                                  className="h-full w-full object-cover"
-                                  style={{ objectPosition: "50% 30%" }}
+                                  loading="eager"
+                                  decoding="async"
+                                  className="h-full w-full object-cover object-center"
                                 />
                               ) : (
                                 initials(entry.name)
