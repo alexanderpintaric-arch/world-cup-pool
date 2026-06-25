@@ -18,6 +18,17 @@ function generateCode(): string {
   ).join("");
 }
 
+// Leagues closed to NEW players for the rest of the tournament (matched by name,
+// case-insensitive). Existing members are unaffected — only new joins are
+// blocked. Generalise to a `closed` column on `leagues` if a per-league toggle
+// is ever needed.
+const CLOSED_LEAGUE_NAMES = new Set(["the lads"]);
+
+function isLeagueClosed(name: string): boolean {
+  const n = name.trim().toLowerCase();
+  return [...CLOSED_LEAGUE_NAMES].some(c => n.includes(c));
+}
+
 // ── Create ─────────────────────────────────────────────────────────────────
 
 export async function createLeague(name: string, creatorEmail: string): Promise<League> {
@@ -72,6 +83,15 @@ export async function joinLeagueByCode(
     .maybeSingle();
 
   if (existing) return { success: true, league: rowToLeague(league), alreadyMember: true };
+
+  // Closed to new players for the rest of the tournament — existing members
+  // already returned above, so this only blocks genuinely new joins.
+  if (isLeagueClosed(league.name as string)) {
+    return {
+      success: false,
+      error: `${league.name} is closed to new players for the rest of the tournament.`,
+    };
+  }
 
   const { error: jErr } = await client
     .from("league_members")
