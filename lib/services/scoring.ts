@@ -222,13 +222,16 @@ export function getRoundStates(matches: Match[]): RoundState[] {
     return { round, roundMatches, allFinished, firstKickoff, lastKickoff, deadlinePassed };
   });
 
-  // Second pass: availability = nearest preceding round with matches must be complete
+  // Second pass: availability = nearest preceding round with matches must be complete.
+  // Exception: ROUND_OF_32 opens as soon as it has matches (don't wait for group stage to finish).
   return basics.map((b, i) => {
     let isAvailable = true;
-    for (let j = i - 1; j >= 0; j--) {
-      if (basics[j].roundMatches.length > 0) {
-        isAvailable = basics[j].allFinished;
-        break;
+    if (b.round !== "ROUND_OF_32") {
+      for (let j = i - 1; j >= 0; j--) {
+        if (basics[j].roundMatches.length > 0) {
+          isAvailable = basics[j].allFinished;
+          break;
+        }
       }
     }
 
