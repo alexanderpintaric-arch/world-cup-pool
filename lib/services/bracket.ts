@@ -159,9 +159,21 @@ export function r32SlotLabels(nodeId: string): [string, string] | null {
 }
 
 /**
- * Map the 16 real Round-of-32 matches onto bracket slots 0..15 in official
- * order: the k-th-earliest real fixture fills the k-th-earliest official slot,
- * so each match lands in its true bracket position (same schedule ⇒ same order).
+ * Map the real Round-of-32 matches onto bracket slots 0..15 in official order.
+ *
+ * Each official slot carries a fixed, known kickoff (R32_SLOTS), and the real
+ * fixtures follow that exact schedule — so every match is placed into the slot
+ * whose scheduled kickoff it matches most closely, using each slot at most once.
+ *
+ * This is robust to a *partially-resolved* bracket. While the group stage is
+ * still finishing, matchups that depend on undecided seeds (e.g. two not-yet-
+ * known group runners-up) come through with both teams "TBD" and are skipped,
+ * leaving their slot empty. Matching by kickoff time keeps every *known* match
+ * in its true bracket position regardless of how many are still TBD. (A naive
+ * "k-th-earliest real fixture → k-th-earliest slot" rank mapping would instead
+ * shift every later match up a slot for each skipped one, scrambling the R16
+ * pairings — e.g. dropping a winner into the wrong side of the bracket.)
+ *
  * Returns a fixed-length-16 array; entries are null until the matchup is known.
  */
 export function orderedR32Matches(allMatches: Match[]): (Match | null)[] {
@@ -171,17 +183,32 @@ export function orderedR32Matches(allMatches: Match[]): (Match | null)[] {
   );
   if (r32.length === 0) return slots;
 
-  const slotOrder = R32_SLOTS
-    .map((s, i) => ({ i, t: new Date(s.kickoffUtc).getTime() }))
-    .sort((a, b) => a.t - b.t)
-    .map(x => x.i);
+  const slotTimes = R32_SLOTS.map(s => new Date(s.kickoffUtc).getTime());
+  const used = new Array(16).fill(false);
+  // Deterministic order so two fixtures sharing a kickoff resolve stably.
   const sortedReal = [...r32].sort(
     (a, b) =>
       new Date(a.kickoffUtc).getTime() - new Date(b.kickoffUtc).getTime() ||
       a.matchId.localeCompare(b.matchId)
   );
 
-  for (let k = 0; k < sortedReal.length && k < 16; k++) slots[slotOrder[k]] = sortedReal[k];
+  for (const m of sortedReal) {
+    const t = new Date(m.kickoffUtc).getTime();
+    let best = -1;
+    let bestDelta = Infinity;
+    for (let i = 0; i < 16; i++) {
+      if (used[i]) continue;
+      const delta = Math.abs(slotTimes[i] - t);
+      if (delta < bestDelta) {
+        bestDelta = delta;
+        best = i;
+      }
+    }
+    if (best >= 0) {
+      slots[best] = m;
+      used[best] = true;
+    }
+  }
   return slots;
 }
 
