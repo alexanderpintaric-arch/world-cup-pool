@@ -3,6 +3,7 @@ import { useState, useMemo, useTransition, Fragment } from "react";
 import type { LeaderboardEntry, Match, RoundState, OddsData } from "@/lib/types";
 import { ROUND_CONFIG } from "@/lib/constants";
 import Flag from "@/components/Flag";
+import CountdownTimer from "@/components/CountdownTimer";
 import { handleSetSupportedTeam, handleSetLeagueBuyIn } from "@/app/actions";
 
 // ── WC 2026 participants ────────────────────────────────────────────────────
@@ -322,9 +323,13 @@ export default function LeaderboardClient({
                 <p className="mt-1.5 text-[13.5px] ink-soft">
                   Your picks are locked — follow your bracket as it plays out.
                 </p>
+              ) : activeBracketFillable && activeRound.deadline ? (
+                <div className="mt-3">
+                  <CountdownTimer deadline={activeRound.deadline} label="Bracket closes in" />
+                </div>
               ) : activeRound.deadline ? (
                 <p className="mt-1.5 text-[13.5px] ink-soft">
-                  {activeIsKnockout ? "Bracket locks" : "Picks close"}{" "}
+                  Picks close{" "}
                   <span className="font-mono ink tabular">
                     {new Date(activeRound.deadline).toLocaleString("en-CA", {
                       weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
