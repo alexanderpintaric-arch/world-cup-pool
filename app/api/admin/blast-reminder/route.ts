@@ -31,6 +31,8 @@ export async function POST(req: Request) {
     try {
       await sendDeadlineReminderEmail(user.email, user.name, round, deadline);
       sent++;
+      // Stay well under Resend's 10 req/s limit
+      await new Promise(r => setTimeout(r, 150));
     } catch (e) {
       errors.push(`${user.email}: ${e}`);
     }
