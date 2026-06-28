@@ -130,9 +130,12 @@ export async function fetchWCOdds(knownMatches: Match[]): Promise<OddsData[]> {
     matchLookup.set(key, m.matchId);
   }
 
+  // Fetch h2h from all US bookmakers so we can detect 2-way "to advance" lines.
+  // Some US books offer knockout matches as 2-way h2h (no Draw outcome), which
+  // are true "to advance" odds. We prefer those over 3-way (90-min result) lines.
   const params = new URLSearchParams({
     apiKey: key,
-    bookmakers: "fanduel",
+    regions: "us",
     markets: "h2h",
     oddsFormat: "decimal",
   });
@@ -165,22 +168,40 @@ export async function fetchWCOdds(knownMatches: Match[]): Promise<OddsData[]> {
     }
     const resolvedId = matchId ?? matchLookup.get(`${normalizeTeam(g.away_team)}|${normalizeTeam(g.home_team)}`)!;
 
-    // Average decimal odds across bookmakers
+    // Separate bookmakers that offer 2-way h2h (no Draw = "to advance") from
+    // those that offer 3-way (90-min result). Prefer 2-way when any book has it.
+    let twoWayHomeSum = 0, twoWayAwaySum = 0, twoWayCount = 0;
     let homeSum = 0, drawSum = 0, awaySum = 0, count = 0;
+
     for (const bm of g.bookmakers) {
       const h2h = bm.markets.find(m => m.key === "h2h");
       if (!h2h) continue;
       const home = h2h.outcomes.find(o => o.name === g.home_team)?.price ?? 0;
       const away = h2h.outcomes.find(o => o.name === g.away_team)?.price ?? 0;
+      if (!home || !away) continue;
       const draw = h2h.outcomes.find(o => o.name === "Draw")?.price ?? 0;
-      if (home && away) { homeSum += home; drawSum += draw; awaySum += away; count++; }
+      if (!draw) {
+        // 2-way: no draw option → "to advance" odds
+        twoWayHomeSum += home; twoWayAwaySum += away; twoWayCount++;
+      } else {
+        // 3-way: 90-min match result
+        homeSum += home; drawSum += draw; awaySum += away; count++;
+      }
     }
 
-    if (count === 0) continue;
-
-    const homeOdds = Math.round((homeSum / count) * 100) / 100;
-    const drawOdds = drawSum > 0 ? Math.round((drawSum / count) * 100) / 100 : null;
-    const awayOdds = Math.round((awaySum / count) * 100) / 100;
+    // Prefer 2-way ("to advance") when any book offers it; fall back to 3-way
+    let homeOdds: number, drawOdds: number | null, awayOdds: number;
+    if (twoWayCount > 0) {
+      homeOdds = Math.round((twoWayHomeSum / twoWayCount) * 100) / 100;
+      awayOdds = Math.round((twoWayAwaySum / twoWayCount) * 100) / 100;
+      drawOdds = null;
+    } else if (count > 0) {
+      homeOdds = Math.round((homeSum / count) * 100) / 100;
+      awayOdds = Math.round((awaySum / count) * 100) / 100;
+      drawOdds = Math.round((drawSum / count) * 100) / 100;
+    } else {
+      continue;
+    }
 
     const rawHome = decimalToProb(homeOdds);
     const rawDraw = drawOdds ? decimalToProb(drawOdds) : null;
