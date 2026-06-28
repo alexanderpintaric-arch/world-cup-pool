@@ -59,29 +59,38 @@ function probToAmerican(p: number): string {
 
 /**
  * Convert to 2-way "to qualify" American odds.
- * If the source market has no draw (2-way h2h — common for knockout rounds on
- * US books), use the raw decimal odds directly so the lines match sportsbooks.
- * If a draw is present (3-way 90-min h2h), fall back to vig-stripped
- * proportional redistribution, which is directionally correct but won't
- * exactly match a book's "to advance" line.
+ *
+ * If the source has no draw market (2-way h2h), use raw decimal odds directly.
+ *
+ * If 3-way (90-min result), model the ET/penalty outcome:
+ *   P(team advances from a draw) ≈ 50% with a small skill carry-through (α=0.10).
+ *   This matches empirical research showing penalties are nearly equal-chance but
+ *   the stronger team retains a slight edge. Proportional redistribution (α=1)
+ *   overstates the favorite and understates the underdog vs real "to advance" lines.
  */
 function toQualifyOdds(o: OddsData): [string | null, string | null] {
   const h = o.homeOdds;
   const a = o.awayOdds;
   if (!h || !a || h <= 1 || a <= 1) return [null, null];
 
-  // No draw market → already a 2-way line; use raw decimal odds (preserves vig)
   if (!o.drawOdds || o.drawOdds <= 1) {
     return [decimalToAmerican(h), decimalToAmerican(a)];
   }
 
-  // 3-way market → redistribute draw into home/away using vig-stripped probs
   const hp = o.homeProb ?? 0;
   const ap = o.awayProb ?? 0;
   const dp = o.drawProb ?? 0;
   const base = hp + ap;
   if (base === 0) return [null, null];
-  return [probToAmerican(hp + (hp / base) * dp), probToAmerican(ap + (ap / base) * dp)];
+
+  // Skill carry-through in ET/pens: 10% of the 90-min quality gap
+  const ALPHA = 0.10;
+  const hFrac = hp / base;
+  const aFrac = ap / base;
+  const hPenWin = 0.5 + ALPHA * (hFrac - 0.5);
+  const aPenWin = 0.5 + ALPHA * (aFrac - 0.5);
+
+  return [probToAmerican(hp + dp * hPenWin), probToAmerican(ap + dp * aPenWin)];
 }
 
 export default function BracketBoard({
