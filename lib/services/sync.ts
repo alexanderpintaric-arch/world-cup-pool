@@ -1,5 +1,5 @@
 import { fetchAllWCMatches } from "./football-data";
-import { fetchWCOdds, fetchWCScores } from "./odds";
+import { fetchWCOdds, fetchWCScores, fetchWCMatchups } from "./odds";
 import {
   getAllMatches, upsertMatches, getAllPicks, getAllUsers,
   upsertOdds, logSync, getLastSync,
@@ -71,6 +71,30 @@ function mergeStickyMatchData(feed: Match[], prev: Match[]): Match[] {
 }
 
 /**
+ * Fill the still-TBD side of knockout matchups from the fallback source (The
+ * Odds API /events) on every sync. football-data is slow to publish the knockout
+ * draw, leaving bracket slots empty while people are picking; this resolves them
+ * as soon as the matchup is known anywhere. Fill-only — a real team the primary
+ * feed already has is never overwritten — and the /events call is free, so this
+ * can run unconditionally (it self-skips when nothing is TBD).
+ */
+async function applyMatchupFallback(matches: Match[]): Promise<Match[]> {
+  const fills = await fetchWCMatchups(matches);
+  if (fills.length === 0) return matches;
+
+  const byId = new Map(fills.map(f => [f.matchId, f]));
+  return matches.map(m => {
+    const f = byId.get(m.matchId);
+    if (!f) return m;
+    return {
+      ...m,
+      homeTeam: m.homeTeam === "TBD" && f.home ? f.home : m.homeTeam,
+      awayTeam: m.awayTeam === "TBD" && f.away ? f.away : m.awayTeam,
+    };
+  });
+}
+
+/**
  * Fill results the primary feed (football-data) hasn't settled yet from the
  * fallback score source (The Odds API /scores). football-data routinely leaves a
  * finished match unsettled for hours; this stops a decided game from sitting
@@ -120,14 +144,22 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
     // 2b. Guard against a feed glitch un-settling a result we've recorded (wiping
     //     points) or reverting a known knockout matchup back to TBD (wiping the
     //     bracket) — football-data does both as it reprocesses the knockout stage.
-    const mergedMatches = mergeStickyMatchData(feedMatches, prevMatches);
+    let freshMatches = mergeStickyMatchData(feedMatches, prevMatches);
 
-    // 2c. Fallback settlement: where football-data still hasn't settled a
-    //     finished match, fill the result from The Odds API /scores so a decided
-    //     game doesn't sit blank for hours waiting on the primary feed.
-    let freshMatches = mergedMatches;
+    // 2c. Matchup fallback: fill the still-TBD side of any knockout fixture from
+    //     The Odds API /events (free), so bracket slots resolve as soon as the
+    //     matchup is known instead of waiting on football-data's lagging draw.
     try {
-      freshMatches = await applyScoreFallback(mergedMatches);
+      freshMatches = await applyMatchupFallback(freshMatches);
+    } catch (e) {
+      console.error("Matchup fallback failed (non-fatal):", e);
+    }
+
+    // 2d. Score fallback: where football-data still hasn't settled a finished
+    //     match, fill the result from The Odds API /scores so a decided game
+    //     doesn't sit blank for hours waiting on the primary feed.
+    try {
+      freshMatches = await applyScoreFallback(freshMatches);
     } catch (e) {
       console.error("Score fallback failed (non-fatal):", e);
     }

@@ -298,3 +298,108 @@ export async function fetchWCScores(knownMatches: Match[]): Promise<ScoreUpdate[
 
   return updates;
 }
+
+// ── Matchup fallback ─────────────────────────────────────────────────────────
+// football-data.org is slow to fill the knockout draw — it leaves fixtures as TBD
+// for hours after the group stage has decided the matchup, which leaves bracket
+// slots empty while everyone is trying to make picks. The Odds API's /events
+// endpoint lists every upcoming fixture with both team names and is FREE (it
+// doesn't count against the usage quota), so we use it to fill the missing side
+// of any knockout match the primary feed still has as TBD.
+
+interface OddsApiEvent {
+  id: string;
+  commence_time: string;
+  home_team: string;
+  away_team: string;
+}
+
+export interface MatchupFill {
+  matchId: string;
+  /** Football-data spelling to drop into a TBD home side (omitted if not filled). */
+  home?: string;
+  away?: string;
+}
+
+const MATCHUP_TOLERANCE_MS = 12 * 60 * 60 * 1000; // generous: just a sanity bound on the fixture date
+
+/**
+ * Resolve the still-TBD side of knockout matchups from The Odds API /events.
+ * Fill-only: only ever returns a team for a side our data still has as "TBD",
+ * so a real team the primary feed already published is never overwritten.
+ *
+ * Filled names are converted to football-data's spelling (looked up from teams
+ * we already know — every knockout team played the group stage) so they match
+ * what the primary feed will eventually publish. That keeps flags rendering and,
+ * crucially, stops a later spelling flip from invalidating people's bracket picks
+ * (scoring matches picks by exact team name).
+ */
+export async function fetchWCMatchups(knownMatches: Match[]): Promise<MatchupFill[]> {
+  const key = process.env.ODDS_API_KEY;
+  if (!key) {
+    console.warn("ODDS_API_KEY not set — skipping matchup fallback");
+    return [];
+  }
+
+  // Only knockout matches still missing a side need filling.
+  const needs = knownMatches.filter(
+    m => m.round !== "GROUP" && (m.homeTeam === "TBD" || m.awayTeam === "TBD")
+  );
+  if (needs.length === 0) return [];
+
+  // normalised name → football-data's exact spelling, from teams we already know.
+  const fdSpelling = new Map<string, string>();
+  for (const m of knownMatches) {
+    for (const t of [m.homeTeam, m.awayTeam]) {
+      if (t && t !== "TBD") fdSpelling.set(normalizeTeam(t), t);
+    }
+  }
+  const toFd = (name: string) => fdSpelling.get(normalizeTeam(name)) ?? name;
+
+  const res = await fetch(`${BASE}/sports/soccer_fifa_world_cup/events?apiKey=${key}`, {
+    next: { revalidate: 0 },
+  });
+  if (!res.ok) {
+    console.error(`Odds API events error ${res.status}`);
+    return [];
+  }
+  const events: OddsApiEvent[] = await res.json();
+
+  const fills: MatchupFill[] = [];
+  for (const m of needs) {
+    const t = new Date(m.kickoffUtc).getTime();
+    const knownSide =
+      m.homeTeam !== "TBD" ? m.homeTeam :
+      m.awayTeam !== "TBD" ? m.awayTeam : null;
+    const knownNorm = knownSide ? normalizeTeam(knownSide) : null;
+
+    // With a known side, anchor on it (a team has exactly one upcoming fixture),
+    // with the kickoff date as a loose sanity bound. Both-TBD slots can only be
+    // matched by kickoff time — R32 fixtures are ≥3.5h apart, so it's unambiguous.
+    const ev = events.find(e => {
+      const within = Math.abs(new Date(e.commence_time).getTime() - t) <= MATCHUP_TOLERANCE_MS;
+      if (knownNorm) {
+        return within && (normalizeTeam(e.home_team) === knownNorm || normalizeTeam(e.away_team) === knownNorm);
+      }
+      return within;
+    });
+    if (!ev) continue;
+
+    const fill: MatchupFill = { matchId: m.matchId };
+    if (knownNorm) {
+      // Fill the TBD side with the event's *other* team.
+      const other = normalizeTeam(ev.home_team) === knownNorm ? ev.away_team : ev.home_team;
+      const otherFd = toFd(other);
+      if (otherFd && normalizeTeam(otherFd) !== knownNorm) {
+        if (m.homeTeam === "TBD") fill.home = otherFd;
+        if (m.awayTeam === "TBD") fill.away = otherFd;
+      }
+    } else {
+      // Both sides unknown — orientation doesn't affect advancement scoring.
+      fill.home = toFd(ev.home_team);
+      fill.away = toFd(ev.away_team);
+    }
+    if (fill.home || fill.away) fills.push(fill);
+  }
+  return fills;
+}
