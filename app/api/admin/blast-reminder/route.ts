@@ -8,9 +8,14 @@ import { sendDeadlineReminderEmail } from "@/lib/services/email";
 // Body: { round: string, deadline: string (ISO) }
 // Sends the deadline reminder email to every user immediately.
 export async function POST(req: Request) {
-  const session = await auth();
-  if (!isAdmin(session?.user?.email)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const authHeader = req.headers.get("authorization");
+  const cronSecret = process.env.CRON_SECRET;
+  const isCron = cronSecret && authHeader === `Bearer ${cronSecret}`;
+  if (!isCron) {
+    const session = await auth();
+    if (!isAdmin(session?.user?.email)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   const { round, deadline } = await req.json() as { round: string; deadline: string };
