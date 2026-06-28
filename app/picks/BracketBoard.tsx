@@ -394,7 +394,7 @@ export default function BracketBoard({
             const [a, b] = participantsOf(node.id, bracket, r32Slots);
             const labels = r32SlotLabels(node.id);
             const m = round === "ROUND_OF_32" ? r32Slots[node.matchSlot ?? -1] ?? null : null;
-            const o = m ? oddsMap.get(m.matchId) ?? null : null;
+            const o = null; // odds hidden for knockout rounds — API has no "to advance" market
             return (
               <div key={node.id} className="bkt-cell">
                 <BracketMatch
