@@ -46,31 +46,29 @@ function fmtKick(iso: string | undefined): string | null {
   return `${day} · ${time}`;
 }
 
-/**
- * Convert 3-way match odds to 2-way "to qualify" probabilities by
- * redistributing the draw probability proportionally between home and away.
- */
-function toQualifyProbs(o: OddsData): [number, number] {
-  const h = o.homeProb ?? 0;
-  const a = o.awayProb ?? 0;
-  const total = h + a;
-  if (total === 0) return [50, 50];
-  return [
-    Math.round((h / total) * 1000) / 10,
-    Math.round((a / total) * 1000) / 10,
-  ];
+function decimalToAmerican(d: number): string {
+  if (d >= 2) return `+${Math.round((d - 1) * 100)}`;
+  return `-${Math.round(100 / (d - 1))}`;
 }
 
 /**
- * Convert a 2-way implied probability (0–100) to American (moneyline) odds.
- * Favorites (p > 50%) → negative (stake to win 100); underdogs → positive
- * (profit on a 100 stake). e.g. 56% → "-127", 44% → "+127", 70% → "-233".
+ * Convert 3-way match decimal odds to 2-way "to qualify" American odds.
+ * Uses raw decimal odds (with vig) so the displayed lines match sportsbooks.
+ * If there's a draw market, the draw probability is redistributed proportionally
+ * between home and away before converting.
  */
-function probToAmericanOdds(prob: number): string {
-  const p = Math.min(Math.max(prob / 100, 0.01), 0.99); // clamp to avoid div-by-0 blowups
-  return p >= 0.5
-    ? `-${Math.round((100 * p) / (1 - p))}`
-    : `+${Math.round((100 * (1 - p)) / p)}`;
+function toQualifyOdds(o: OddsData): [string | null, string | null] {
+  const h = o.homeOdds;
+  const a = o.awayOdds;
+  if (!h || !a || h <= 1 || a <= 1) return [null, null];
+  const d = o.drawOdds && o.drawOdds > 1 ? o.drawOdds : null;
+  if (!d) return [decimalToAmerican(h), decimalToAmerican(a)];
+  // Redistribute draw proportionally — preserves vig
+  const pH = 1 / h, pA = 1 / a, pD = 1 / d;
+  const base = pH + pA;
+  const pH2 = pH + (pH / base) * pD;
+  const pA2 = pA + (pA / base) * pD;
+  return [decimalToAmerican(1 / pH2), decimalToAmerican(1 / pA2)];
 }
 
 export default function BracketBoard({
@@ -1292,7 +1290,7 @@ function BracketMatch({
   onPick: (team: string) => void;
 }) {
   const date = fmtKick(kickoff);
-  const [qA, qB] = odds ? toQualifyProbs(odds) : [null, null];
+  const [qA, qB] = odds ? toQualifyOdds(odds) : [null, null];
   return (
     <div className="w-full px-1.5">
       {/* Fixed-height meta line keeps every card centered on the same baseline */}
@@ -1341,7 +1339,7 @@ function TeamSlot({
 }: {
   team: string | null;
   placeholder: string;
-  prob: number | null;
+  prob: string | null;
   chosen: boolean;
   readOnly: boolean;
   decided: boolean;
@@ -1388,7 +1386,7 @@ function TeamSlot({
           {rightCall && <span className="font-mono text-[10px]">✓</span>}
           {prob !== null && !decided && (
             <span className={`font-mono text-[10px] tabular ${chosen ? "text-green-deep/70" : "ink-faint/70"}`}>
-              {probToAmericanOdds(prob)}
+              {prob}
             </span>
           )}
         </>
