@@ -1,4 +1,4 @@
-import type { OddsData, Match } from "../types";
+import type { OddsData, Match, MatchResult } from "../types";
 
 const BASE = "https://api.the-odds-api.com/v4";
 
@@ -196,4 +196,105 @@ export async function fetchWCOdds(knownMatches: Match[]): Promise<OddsData[]> {
   }
 
   return results;
+}
+
+// ── Scores fallback ──────────────────────────────────────────────────────────
+// football-data.org regularly leaves a finished match unsettled for hours, which
+// strands a decided game (and everyone's points for it) as blank. The Odds API
+// has a /scores endpoint that reports completed-game scores, so we use it as a
+// second, independent settlement source: when the primary feed hasn't settled a
+// game yet, the sync fills the result from here instead of waiting.
+
+interface OddsApiScoreEntry {
+  name: string;
+  score: string | null;
+}
+
+interface OddsApiScoreGame {
+  id: string;
+  completed: boolean;
+  home_team: string;
+  away_team: string;
+  scores: OddsApiScoreEntry[] | null;
+}
+
+export interface ScoreUpdate {
+  matchId: string;
+  homeScore: number;
+  awayScore: number;
+  result: MatchResult;
+}
+
+/**
+ * Fetch final scores for recently completed WC matches, keyed by *our* match IDs.
+ * Scores are mapped back to each match's own home/away orientation by team name,
+ * so it doesn't matter which side the Odds API calls "home".
+ *
+ * Knockout draws are skipped: the /scores endpoint reports the regulation/extra-
+ * time score, which can be level when the tie was actually decided on penalties,
+ * and the endpoint doesn't expose the shoot-out winner. We let the primary feed
+ * settle those; only decisive (H/A) knockout results are filled from here.
+ *
+ * knownMatches: the full list of matches from our DB — used to map teams → ids.
+ */
+export async function fetchWCScores(knownMatches: Match[]): Promise<ScoreUpdate[]> {
+  const key = process.env.ODDS_API_KEY;
+  if (!key) {
+    console.warn("ODDS_API_KEY not set — skipping score fallback");
+    return [];
+  }
+
+  // Lookup by unordered, normalised team pair → our match (orientation-agnostic).
+  const byPair = new Map<string, Match>();
+  for (const m of knownMatches) {
+    if (m.homeTeam === "TBD" || m.awayTeam === "TBD") continue;
+    const pair = [normalizeTeam(m.homeTeam), normalizeTeam(m.awayTeam)].sort().join("|");
+    byPair.set(pair, m);
+  }
+
+  // daysFrom (1-3) includes completed games from up to N days ago.
+  const params = new URLSearchParams({ apiKey: key, daysFrom: "3" });
+  const res = await fetch(`${BASE}/sports/soccer_fifa_world_cup/scores?${params}`, {
+    next: { revalidate: 0 },
+  });
+
+  if (!res.ok) {
+    console.error(`Odds API scores error ${res.status}`);
+    return [];
+  }
+
+  const games: OddsApiScoreGame[] = await res.json();
+  const updates: ScoreUpdate[] = [];
+
+  for (const g of games) {
+    if (!g.completed || !g.scores) continue;
+    const pair = [normalizeTeam(g.home_team), normalizeTeam(g.away_team)].sort().join("|");
+    const m = byPair.get(pair);
+    if (!m) {
+      console.warn(`[scores] Unmatched: "${g.home_team}" vs "${g.away_team}"`);
+      continue;
+    }
+
+    // Assign scores to OUR home/away by name, not the API's orientation.
+    const scoreFor = (team: string): number => {
+      const norm = normalizeTeam(team);
+      const entry = g.scores!.find(s => normalizeTeam(s.name) === norm);
+      const n = entry?.score != null ? Number(entry.score) : NaN;
+      return n;
+    };
+    const homeScore = scoreFor(m.homeTeam);
+    const awayScore = scoreFor(m.awayTeam);
+    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) continue;
+
+    const result: MatchResult =
+      homeScore > awayScore ? "H" : awayScore > homeScore ? "A" : "T";
+
+    // A level score in a knockout tie means penalties decided it — and /scores
+    // can't tell us who won the shoot-out. Leave those to the primary feed.
+    if (result === "T" && m.round !== "GROUP") continue;
+
+    updates.push({ matchId: m.matchId, homeScore, awayScore, result });
+  }
+
+  return updates;
 }
