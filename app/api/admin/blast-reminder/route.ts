@@ -1,0 +1,35 @@
+export const dynamic = "force-dynamic";
+import { NextResponse } from "next/server";
+import { auth, isAdmin } from "@/lib/auth";
+import { getAllUsers } from "@/lib/services/supabase";
+import { sendDeadlineReminderEmail } from "@/lib/services/email";
+
+// POST /api/admin/blast-reminder
+// Body: { round: string, deadline: string (ISO) }
+// Sends the deadline reminder email to every user immediately.
+export async function POST(req: Request) {
+  const session = await auth();
+  if (!isAdmin(session?.user?.email)) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { round, deadline } = await req.json() as { round: string; deadline: string };
+  if (!round || !deadline) {
+    return NextResponse.json({ error: "Missing round or deadline" }, { status: 400 });
+  }
+
+  const users = await getAllUsers();
+  let sent = 0;
+  const errors: string[] = [];
+
+  for (const user of users) {
+    try {
+      await sendDeadlineReminderEmail(user.email, user.name, round, deadline);
+      sent++;
+    } catch (e) {
+      errors.push(`${user.email}: ${e}`);
+    }
+  }
+
+  return NextResponse.json({ sent, errors, total: users.length });
+}
