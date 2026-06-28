@@ -47,6 +47,21 @@ function fmtKick(iso: string | undefined): string | null {
 }
 
 /**
+ * Convert 3-way match odds to 2-way "to qualify" probabilities by
+ * redistributing the draw probability proportionally between home and away.
+ */
+function toQualifyProbs(o: OddsData): [number, number] {
+  const h = o.homeProb ?? 0;
+  const a = o.awayProb ?? 0;
+  const total = h + a;
+  if (total === 0) return [50, 50];
+  return [
+    Math.round((h / total) * 1000) / 10,
+    Math.round((a / total) * 1000) / 10,
+  ];
+}
+
+/**
  * Convert a 2-way implied probability (0–100) to American (moneyline) odds.
  * Favorites (p > 50%) → negative (stake to win 100); underdogs → positive
  * (profit on a 100 stake). e.g. 56% → "-127", 44% → "+127", 70% → "-233".
@@ -1277,6 +1292,7 @@ function BracketMatch({
   onPick: (team: string) => void;
 }) {
   const date = fmtKick(kickoff);
+  const [qA, qB] = odds ? toQualifyProbs(odds) : [null, null];
   return (
     <div className="w-full px-1.5">
       {/* Fixed-height meta line keeps every card centered on the same baseline */}
@@ -1297,7 +1313,7 @@ function BracketMatch({
         <TeamSlot
           team={teamA}
           placeholder={labelA ?? "TBD"}
-          prob={odds?.homeProb ?? null}
+          prob={qA}
           chosen={chosen === teamA}
           readOnly={readOnly}
           decided={decided}
@@ -1308,7 +1324,7 @@ function BracketMatch({
         <TeamSlot
           team={teamB}
           placeholder={labelB ?? "TBD"}
-          prob={odds?.awayProb ?? null}
+          prob={qB}
           chosen={chosen === teamB}
           readOnly={readOnly}
           decided={decided}
