@@ -47,28 +47,41 @@ function fmtKick(iso: string | undefined): string | null {
 }
 
 function decimalToAmerican(d: number): string {
-  if (d >= 2) return `+${Math.round((d - 1) * 100)}`;
-  return `-${Math.round(100 / (d - 1))}`;
+  return d >= 2 ? `+${Math.round((d - 1) * 100)}` : `-${Math.round(100 / (d - 1))}`;
+}
+
+function probToAmerican(p: number): string {
+  const f = Math.min(Math.max(p / 100, 0.01), 0.99);
+  return f >= 0.5
+    ? `-${Math.round((100 * f) / (1 - f))}`
+    : `+${Math.round((100 * (1 - f)) / f)}`;
 }
 
 /**
- * Convert 3-way match decimal odds to 2-way "to qualify" American odds.
- * Uses raw decimal odds (with vig) so the displayed lines match sportsbooks.
- * If there's a draw market, the draw probability is redistributed proportionally
- * between home and away before converting.
+ * Convert to 2-way "to qualify" American odds.
+ * If the source market has no draw (2-way h2h — common for knockout rounds on
+ * US books), use the raw decimal odds directly so the lines match sportsbooks.
+ * If a draw is present (3-way 90-min h2h), fall back to vig-stripped
+ * proportional redistribution, which is directionally correct but won't
+ * exactly match a book's "to advance" line.
  */
 function toQualifyOdds(o: OddsData): [string | null, string | null] {
   const h = o.homeOdds;
   const a = o.awayOdds;
   if (!h || !a || h <= 1 || a <= 1) return [null, null];
-  const d = o.drawOdds && o.drawOdds > 1 ? o.drawOdds : null;
-  if (!d) return [decimalToAmerican(h), decimalToAmerican(a)];
-  // Redistribute draw proportionally — preserves vig
-  const pH = 1 / h, pA = 1 / a, pD = 1 / d;
-  const base = pH + pA;
-  const pH2 = pH + (pH / base) * pD;
-  const pA2 = pA + (pA / base) * pD;
-  return [decimalToAmerican(1 / pH2), decimalToAmerican(1 / pA2)];
+
+  // No draw market → already a 2-way line; use raw decimal odds (preserves vig)
+  if (!o.drawOdds || o.drawOdds <= 1) {
+    return [decimalToAmerican(h), decimalToAmerican(a)];
+  }
+
+  // 3-way market → redistribute draw into home/away using vig-stripped probs
+  const hp = o.homeProb ?? 0;
+  const ap = o.awayProb ?? 0;
+  const dp = o.drawProb ?? 0;
+  const base = hp + ap;
+  if (base === 0) return [null, null];
+  return [probToAmerican(hp + (hp / base) * dp), probToAmerican(ap + (ap / base) * dp)];
 }
 
 export default function BracketBoard({
