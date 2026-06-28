@@ -19,22 +19,49 @@ const DIGEST_SEND_HOUR = 9;     // don't send the digest before 9am Toronto
 const DIGEST_INTERVAL_DAYS = 3; // recap covers (at least) this many match days
 
 /**
- * Once a match is settled in our DB (FINISHED with a result), a later sync must
- * never revert it to unsettled. football-data occasionally drops a result back
- * to null or flips a finished match to a non-final status, which silently wipes
- * points from the standings on the next refresh. In that case we keep our stored
- * value; genuine corrections (feed still settled, just a different score) flow
- * through normally.
+ * Protect data we've already learned from a glitchy feed on a later sync.
+ * football-data intermittently regresses matches, and an unguarded upsert would
+ * faithfully overwrite good data with the regressed values. Two guards:
+ *
+ *  1. Results — once a match is FINISHED with a result in our DB, never revert it
+ *     to unsettled. football-data occasionally drops a result back to null or
+ *     flips a finished match to a non-final status, which silently wipes points
+ *     from the standings. We keep our stored result; a genuine correction (feed
+ *     still settled, just a different score) flows through normally.
+ *
+ *  2. Teams — once we know a knockout fixture's real team, never revert it to
+ *     "TBD". As the bracket is decided, football-data flips knockout fixtures
+ *     back to placeholder (null ⇒ "TBD") teams while it reprocesses them; a sync
+ *     in that window would overwrite the real matchup we already had and wipe the
+ *     bracket to "0/31 — all TBD". We keep each known side; a genuine matchup
+ *     change (feed supplies a *real* team) still flows through, since we only
+ *     restore when the incoming side is TBD.
  */
-function mergeStickyResults(feed: Match[], prev: Match[]): Match[] {
+function mergeStickyMatchData(feed: Match[], prev: Match[]): Match[] {
   const prevById = new Map(prev.map(m => [m.matchId, m]));
   return feed.map(fm => {
     const p = prevById.get(fm.matchId);
-    if (p && p.status === "FINISHED" && p.result != null &&
+    if (!p) return fm;
+    let next = fm;
+
+    // 1. Don't un-settle a result we've already recorded.
+    if (p.status === "FINISHED" && p.result != null &&
         (fm.result == null || fm.status !== "FINISHED")) {
-      return { ...fm, status: p.status, result: p.result, homeScore: p.homeScore, awayScore: p.awayScore };
+      next = { ...next, status: p.status, result: p.result, homeScore: p.homeScore, awayScore: p.awayScore };
     }
-    return fm;
+
+    // 2. Don't revert a known team back to TBD.
+    const keepHome = fm.homeTeam === "TBD" && p.homeTeam !== "TBD" && p.homeTeam !== "";
+    const keepAway = fm.awayTeam === "TBD" && p.awayTeam !== "TBD" && p.awayTeam !== "";
+    if (keepHome || keepAway) {
+      next = {
+        ...next,
+        homeTeam: keepHome ? p.homeTeam : next.homeTeam,
+        awayTeam: keepAway ? p.awayTeam : next.awayTeam,
+      };
+    }
+
+    return next;
   });
 }
 
@@ -54,9 +81,10 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
     const prevMatches = await getAllMatches();
     const prevRoundStates = getRoundStates(prevMatches);
 
-    // 2b. Guard against a feed glitch un-settling a match we've already settled,
-    //     which would silently wipe points from the standings on refresh.
-    const freshMatches = mergeStickyResults(feedMatches, prevMatches);
+    // 2b. Guard against a feed glitch un-settling a result we've recorded (wiping
+    //     points) or reverting a known knockout matchup back to TBD (wiping the
+    //     bracket) — football-data does both as it reprocesses the knockout stage.
+    const freshMatches = mergeStickyMatchData(feedMatches, prevMatches);
 
     // 3. Upsert matches into Sheets
     matchesUpdated = await upsertMatches(freshMatches);
