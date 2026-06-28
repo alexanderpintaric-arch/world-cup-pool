@@ -1,0 +1,33 @@
+name: Blast deadline reminder
+
+# One-off manual trigger that re-sends the deadline reminder to EVERY pool
+# member, bypassing the per-round dedup the scheduled sync respects. It hits the
+# same secured endpoint with the repo's CRON_SECRET, so the secret never leaves
+# GitHub. Use sparingly — every dispatch emails the whole pool again.
+on:
+  workflow_dispatch:
+    inputs:
+      round:
+        description: "Round label shown in the email"
+        required: true
+        default: "Round of 32"
+      deadline:
+        description: "Pick-lock time (ISO 8601, e.g. 2026-06-28T15:00:00-04:00)"
+        required: true
+        default: "2026-06-28T15:00:00-04:00"
+
+jobs:
+  blast:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger blast-reminder endpoint
+        run: |
+          curl --fail-with-body -sS --max-time 290 \
+            -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d "$(jq -nc --arg r "$ROUND" --arg d "$DEADLINE" '{round:$r,deadline:$d}')" \
+            "https://nutmeg.bet/api/admin/blast-reminder"
+        env:
+          ROUND: ${{ inputs.round }}
+          DEADLINE: ${{ inputs.deadline }}
