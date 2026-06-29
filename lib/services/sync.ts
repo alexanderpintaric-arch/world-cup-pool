@@ -1,5 +1,6 @@
 import { fetchAllWCMatches } from "./football-data";
-import { fetchWCOdds, fetchWCScores, fetchWCMatchups } from "./odds";
+import { fetchWCOdds, fetchWCScores, fetchWCMatchups, SCORES_DAYS_FROM, type ScoreUpdate } from "./odds";
+import { fetchWCScoresFromEspn } from "./espn";
 import {
   getAllMatches, upsertMatches, getAllPicks, getAllUsers,
   upsertOdds, logSync, getLastSync,
@@ -15,10 +16,15 @@ import type { SyncResult, Match, Pick } from "../types";
 
 const REMIND_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h
 // How long after kickoff we keep checking the fallback score source for a match
-// the primary feed hasn't settled. Generous (12h) to cover extra time, penalties
-// and football-data's settlement lag, while keeping the extra API call confined
-// to the window right after a game where a result is actually pending.
-const SCORE_FALLBACK_WINDOW_MS = 12 * 60 * 60 * 1000;
+// the primary feed hasn't settled. This MUST track how far back the fallback
+// source can actually answer: The Odds API /scores returns completed games for
+// `daysFrom` days (we request 3 — see fetchWCScores). A shorter window here just
+// throws away coverage — we'd stop consulting the fallback while it can still
+// settle the game, stranding a decided result on football-data's slow feed for
+// days. So we keep trying for the full 3 days the source can still help, on every
+// 15-min sync, until the result actually lands. The gate still self-skips once
+// nothing is pending, so this costs an API call only while a result is overdue.
+const SCORE_FALLBACK_WINDOW_MS = SCORES_DAYS_FROM * 24 * 60 * 60 * 1000;
 const DIGEST_TZ = "America/Toronto";
 const DIGEST_SEND_HOUR = 9;     // don't send the digest before 9am Toronto
 const DIGEST_INTERVAL_DAYS = 3; // recap covers (at least) this many match days
@@ -106,17 +112,39 @@ async function applyMatchupFallback(matches: Match[]): Promise<Match[]> {
  */
 async function applyScoreFallback(matches: Match[]): Promise<Match[]> {
   const now = Date.now();
-  const pending = matches.some(m => {
+  const isPending = (m: Match) => {
     if (m.result != null || m.homeTeam === "TBD" || m.awayTeam === "TBD") return false;
     const k = new Date(m.kickoffUtc).getTime();
     return k <= now && now - k <= SCORE_FALLBACK_WINDOW_MS;
-  });
-  if (!pending) return matches;
+  };
+  const pendingMatches = matches.filter(isPending);
+  if (pendingMatches.length === 0) return matches;
 
-  const updates = await fetchWCScores(matches);
-  if (updates.length === 0) return matches;
+  // Settle from the fastest, most complete source first. ESPN's scoreboard is
+  // public, near-real-time, and reports the penalty-shootout winner directly —
+  // so it settles knockout ties football-data is slow on and the Odds API can't.
+  // The Odds API /scores then backfills anything ESPN didn't have (decisive
+  // results only); it's only called when something is still unsettled, so we
+  // don't spend its quota once ESPN has already covered the board.
+  const byId = new Map<string, ScoreUpdate>();
 
-  const byId = new Map(updates.map(u => [u.matchId, u]));
+  try {
+    for (const u of await fetchWCScoresFromEspn(pendingMatches)) byId.set(u.matchId, u);
+  } catch (e) {
+    console.error("ESPN score source failed (non-fatal):", e);
+  }
+
+  if (pendingMatches.some(m => !byId.has(m.matchId))) {
+    try {
+      for (const u of await fetchWCScores(matches)) {
+        if (!byId.has(u.matchId)) byId.set(u.matchId, u);
+      }
+    } catch (e) {
+      console.error("Odds API score fallback failed (non-fatal):", e);
+    }
+  }
+
+  if (byId.size === 0) return matches;
   return matches.map(m => {
     if (m.status === "FINISHED" && m.result != null) return m; // primary already settled it
     const u = byId.get(m.matchId);
@@ -156,8 +184,9 @@ export async function runSync(options?: { includeOdds?: boolean }): Promise<Sync
     }
 
     // 2d. Score fallback: where football-data still hasn't settled a finished
-    //     match, fill the result from The Odds API /scores so a decided game
-    //     doesn't sit blank for hours waiting on the primary feed.
+    //     match, fill the result from ESPN's scoreboard (incl. penalty-shootout
+    //     winners), then the Odds API /scores, so a decided game doesn't sit
+    //     blank for hours waiting on the slow primary feed.
     try {
       freshMatches = await applyScoreFallback(freshMatches);
     } catch (e) {
