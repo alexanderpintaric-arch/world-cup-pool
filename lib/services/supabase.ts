@@ -70,6 +70,23 @@ function rowToMatch(r: Record<string, unknown>): Match {
   };
 }
 
+/**
+ * Epoch-ms of the most recently updated match row, or 0 if unknown. Used as the
+ * freshness signal for the on-traffic self-healing sync: every successful match
+ * refresh bumps `updated_at`, so this doubles as "when did we last sync matches".
+ */
+export async function getMatchesLastUpdated(): Promise<number> {
+  if (isMock) return Date.now();
+  const { data, error } = await getClient()
+    .from("matches")
+    .select("updated_at")
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .single();
+  if (error || !data?.updated_at) return 0;
+  return new Date(data.updated_at as string).getTime();
+}
+
 export async function upsertMatches(matches: Match[]): Promise<number> {
   if (isMock) return 0;
   if (matches.length === 0) return 0;

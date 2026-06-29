@@ -153,6 +153,38 @@ async function applyScoreFallback(matches: Match[]): Promise<Match[]> {
   });
 }
 
+/**
+ * Match data only: fetch the feed, apply the sticky/matchup/score guards, and
+ * upsert. Deliberately omits the email/digest/reminder/recap side effects of the
+ * full runSync, so it is safe to fire on every visit (via the on-traffic
+ * self-healing sync) without any risk of racing the per-round email dedup and
+ * double-sending to the pool. Settling scores promptly is the time-sensitive
+ * part; emails stay on the scheduled runSync.
+ */
+export async function refreshMatchesOnly(): Promise<{ matchesUpdated: number; error?: string }> {
+  try {
+    const feedMatches = await fetchAllWCMatches();
+    const prevMatches = await getAllMatches();
+    let fresh = mergeStickyMatchData(feedMatches, prevMatches);
+    try {
+      fresh = await applyMatchupFallback(fresh);
+    } catch (e) {
+      console.error("Matchup fallback failed (non-fatal):", e);
+    }
+    try {
+      fresh = await applyScoreFallback(fresh);
+    } catch (e) {
+      console.error("Score fallback failed (non-fatal):", e);
+    }
+    const matchesUpdated = await upsertMatches(fresh);
+    return { matchesUpdated };
+  } catch (e) {
+    const error = e instanceof Error ? e.message : String(e);
+    console.error("refreshMatchesOnly error:", e);
+    return { matchesUpdated: 0, error };
+  }
+}
+
 export async function runSync(options?: { includeOdds?: boolean }): Promise<SyncResult> {
   const syncedAt = new Date().toISOString();
   let matchesUpdated = 0;

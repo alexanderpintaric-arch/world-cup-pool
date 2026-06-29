@@ -5,6 +5,7 @@ import { LeagueSwitcher } from "./LeagueSwitcher";
 import MobileNavBar from "./MobileNavBar";
 import DesktopNavLinks from "./DesktopNavLinks";
 import ProfileButton from "./ProfileButton";
+import { ensureFreshMatches } from "@/lib/services/autosync";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://nutmeg.bet"),
@@ -25,6 +26,9 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  // Self-heal stale data on traffic — runs after the response, never blocks render.
+  ensureFreshMatches();
+
   return (
     <html lang="en">
       <body className="min-h-screen">
