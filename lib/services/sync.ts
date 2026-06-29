@@ -1,5 +1,5 @@
 import { fetchAllWCMatches } from "./football-data";
-import { fetchWCOdds, fetchWCScores, fetchWCMatchups } from "./odds";
+import { fetchWCOdds, fetchWCScores, fetchWCMatchups, SCORES_DAYS_FROM } from "./odds";
 import {
   getAllMatches, upsertMatches, getAllPicks, getAllUsers,
   upsertOdds, logSync, getLastSync,
@@ -15,10 +15,15 @@ import type { SyncResult, Match, Pick } from "../types";
 
 const REMIND_WINDOW_MS = 3 * 60 * 60 * 1000; // 3h
 // How long after kickoff we keep checking the fallback score source for a match
-// the primary feed hasn't settled. Generous (12h) to cover extra time, penalties
-// and football-data's settlement lag, while keeping the extra API call confined
-// to the window right after a game where a result is actually pending.
-const SCORE_FALLBACK_WINDOW_MS = 12 * 60 * 60 * 1000;
+// the primary feed hasn't settled. This MUST track how far back the fallback
+// source can actually answer: The Odds API /scores returns completed games for
+// `daysFrom` days (we request 3 — see fetchWCScores). A shorter window here just
+// throws away coverage — we'd stop consulting the fallback while it can still
+// settle the game, stranding a decided result on football-data's slow feed for
+// days. So we keep trying for the full 3 days the source can still help, on every
+// 15-min sync, until the result actually lands. The gate still self-skips once
+// nothing is pending, so this costs an API call only while a result is overdue.
+const SCORE_FALLBACK_WINDOW_MS = SCORES_DAYS_FROM * 24 * 60 * 60 * 1000;
 const DIGEST_TZ = "America/Toronto";
 const DIGEST_SEND_HOUR = 9;     // don't send the digest before 9am Toronto
 const DIGEST_INTERVAL_DAYS = 3; // recap covers (at least) this many match days

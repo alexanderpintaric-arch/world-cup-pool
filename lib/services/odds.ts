@@ -247,6 +247,14 @@ export interface ScoreUpdate {
 }
 
 /**
+ * How many days back The Odds API /scores endpoint reports completed games.
+ * Valid range is 1-3; we use the max so a result the primary feed is sitting on
+ * stays settleable from the fallback for as long as the source can answer. The
+ * sync derives its fallback window from this so the two never diverge.
+ */
+export const SCORES_DAYS_FROM = 3;
+
+/**
  * Fetch final scores for recently completed WC matches, keyed by *our* match IDs.
  * Scores are mapped back to each match's own home/away orientation by team name,
  * so it doesn't matter which side the Odds API calls "home".
@@ -273,8 +281,10 @@ export async function fetchWCScores(knownMatches: Match[]): Promise<ScoreUpdate[
     byPair.set(pair, m);
   }
 
-  // daysFrom (1-3) includes completed games from up to N days ago.
-  const params = new URLSearchParams({ apiKey: key, daysFrom: "3" });
+  // daysFrom (1-3) includes completed games from up to N days ago. This is how
+  // far back the fallback can settle a result; the sync's fallback window
+  // (SCORE_FALLBACK_WINDOW_MS) is derived from it so the two can't drift apart.
+  const params = new URLSearchParams({ apiKey: key, daysFrom: String(SCORES_DAYS_FROM) });
   const res = await fetch(`${BASE}/sports/soccer_fifa_world_cup/scores?${params}`, {
     next: { revalidate: 0 },
   });
