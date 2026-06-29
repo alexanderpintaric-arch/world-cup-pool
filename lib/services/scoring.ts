@@ -1,6 +1,6 @@
 import type { Match, Pick, BracketPick, User, LeaderboardEntry, RoundState, Round } from "../types";
 import { ROUND_CONFIG } from "../constants";
-import { KNOCKOUT_ROUNDS, type KnockoutRound } from "./bracket";
+import { type KnockoutRound } from "./bracket";
 
 /** Winner of a finished knockout match (no draws), else null. */
 function knockoutWinner(m: Match): string | null {
@@ -52,6 +52,38 @@ export function computeActualAdvancers(matches: Match[]): Record<KnockoutRound, 
   return out;
 }
 
+/**
+ * Teams whose fate in a knockout round is already decided — i.e. they played a
+ * match in that round that has FINISHED. Per-game: a team lands here the moment
+ * its own match settles, so a pick can resolve as soon as that single game ends
+ * instead of waiting for the entire round. The winners among them are
+ * `computeActualAdvancers`; the remainder are the eliminated.
+ */
+export function computeDecidedTeams(matches: Match[]): Record<KnockoutRound, Set<string>> {
+  const out = {
+    ROUND_OF_32:    new Set<string>(),
+    ROUND_OF_16:    new Set<string>(),
+    QUARTER_FINALS: new Set<string>(),
+    SEMI_FINALS:    new Set<string>(),
+    FINAL:          new Set<string>(),
+  } as Record<KnockoutRound, Set<string>>;
+
+  const add = (round: KnockoutRound, m: Match) => {
+    if (m.status !== "FINISHED" || !m.result) return;
+    for (const t of [m.homeTeam, m.awayTeam]) if (t && t !== "TBD") out[round].add(t);
+  };
+
+  for (const round of ["ROUND_OF_32", "ROUND_OF_16", "QUARTER_FINALS", "SEMI_FINALS"] as const) {
+    for (const m of matches.filter(m => m.round === round)) add(round, m);
+  }
+  // FINAL bucket also holds the 3rd-place playoff; only the real final decides
+  // the champion pick, so restrict to that fixture.
+  const fm = finalMatch(matches);
+  if (fm) add("FINAL", fm);
+
+  return out;
+}
+
 /** Whether a knockout round has fully resolved (so its picks are scored/locked-in). */
 export function knockoutRoundDecided(round: KnockoutRound, matches: Match[]): boolean {
   if (round === "FINAL") {
@@ -71,9 +103,12 @@ export function computeLeaderboard(
   const matchMap = new Map(allMatches.map(m => [m.matchId, m]));
 
   // ── Knockout advancement scoring inputs ─────────────────────────────────
-  const advancers = computeActualAdvancers(allMatches);
-  const roundDecided = {} as Record<KnockoutRound, boolean>;
-  for (const r of KNOCKOUT_ROUNDS) roundDecided[r] = knockoutRoundDecided(r, allMatches);
+  // Scored per game: a bracket pick locks in its points the moment that team
+  // advances, and is settled as a loss the moment that team is eliminated — both
+  // known from the team's own single match, so standings move with each result
+  // instead of jumping only when the whole round completes.
+  const advancers    = computeActualAdvancers(allMatches);
+  const decidedTeams = computeDecidedTeams(allMatches);
 
   const bracketByEmail = new Map<string, BracketPick[]>();
   for (const bp of allBracketPicks) {
@@ -147,22 +182,24 @@ export function computeLeaderboard(
     }
 
     // ── Knockout bracket (advancement-based) ─────────────────────────────
-    // One point-bearing pick per filled bracket node. A pick scores its round's
-    // points if that team actually advanced from the round; undecided rounds
-    // count toward max possible.
+    // One point-bearing pick per filled bracket node, resolved per game: points
+    // lock in when the team advances, the pick settles as a loss when the team
+    // is eliminated, and an as-yet-unplayed pick stays winnable (max possible).
     const bracketPicks = bracketByEmail.get(user.email) ?? [];
     for (const bp of bracketPicks) {
       const round = bp.round as KnockoutRound;
       const pts = ROUND_CONFIG[round]?.pointsValue ?? 0;
-      if (roundDecided[round]) {
+      if (advancers[round]?.has(bp.team)) {
+        // Team advanced — points locked in.
+        scoreByRound[round] = (scoreByRound[round] ?? 0) + pts;
+        totalScore += pts;
+        correct++;
         total++;
-        if (advancers[round]?.has(bp.team)) {
-          scoreByRound[round] = (scoreByRound[round] ?? 0) + pts;
-          totalScore += pts;
-          correct++;
-        }
+      } else if (decidedTeams[round]?.has(bp.team)) {
+        // Team's match finished without advancing — settled loss.
+        total++;
       } else {
-        // Round not resolved yet — still winnable
+        // Not played yet — still winnable.
         maxPossible += pts;
       }
     }
