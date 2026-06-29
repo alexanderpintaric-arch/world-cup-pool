@@ -95,7 +95,7 @@ const CANONICAL: Record<string, string> = {
   "curacao":                        "curacao",
 };
 
-function normalizeTeam(name: string): string {
+export function normalizeTeam(name: string): string {
   const lower = name
     .toLowerCase()
     .replace(/['’.]/g, "")   // strip apostrophes / periods
