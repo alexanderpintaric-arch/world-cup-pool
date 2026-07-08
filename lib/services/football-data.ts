@@ -64,6 +64,25 @@ const MANUAL_RESULTS: { test: (home: string, away: string) => boolean; homeScore
     homeScore: 4,
     awayScore: 3,
   },
+  // Belgium 3–2 Senegal (Jul 1, a.e.t.) — upstream stuck at a stale 1-0.
+  {
+    test: (h, a) => {
+      const s = `${h} ${a}`.toLowerCase();
+      return s.includes("belgium") && s.includes("senegal");
+    },
+    homeScore: 3,
+    awayScore: 2,
+  },
+  // Argentina 3–2 Cape Verde (Jul 3, a.e.t.) — upstream stuck at a stale
+  // fullTime-only 2-1, missing the two extra-time goals.
+  {
+    test: (h, a) => {
+      const s = `${h} ${a}`.toLowerCase();
+      return s.includes("argentina") && s.includes("cape verde");
+    },
+    homeScore: 3,
+    awayScore: 2,
+  },
 ];
 
 function resultFromScore(home: number, away: number): MatchResult {
