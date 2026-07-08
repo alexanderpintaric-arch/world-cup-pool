@@ -54,6 +54,16 @@ const MANUAL_RESULTS: { test: (home: string, away: string) => boolean; homeScore
     homeScore: 1,
     awayScore: 1,
   },
+  // Switzerland 0–0 Colombia (Jul 7), Switzerland won 4–3 on penalties —
+  // upstream had Colombia as the winner.
+  {
+    test: (h, a) => {
+      const s = `${h} ${a}`.toLowerCase();
+      return s.includes("switzerland") && s.includes("colombia");
+    },
+    homeScore: 4,
+    awayScore: 3,
+  },
 ];
 
 function resultFromScore(home: number, away: number): MatchResult {
