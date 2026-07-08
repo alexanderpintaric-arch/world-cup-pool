@@ -5,9 +5,7 @@ export async function GET(req: Request) {
   // diagnose result-sync issues without needing DB access.
   if (new URL(req.url).searchParams.get("matches")) {
     const { getAllMatches } = await import("@/lib/services/supabase");
-    const hoursParam = Number(new URL(req.url).searchParams.get("hours"));
-    const hours = Number.isFinite(hoursParam) && hoursParam > 0 ? hoursParam : 48;
-    const cutoff = Date.now() - hours * 60 * 60 * 1000;
+    const cutoff = Date.now() - 48 * 60 * 60 * 1000;
     const recent = (await getAllMatches())
       .filter(m => new Date(m.kickoffUtc).getTime() >= cutoff && new Date(m.kickoffUtc).getTime() <= Date.now() + 24 * 60 * 60 * 1000)
       .sort((a, b) => a.kickoffUtc.localeCompare(b.kickoffUtc))
