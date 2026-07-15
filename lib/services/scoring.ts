@@ -110,6 +110,20 @@ export function computeLeaderboard(
   const advancers    = computeActualAdvancers(allMatches);
   const decidedTeams = computeDecidedTeams(allMatches);
 
+  // Round at which each team was knocked out (order from ROUND_CONFIG): a team
+  // is eliminated in the round where its match is decided but it did not advance.
+  // A team is only ever eliminated once, so the first hit wins. This lets a
+  // later-round bracket pick settle as a loss the moment its team goes out in an
+  // *earlier* round — the team can never reach that later round, so it must not
+  // keep inflating max-possible as if it were still winnable.
+  const eliminationOrder = new Map<string, number>();
+  for (const round of ["ROUND_OF_32", "ROUND_OF_16", "QUARTER_FINALS", "SEMI_FINALS", "FINAL"] as const) {
+    const ord = ROUND_CONFIG[round].order;
+    for (const t of decidedTeams[round]) {
+      if (!advancers[round].has(t) && !eliminationOrder.has(t)) eliminationOrder.set(t, ord);
+    }
+  }
+
   const bracketByEmail = new Map<string, BracketPick[]>();
   for (const bp of allBracketPicks) {
     if (!bracketByEmail.has(bp.email)) bracketByEmail.set(bp.email, []);
@@ -189,17 +203,20 @@ export function computeLeaderboard(
     for (const bp of bracketPicks) {
       const round = bp.round as KnockoutRound;
       const pts = ROUND_CONFIG[round]?.pointsValue ?? 0;
+      const roundOrder = ROUND_CONFIG[round]?.order ?? 0;
+      const elimOrder = eliminationOrder.get(bp.team);
       if (advancers[round]?.has(bp.team)) {
         // Team advanced — points locked in.
         scoreByRound[round] = (scoreByRound[round] ?? 0) + pts;
         totalScore += pts;
         correct++;
         total++;
-      } else if (decidedTeams[round]?.has(bp.team)) {
-        // Team's match finished without advancing — settled loss.
+      } else if (elimOrder !== undefined && elimOrder <= roundOrder) {
+        // Team was knocked out in this round or an earlier one — it can never
+        // advance here, so this pick is a settled loss (not still winnable).
         total++;
       } else {
-        // Not played yet — still winnable.
+        // Team is still alive and hasn't played this round yet — winnable.
         maxPossible += pts;
       }
     }
